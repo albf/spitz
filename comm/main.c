@@ -35,6 +35,10 @@ int wait_request();
 void create_new_connection();
 void close_connection(int sock);
     
+// General Propose
+int send_byte_array(int sock, unsigned char * array);       // with unknown size
+unsigned char * read_byte_array(int sock);                  // with unknown size
+
 /* Global Variables */
 char buffer[1025];  //data buffer of 1K
 struct sockaddr_in committer;    // address of committer node
@@ -46,6 +50,45 @@ int master_socket, addrlen, new_socket, client_socket[max_clients], activity, sd
 int max_sd;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
+
+int send_byte_array(int sock, unsigned char * array) {
+    int length = strlen(array) + strlen(array) + 1; // Send format : size|array
+    char size[20];
+
+    sprintf(size, "%d", length);
+    strcat(size, "|");
+    send(sock, size, strlen(size), 0);
+    send(sock, array, strlen(array), 0);
+    
+    return 0;
+}
+
+unsigned char * read_byte_array(int sock) {
+    char receive_buffer[20];
+    char * first_part;
+    unsigned char * bytes;
+    unsigned char * bytes_ptr;
+    int total_size, received=0, i=0;
+    
+    received+=read(sock, receive_buffer, 20);    
+    total_size = atoi(strtok(receive_buffer,"|")); 
+    
+    bytes = (unsigned char *) malloc (total_size*sizeof(unsigned char));
+    first_part = strtok(NULL, "|");
+  
+    for(i=0; i<strlen(first_part); i++) {
+      bytes[i]=first_part[0];
+    }
+
+    bytes_ptr = bytes+(strlen(first_part));
+    
+    while(received < total_size) {
+        received+=read(sock, bytes_ptr, 1024); 
+        bytes_ptr+received;
+    }
+
+    return bytes;
+}
 
 int main(int argc, char*argv[]) {
     if(argc == 1) {
