@@ -1,7 +1,10 @@
 /**
-    Handle multiple socket connections with select and fd_set on Linux
-     
-    Silver Moon ( m00n.silv3r@gmail.com)
+TCP Socket multiple connections with select and fd_set on Linux.
+
+Based on Silver Moon (m00n.silv3r@gmail.com) example and being modeled to SPITZ.
+
+
+Alexandre L. B. F.      
 */
   
 #include <stdio.h>
