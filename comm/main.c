@@ -109,33 +109,32 @@ void get_committer() {
 
 int request_committer() {
     int c_port, valread;
+    char * token;
     
     if (send(new_socket, "gc", 2, 0) < 0) {
         printf("Get committer failed\n");
-        return;
+        return -1;
     }
 
     //Receive a reply from the server
-    if (valread = read(new_socket, buffer, 1024) < 0) {
-        if (valread <= 1) { // Job manager doesn't know yet
+    if (valread = read(new_socket, buffer, 1024) >= 0) {
+        if (strlen(buffer) == 1) {              // Job manager doesn't know yet
             return -1;
         } else {
-            committer.sin_addr.s_addr = inet_addr(buffer);
+            // otherwise, get the ip and port values.
+            token = strtok(buffer, "|\0");
+            committer.sin_addr.s_addr = inet_addr(token);
             committer.sin_family = AF_INET;
-            if (valread = read(new_socket, buffer, 1024) < 0) {
-                buffer[valread]='\0';
-		
-		if (strlen(buffer) <= 1) { // Job manager doesn't know yet
-                    return -1;
-                }
-                else  {
-                    c_port = atoi(buffer);
-                    committer.sin_port = htons(c_port);
-                    return 1;
-                }
-            }
+            
+            token = strtok(NULL, "|\0");
+            c_port = atoi(strtok(token, "|"));
+            committer.sin_port = htons(c_port);
+            return 1;
+            
         }
     }
+
+    return -1;
 }
     
 
@@ -291,11 +290,17 @@ int wait_request() {
                     if((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0")==0) && (ntohs(committer.sin_port) == 0))
                         send(sd, "0", 1, 0);
                     else {
-                        char * committer_adr = inet_ntoa(committer.sin_addr);
-                        char * port_str;
-                        sprintf(port_str, "%d", ntohs(committer.sin_port));
-                        send(sd, committer_adr, strlen(committer_adr),0);
-                        send(sd, port_str, strlen(port_str), 0);
+                        char committer_send[25] = "";
+                        strcat (committer_send,  inet_ntoa(committer.sin_addr));
+                        
+                        char port_str[6];	// used to represent a short int 
+		        sprintf (port_str, "%d", (int) ntohs(committer.sin_port));
+                        
+                        strcat (committer_send, "|");
+                        strcat (committer_send, port_str);
+                        
+                        // message format: ip|porta
+                        send(sd, committer_send, strlen(committer_send),0);
                     }
                     
                 }
@@ -347,4 +352,3 @@ void close_connection(int sock) {
     //Close the socket 
     close( sd );
 }
-
