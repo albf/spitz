@@ -55,6 +55,10 @@ int main(int argc, char*argv[]) {
             print_all_ip(ip_list);        
         }
     }
+    else if(argc == 2 ) {
+	connect_to_job_manager("127.0.0.1");
+	get_committer();
+    }
     else { 
         main_client(argc,argv);
     }
@@ -96,16 +100,15 @@ void set_committer() {
 }
 
 void get_committer() {
-    int success=0;
     
-    while(success!=1) {
-        success=request_committer();
-        sleep(1000);
+    while(request_committer() != 1) {
+	printf("Committer not found yet! \n");
+        sleep(1);
     }
 }
 
 int request_committer() {
-    int c_port;
+    int c_port, valread;
     
     if (send(new_socket, "gc", 2, 0) < 0) {
         printf("Get committer failed\n");
@@ -113,14 +116,16 @@ int request_committer() {
     }
 
     //Receive a reply from the server
-    if (recv(new_socket, buffer, 1024, 0) < 0) {
-        if (strlen(buffer) <= 1) { // Job manager doesn't know yet
+    if (valread = read(new_socket, buffer, 1024) < 0) {
+        if (valread <= 1) { // Job manager doesn't know yet
             return -1;
         } else {
             committer.sin_addr.s_addr = inet_addr(buffer);
             committer.sin_family = AF_INET;
-            if (recv(new_socket, buffer, 1024, 0) < 0) {
-                if (strlen(buffer) <= 1) { // Job manager doesn't know yet
+            if (valread = read(new_socket, buffer, 1024) < 0) {
+                buffer[valread]='\0';
+		
+		if (strlen(buffer) <= 1) { // Job manager doesn't know yet
                     return -1;
                 }
                 else  {

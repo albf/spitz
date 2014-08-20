@@ -64,3 +64,14 @@ void print_all_ip (struct connected_ip * pointer) {
         pointer = pointer->next;
     }
 }
+
+int get_total_workers (struct connected_ip * pointer) {
+    int total = 0;
+
+    while(pointer!=NULL) {
+	pointer = pointer->next;
+	total++;
+    }
+
+    return total;
+}

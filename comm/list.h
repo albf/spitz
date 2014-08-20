@@ -22,6 +22,7 @@ struct connected_ip * add_ip_address (struct connected_ip * pointer, char * adr,
 struct connected_ip * remove_ip_address (struct connected_ip * pointer, char * adr, int prt);
 struct connected_ip * search_ip_address (struct connected_ip * pointer, char * adr, int prt);
 void print_all_ip (struct connected_ip * pointer);
+int get_total_workers (struct connected_ip * pointer);
 
 #endif	/* LIST_H */
 
