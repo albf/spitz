@@ -20,7 +20,7 @@
 
 #include "message.h"
 
-#include <mpi.h>
+//#include <mpi.h>
 
 void get_message(struct byte_array *ba, enum message_type *type, int *rank)
 {

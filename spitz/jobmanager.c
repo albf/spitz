@@ -20,7 +20,7 @@
 
 #include "jobmanager.h"
 
-#include <mpi.h>
+//#include <mpi.h>
 #include <dlfcn.h>
 #include "message.h"
 #include "log.h"

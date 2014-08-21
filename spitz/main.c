@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mpi.h>
+//#include <mpi.h>
 #include <dlfcn.h>
 #include <stdarg.h>
 #include <pthread.h>
@@ -33,6 +33,7 @@
 #include "log.h"
 #include "message.h"
 #include "jobmanager.h"
+#include "comm.h"
 
 #define SPITZ_VERSION "0.1.0"
 
@@ -40,7 +41,7 @@ int LOG_LEVEL = 0;
 extern __thread int workerid;
 extern int nworkers;
 
-static int NTHREADS = 3;
+static int NTHREADS = 1;
 static int FIFOSZ = 10;
 
 struct result_node {
@@ -64,8 +65,9 @@ struct thread_data {
 static int get_task_manager_id(void)
 {
 	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	return rank - 2;
+	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    //return rank - 2;
+    return (get_rank_id()-2); 
 }
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
@@ -331,7 +333,9 @@ void start_master_process(int argc, char *argv[], char *so)
 void start_slave_processes(int argc, char *argv[])
 {
 	int rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	
+    rank=get_rank_id(); 
+    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 	unsigned long sz;
 	MPI_Bcast(&sz, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
@@ -382,10 +386,29 @@ void start_slave_processes(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-	int rank, size;
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
+    int rank, size;
+    enum actor type=atoi(argv[0]);
+
+    if(type==JOB_MANAGER) {
+        setup_job_manager_network(argc , argv);
+        rank=0; 
+    } 
+    else {
+        connect_to_job_manager(argv[1]);
+        get_rank_id();
+        
+        if(type==COMMITTER)
+            set_committer();    
+    
+        else 
+            get_committer();
+    }
+    
+    size=3;
+    
+    //MPI_Init(&argc, &argv);
+	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	//MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 	char *debug = getenv("SPITS_DEBUG_SLEEP");
 	if (debug) {

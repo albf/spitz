@@ -1,13 +1,13 @@
-SRC = cfifo.c log.c main.c jobmanager.c message.c
+SRC = cfifo.c log.c main.c jobmanager.c message.c list.c comm.c
 
 CPPFLAGS = -I.
-CFLAGS = -g3 -O0 -Wall -Wextra
+CFLAGS = -g
 LDFLAGS = -L. -lspitz -ldl -lrt
 
 all: spitz
 
 spitz: $(SRC) libspitz.so
-	mpicc $(CFLAGS) $(CPPFLAGS) -o $@ $(SRC) $(LDFLAGS)
+	gcc $(CFLAGS) $(CPPFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 libspitz.so: barray.c spitz.c
 	$(CC) $(CFLAGS) -shared -fPIC -Wl,-soname,$@ -o $@ $^
