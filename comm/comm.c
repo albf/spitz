@@ -14,6 +14,7 @@ int new_socket;
 /* Job Manager only */
 int master_socket, addrlen, new_socket, client_socket[max_clients], sd;
 int max_sd;
+int rank;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
@@ -29,7 +30,7 @@ int send_byte_array(int sock, unsigned char * array) {
     return 0;
 }
 
-unsigned char * read_byte_array(int sock) {
+void * read_byte_array(int sock) {
     char receive_buffer[20];
     char * first_part;
     unsigned char * bytes;
@@ -58,6 +59,8 @@ unsigned char * read_byte_array(int sock) {
 
 void connect_to_job_manager(char ip_adr[]) {
     struct sockaddr_in address;
+    char rcv_rank[10];
+    int valread;
     
     //Create socket
     new_socket = socket(AF_INET , SOCK_STREAM , 0);
@@ -75,8 +78,15 @@ void connect_to_job_manager(char ip_adr[]) {
     if (connect(new_socket , (struct sockaddr *)&address , sizeof(address)) < 0) {
         printf("Could not connect to the Job Manager.\n");
     }
-    else
+    else {
         puts("Connected Successfully to the Job Manager\n");
+        if(valread = read(new_socket, rcv_rank, 10)>0) {
+            rank = atoi(rcv_rank); 
+        }
+        else {
+            printf("Problem getting the rank value\n");
+        }
+    }
 }
 
 // connect first
@@ -130,6 +140,10 @@ int request_committer() {
 }
 
 int get_rank_id() {
+    return rank;
+}
+
+/*int get_rank_id() {
     char recv_id[10];
     int valread;
         
@@ -144,7 +158,7 @@ int get_rank_id() {
     }
 
     return -1;
-}
+}*/
 
 int telnet_client(int argc, char *argv[]) {
     connect_to_job_manager("127.0.0.1");
@@ -220,8 +234,10 @@ int setup_job_manager_network(int argc , char *argv[])
         return -1;
     }
       
-    //accept the incoming connection
     addrlen = sizeof(address);
+    ip_list = add_ip_address(ip_list, "127.0.0.0", PORT );
+    rank = 0;
+    
     return 1;
 }
 
@@ -330,18 +346,21 @@ int wait_request() {
 
 void create_new_connection() {
     int i;
+    char id_send[10];
     struct sockaddr_in address;
     
-    if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0)
-    {
-	printf("accept");
-	exit(EXIT_FAILURE);
+    if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+	    printf("Problem accepting connection");
     }
   
     //inform user of socket number - used in send and receive commands
     printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+    
+    // Add new connection to the list, assign rank id and send to the user.
     ip_list = add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)); 
-      
+    sprintf(id_send, "%d", get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
+    send(new_socket,id_send, 10,0);
+    
     //add new socket to array of sockets
     for (i = 0; i < max_clients; i++) 
     {

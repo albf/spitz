@@ -40,7 +40,7 @@ void close_connection(int sock);
     
 // General Propose
 int send_byte_array(int sock, unsigned char * array);       // with unknown size
-unsigned char * read_byte_array(int sock);                  // with unknown size
+void * read_byte_array(int sock);                  // with unknown size
 
 #endif	/* COMM_H */
 
