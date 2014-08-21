@@ -1,8 +1,7 @@
 /* 
  * File:   list.h
  * Author: alexandre
- *
- * Created on August 20, 2014, 12:38 AM
+ * Simple linked list used to store the ip and port from works and committers.
  */
 
 #ifndef LIST_H
@@ -27,6 +26,7 @@ void print_all_ip (struct connected_ip * pointer);
 int print_all_ip_ordered (struct connected_ip * pointer);
 int get_total_workers (struct connected_ip * pointer);
 void free_list (struct connected_ip * pointer);
+void print_ip_list();
 
 #endif	/* LIST_H */
 
