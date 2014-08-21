@@ -10,15 +10,15 @@ Alexandre L. B. F.
 char buffer[1025];  //data buffer of 1K
 struct sockaddr_in committer;    // address of committer node
 int new_socket;
+int rank;
 
 /* Job Manager only */
 int master_socket, addrlen, new_socket, client_socket[max_clients], sd;
 int max_sd;
-int rank;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
-int send_char_array(int sock, unsigned char * array) {
+int COMM_send_char_array(int sock, unsigned char * array) {
     int length = strlen(array); // Send format : size|array
     char size[20];
 
@@ -30,7 +30,7 @@ int send_char_array(int sock, unsigned char * array) {
     return 0;
 }
 
-unsigned char * read_byte_array(int sock) {
+unsigned char * COMM_read_byte_array(int sock) {
     char receive_buffer[20];
     char * first_part;
     unsigned char * bytes;
@@ -57,7 +57,7 @@ unsigned char * read_byte_array(int sock) {
     return bytes;
 }
 
-void connect_to_job_manager(char ip_adr[]) {
+void COMM_connect_to_job_manager(char ip_adr[]) {
     struct sockaddr_in address;
     char rcv_rank[10];
     int valread;
@@ -91,7 +91,7 @@ void connect_to_job_manager(char ip_adr[]) {
 
 // connect first
 
-void set_committer() {
+void COMM_set_committer() {
     // sent set committer request
     if (send(new_socket, "sc", 2, 0) < 0) {
         printf("Set committer failed\n");
@@ -101,15 +101,15 @@ void set_committer() {
     printf("Set committer successfully\n");
 }
 
-void get_committer() {
+void COMM_get_committer() {
     
-    while(request_committer() != 1) {
+    while(COMM_request_committer() != 1) {
 	printf("Committer not found yet! \n");
         sleep(1);
     }
 }
 
-int request_committer() {
+int COMM_request_committer() {
     int c_port, valread;
     char * token;
     
@@ -139,7 +139,7 @@ int request_committer() {
     return -1;
 }
 
-int get_rank_id() {
+int COMM_get_rank_id() {
     return rank;
 }
 
@@ -160,8 +160,8 @@ int get_rank_id() {
     return -1;
 }*/
 
-int telnet_client(int argc, char *argv[]) {
-    connect_to_job_manager("127.0.0.1");
+int COMM_telnet_client(int argc, char *argv[]) {
+    COMM_connect_to_job_manager("127.0.0.1");
      
     //keep communicating with server
     while(1)
@@ -191,7 +191,7 @@ int telnet_client(int argc, char *argv[]) {
     return 0;
 }
 
-int setup_job_manager_network(int argc , char *argv[])
+int COMM_setup_job_manager_network(int argc , char *argv[])
 {
     int i, opt = 1;
     struct sockaddr_in address;
@@ -235,14 +235,14 @@ int setup_job_manager_network(int argc , char *argv[])
     }
       
     addrlen = sizeof(address);
-    ip_list = add_ip_address(ip_list, "127.0.0.0", PORT );
+    ip_list = LIST_add_ip_adress(ip_list, "127.0.0.0", PORT );
     rank = 0;
     
     return 1;
 }
 
 // Job Manager function
-int wait_request() {
+int COMM_wait_request() {
     int i, valread, activity;
     struct sockaddr_in sender_credentials;
  
@@ -280,7 +280,7 @@ int wait_request() {
       
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
-            create_new_connection();
+            COMM_create_new_connection();
     }
       
     // I/O Operation
@@ -293,7 +293,7 @@ int wait_request() {
             // Someone is closing
             if ((valread = read( sd , buffer, 1024)) == 0)
             {
-                close_connection(sd);
+                COMM_close_connection(sd);
                 client_socket[i] = 0;
             }
               
@@ -307,7 +307,7 @@ int wait_request() {
                 if (strncmp(buffer, "gr", 2)==0) {
                     char rank_id[10];
                     getpeername(sd, (struct sockaddr*)&sender_credentials, (socklen_t*)&addrlen);
-                    sprintf(rank_id, "%d", get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
+                    sprintf(rank_id, "%d", COMM_get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
                     send(sd, rank_id, strlen(rank_id), 0); 
                 }
                 
@@ -344,7 +344,7 @@ int wait_request() {
     return 0;
 }
 
-void create_new_connection() {
+void COMM_create_new_connection() {
     int i;
     char id_send[10];
     struct sockaddr_in address;
@@ -357,8 +357,8 @@ void create_new_connection() {
     printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
     // Add new connection to the list, assign rank id and send to the user.
-    ip_list = add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)); 
-    sprintf(id_send, "%d", get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
+    ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)); 
+    sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
     send(new_socket,id_send, 10,0);
     
     //add new socket to array of sockets
@@ -375,18 +375,18 @@ void create_new_connection() {
     }
 }
 
-void close_connection(int sock) {
+void COMM_close_connection(int sock) {
     struct sockaddr_in address;
     
     //Somebody disconnected , get his details and print
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&addrlen);
     printf("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-    ip_list = remove_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+    ip_list = LIST_remove_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
     
     //Close the socket 
     close( sd );
 }
 
-void print_ip_list() {
-    print_all_ip(ip_list);        
+void COMM_LIST_print_ip_list() {
+    LIST_print_all_ip(ip_list);        
 }

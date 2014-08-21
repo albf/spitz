@@ -15,17 +15,17 @@
  */
 int main(int argc, char*argv[]) {
     if(argc == 1) {
-        setup_job_manager_network(argc, argv);
+        COMM_setup_job_manager_network(argc, argv);
         while(1) {
-            wait_request();
-            print_ip_list();        
+            COMM_wait_request();
+            COMM_LIST_print_ip_list();        
         }
     }
     else if(argc == 2 ) {
-	connect_to_job_manager("127.0.0.1");
-	get_committer();
+	COMM_connect_to_job_manager("127.0.0.1");
+	COMM_get_committer();
     }
     else { 
-        telnet_client(argc,argv);
+        COMM_telnet_client(argc,argv);
     }
 }

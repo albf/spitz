@@ -25,22 +25,22 @@
 /* Functions */
 
 // Worker and Committer Functions
-void connect_to_job_manager(char ip_adr[]);
-void set_committer();
-void get_committer();
-int request_committer();
-int get_rank_id();
-int telnet_client(int argc, char *argv[]);
+void COMM_connect_to_job_manager(char ip_adr[]);
+void COMM_set_committer();
+void COMM_get_committer();
+int COMM_request_committer();
+int COMM_get_rank_id();
+int COMM_telnet_client(int argc, char *argv[]);
 
     // Job Manager Functions
-int setup_job_manager_network(int argc , char *argv[]);
-int wait_request();
-void create_new_connection();
-void close_connection(int sock);
+int COMM_setup_job_manager_network(int argc , char *argv[]);
+int COMM_wait_request();
+void COMM_create_new_connection();
+void COMM_close_connection(int sock);
     
 // General Propose
-int send_char_array(int sock, unsigned char * array);      // with unknown size
-unsigned char* read_byte_array(int sock);                  // with unknown size
+int COMM_send_char_array(int sock, unsigned char * array);      // with unknown size
+unsigned char* COMM_read_byte_array(int sock);                  // with unknown size
 
 #endif	/* COMM_H */
 

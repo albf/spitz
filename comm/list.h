@@ -14,19 +14,24 @@
 struct connected_ip {
     struct connected_ip * next;
     char * address;
-    int port; 
+    int port;
     int id;
 };
 
-struct connected_ip * add_ip_address (struct connected_ip * pointer, char * adr, int prt);
-struct connected_ip * remove_ip_address (struct connected_ip * pointer, char * adr, int prt);
-struct connected_ip * search_ip_address (struct connected_ip * pointer, char * adr, int prt);
-int get_id (struct connected_ip * pointer, char * adr, int prt);
-void print_all_ip (struct connected_ip * pointer);
-int print_all_ip_ordered (struct connected_ip * pointer);
-int get_total_workers (struct connected_ip * pointer);
-void free_list (struct connected_ip * pointer);
-void print_ip_list();
+// List manipulation 
+struct connected_ip * LIST_add_ip_adress(struct connected_ip * pointer, char * adr, int prt);
+struct connected_ip * LIST_remove_ip_adress(struct connected_ip * pointer, char * adr, int prt);
+struct connected_ip * LIST_search_ip_adress(struct connected_ip * pointer, char * adr, int prt);
+void LIST_free_list(struct connected_ip * pointer);
+
+// Other requests
+int LIST_get_id(struct connected_ip * pointer, char * adr, int prt);
+int LIST_get_total_workers(struct connected_ip * pointer);
+
+// Debug Information
+void LIST_print_all_ip(struct connected_ip * pointer);
+int LIST_print_all_ip_ordered(struct connected_ip * pointer);
+void LIST_print_ip_list();
 
 #endif	/* LIST_H */
 
