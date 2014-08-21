@@ -1,8 +1,5 @@
 /**
-TCP Socket multiple connections with select and fd_set on Linux.
-
 Based on Silver Moon (m00n.silv3r@gmail.com) example and being modeled to SPITZ.
-
 
 Alexandre L. B. F.      
 */
@@ -10,7 +7,6 @@ Alexandre L. B. F.
 #include <stdio.h>
 #include <string.h>   
 #include <stdlib.h>
-#include <errno.h>
 #include <unistd.h>   
 #include <arpa/inet.h>    
 #include <sys/types.h>
@@ -26,11 +22,12 @@ Alexandre L. B. F.
 
 /* Functions */
 
-// Worker Functions
+// Worker and Committer Functions
 void connect_to_job_manager(char ip_adr[]);
 void set_committer();
 void get_committer();
 int request_committer();
+int get_rank_id();
 
 // Job Manager Functions
 int setup_job_manager_network(int argc , char *argv[]);
@@ -182,7 +179,23 @@ int request_committer() {
 
     return -1;
 }
-    
+
+int get_rank_id() {
+    char recv_id[10];
+    int valread;
+        
+    if (send(new_socket, "gr", 2, 0) < 0) {
+        printf("Get rank failed\n");
+        return -1;
+    }
+
+    if (valread = read(new_socket,recv_id ,10) >= 0) {
+        recv_id[valread] = '\0'; 
+        return atoi(recv_id);
+    }
+
+    return -1;
+}
 
 int main_client(int argc, char *argv[]) {
     connect_to_job_manager("127.0.0.1");
@@ -267,7 +280,8 @@ int setup_job_manager_network(int argc , char *argv[])
 // Job Manager function
 int wait_request() {
     int i, valread;
-    
+    struct sockaddr_in sender_credentials;
+ 
     puts("Waiting for request \n");
      
     //clear the socket set
@@ -295,7 +309,7 @@ int wait_request() {
     //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
     activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
 
-    if ((activity < 0) && (errno!=EINTR)) 
+    if (activity < 0) 
     {
         printf("select error");
     }
@@ -325,8 +339,16 @@ int wait_request() {
                 buffer[valread] = '\0';
                 printf("buffer: %s, valread: %d\n", buffer, valread);
                 
+                // get rank
+                if (strncmp(buffer, "gr", 2)==0) {
+                    char rank_id[10];
+                    getpeername(sd, (struct sockaddr*)&sender_credentials, (socklen_t*)&addrlen);
+                    sprintf(rank_id, "%d", get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
+                    send(sd, rank_id, strlen(rank_id), 0); 
+                }
+                
                 // set committer 
-                if (strncmp(buffer, "sc", 2)==0) {
+                else if (strncmp(buffer, "sc", 2)==0) {
                     getpeername(sd , (struct sockaddr*)&committer , (socklen_t*)&addrlen);
                     printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr) , ntohs(committer.sin_port));
                 }
@@ -340,7 +362,7 @@ int wait_request() {
                         strcat (committer_send,  inet_ntoa(committer.sin_addr));
                         
                         char port_str[6];	// used to represent a short int 
-		        sprintf (port_str, "%d", (int) ntohs(committer.sin_port));
+		                sprintf (port_str, "%d", (int) ntohs(committer.sin_port));
                         
                         strcat (committer_send, "|");
                         strcat (committer_send, port_str);
@@ -348,7 +370,6 @@ int wait_request() {
                         // message format: ip|porta
                         send(sd, committer_send, strlen(committer_send),0);
                     }
-                    
                 }
                 else
                     return atoi(buffer);
