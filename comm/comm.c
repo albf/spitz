@@ -18,8 +18,8 @@ int rank;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
-int send_byte_array(int sock, unsigned char * array) {
-    int length = strlen(array) + strlen(array) + 1; // Send format : size|array
+int send_char_array(int sock, unsigned char * array) {
+    int length = strlen(array); // Send format : size|array
     char size[20];
 
     sprintf(size, "%d", length);
@@ -30,7 +30,7 @@ int send_byte_array(int sock, unsigned char * array) {
     return 0;
 }
 
-void * read_byte_array(int sock) {
+unsigned char * read_byte_array(int sock) {
     char receive_buffer[20];
     char * first_part;
     unsigned char * bytes;

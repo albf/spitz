@@ -50,7 +50,7 @@ struct connected_ip * search_ip_address (struct connected_ip * pointer, char * a
 
     else
         while(pointer != NULL) {
-            if((strcmp((const char *)adr, (const char *)pointer->next)==0) && (prt == pointer->port)) {
+            if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) {
                 return pointer;              
             }
             pointer = pointer->next;
