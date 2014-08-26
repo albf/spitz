@@ -39,8 +39,10 @@ void COMM_create_new_connection();
 void COMM_close_connection(int sock);
     
 // General Propose
-int COMM_send_char_array(int sock, unsigned char * array);      // with unknown size
-unsigned char* COMM_read_byte_array(int sock);                  // with unknown size
+int COMM_send_bytes(int sock, void * bytes, int size);
+void * COMM_read_bytes(int sock);
+int COMM_send_char_array(int sock, char * array);      // with unknown size
+char* COMM_read_char_array(int sock);                  // with unknown size
 
 #endif	/* COMM_H */
 

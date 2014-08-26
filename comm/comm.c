@@ -18,43 +18,56 @@ int max_sd;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
-int COMM_send_char_array(int sock, unsigned char * array) {
-    int length = strlen(array); // Send format : size|array
-    char size[20];
-
-    sprintf(size, "%d", length);
-    strcat(size, "|");
-    send(sock, size, strlen(size), 0);
-    send(sock, array, strlen(array), 0);
+// Send N bytes pointer by bytes pointer.
+int COMM_send_bytes(int sock, void * bytes, int size) {
+    char size_c[20];
+    int return_value;
     
-    return 0;
+    sprintf(size_c, "%d", size);
+    strcat(size_c, "|\n");
+    return_value = (int) send(sock, size_c, strlen(size_c), 0);
+    return_value = (int) send(sock, bytes, size, 0);
+
+    return 0;    
 }
 
-unsigned char * COMM_read_byte_array(int sock) {
-    char receive_buffer[20];
-    char * first_part;
-    unsigned char * bytes;
-    unsigned char * bytes_ptr;
-    int total_size, received=0, i=0;
-    
-    received+=read(sock, receive_buffer, 20);    
-    total_size = atoi(strtok(receive_buffer,"|")); 
-    
-    bytes = (unsigned char *) malloc (total_size*sizeof(unsigned char));
-    first_part = strtok(NULL, "|");
-  
-    for(i=0; i<strlen(first_part); i++) {
-      bytes[i]=first_part[0];
+// Read unknown type and size from socket.
+void * COMM_read_bytes(int sock) {
+    char message_size[20], received_char='0';
+    int total_rcv, offset=0, msg_size;
+    char * bytes_rcv;
+
+    while(received_char!='|') {
+        total_rcv = read(sock, &received_char, 1);
+
+        if(received_char!='|')
+            message_size[offset]=received_char;
+        else
+            message_size[offset]='\n';
+
+        offset++;
     }
 
-    bytes_ptr = bytes+(strlen(first_part));
+    msg_size = atoi(message_size);
+    bytes_rcv = malloc(msg_size);
+    offset = 0;    
     
-    while(received < total_size) {
-        received+=read(sock, bytes_ptr, 1024); 
-        bytes_ptr+received;
+    while(offset < msg_size) {
+        total_rcv = read(sock, (bytes_rcv+offset), (msg_size-offset));
+        offset+=total_rcv;
     }
+   
+    return (void *) bytes_rcv;
+}
 
-    return bytes;
+// Send char array using send bytes function
+int COMM_send_char_array(int sock, char * array) {
+    return COMM_send_bytes(sock, (void *) array, strlen(array));
+}
+
+// Read char array using read bytes function
+char * COMM_read_char_array(int sock) {
+    return (char *) COMM_read_bytes(sock);
 }
 
 void COMM_connect_to_job_manager(char ip_adr[]) {
@@ -88,8 +101,6 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
         }
     }
 }
-
-// connect first
 
 void COMM_set_committer() {
     // sent set committer request
