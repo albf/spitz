@@ -25,7 +25,7 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     
     sprintf(size_c, "%d", size);
     strcat(size_c, "|\n");
-    return_value = (int) send(sock, size_c, strlen(size_c), 0);
+    return_value = (int) send(sock, size_c, (strlen(size_c)-1), 0); // don't send '\n'
     return_value = (int) send(sock, bytes, size, 0);
 
     return 0;    
@@ -150,10 +150,12 @@ int COMM_request_committer() {
     return -1;
 }
 
+// Rank id is now in a variable
 int COMM_get_rank_id() {
     return rank;
 }
 
+// Old get_rank version.
 /*int get_rank_id() {
     char recv_id[10];
     int valread;
@@ -186,14 +188,16 @@ int COMM_telnet_client(int argc, char *argv[]) {
             puts("Send failed");
             return 1;
         }
-         
+        
+        char * return_array = COMM_read_char_array(new_socket); 
+        
         //Receive a reply from the server
-        if( recv(new_socket , buffer , 1024 , 0) < 0)
+/*        if( recv(new_socket , buffer , 1024 , 0) < 0)
         {
             puts("recv failed");
             break;
         }
-         
+*/         
         puts("Server reply :");
         puts(buffer);
     }
@@ -345,6 +349,12 @@ int COMM_wait_request() {
                         // message format: ip|porta
                         send(sd, committer_send, strlen(committer_send),0);
                     }
+                }
+
+                // test
+                else if(strncmp(buffer, "ts", 2)==0) {
+                    char a_array[20] = "alexandre\n";
+                    COMM_send_char_array(sd, a_array);
                 }
                 else
                     return atoi(buffer);
