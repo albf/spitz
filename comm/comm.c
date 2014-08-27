@@ -273,7 +273,6 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
 // Job Manager function
 int COMM_wait_request() {
     int i, valread, activity;
-    struct sockaddr_in sender_credentials;
  
     puts("Waiting for request \n");
      
@@ -287,15 +286,12 @@ int COMM_wait_request() {
     //add child sockets to set
     for ( i = 0 ; i < max_clients ; i++) 
     {
-        //socket descriptor
-        sd = client_socket[i];
-         
-        //if valid socket descriptor then add to read list
-        if(sd > 0)
+        sd = client_socket[i];      //socket descriptor
+                 
+        if(sd > 0)                  //if valid socket descriptor then add to read list
             FD_SET( sd , &readfds);
          
-        //highest file descriptor number, need it for the select function
-        if(sd > max_sd)
+        if(sd > max_sd)             //highest file descriptor number, need it for the select function
             max_sd = sd;
     }
 
@@ -303,9 +299,7 @@ int COMM_wait_request() {
     activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
 
     if (activity < 0) 
-    {
         printf("select error");
-    }
       
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
@@ -319,69 +313,69 @@ int COMM_wait_request() {
           
         if (FD_ISSET( sd , &readfds)) 
         {
-            // Someone is closing
-            if ((valread = read( sd , buffer, 1024)) == 0)
+            if ((valread = read( sd , buffer, 1024)) == 0)      // Someone is closing
             {
                 COMM_close_connection(sd);
                 client_socket[i] = 0;
             }
               
-            // Other message
-            else
+            else                                                // Other request
             {
                 buffer[valread] = '\0';
                 printf("buffer: %s, valread: %d\n", buffer, valread);
-                
-                // get rank
-                if (strncmp(buffer, "gr", 2)==0) {
-                    char rank_id[10];
-                    getpeername(sd, (struct sockaddr*)&sender_credentials, (socklen_t*)&addrlen);
-                    sprintf(rank_id, "%d", COMM_get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
-                    COMM_send_char_array(sd, rank_id);
-                    //send(sd, rank_id, strlen(rank_id), 0); 
-                }
-                
-                // set committer 
-                else if (strncmp(buffer, "sc", 2)==0) {
-                    getpeername(sd , (struct sockaddr*)&committer , (socklen_t*)&addrlen);
-                    printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr) , ntohs(committer.sin_port));
-                }
-                
-                // get committer
-                else if(strncmp(buffer, "gc", 2)==0) {
-                    if((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0")==0) && (ntohs(committer.sin_port) == 0))
-                        send(sd, "0", 1, 0);
-                    else {
-                        char committer_send[25] = "";
-                        strcat (committer_send,  inet_ntoa(committer.sin_addr));
-                        
-                        char port_str[6];	// used to represent a short int 
-		                sprintf (port_str, "%d", (int) ntohs(committer.sin_port));
-                        
-                        strcat (committer_send, "|");
-                        strcat (committer_send, port_str);
-                        
-                        // message format: ip|porta
-                        
-                        COMM_send_char_array(sd, committer_send);
-                        //send(sd, committer_send, strlen(committer_send),0);
-                    }
-                }
-
-                // get run
-                else if(strncmp(buffer, "gr", 2)==0) {
-                    char committer_send[25];
-                    sprintf(committer_send, "%d", run_num);
-                    strcat (committer_send, "\n");
-                    COMM_send_char_array(sd, committer_send);
-                    
-                }
-                else
-                    return atoi(buffer);
+                return COMM_reply_request();
             }
         }
     }
       
+    return 0;
+}
+
+int COMM_reply_request() {
+    // get rank
+    if (strncmp(buffer, "gr", 2) == 0) {
+        char rank_id[10];
+        struct sockaddr_in sender_credentials;
+        getpeername(sd, (struct sockaddr*) &sender_credentials, (socklen_t*) & addrlen);
+        sprintf(rank_id, "%d", COMM_get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
+        COMM_send_char_array(sd, rank_id);
+        //send(sd, rank_id, strlen(rank_id), 0);
+    }
+        // set committer 
+    else if (strncmp(buffer, "sc", 2) == 0) {
+        getpeername(sd, (struct sockaddr*) &committer, (socklen_t*) & addrlen);
+        printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr), ntohs(committer.sin_port));
+    }
+        // get committer
+    else if (strncmp(buffer, "gc", 2) == 0) {
+        if ((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0") == 0) && (ntohs(committer.sin_port) == 0))
+            send(sd, "0", 1, 0);
+        else {
+            char committer_send[25] = "";
+            strcat(committer_send, inet_ntoa(committer.sin_addr));
+
+            char port_str[6]; // used to represent a short int 
+            sprintf(port_str, "%d", (int) ntohs(committer.sin_port));
+
+            strcat(committer_send, "|");
+            strcat(committer_send, port_str);
+
+            // message format: ip|porta
+
+            COMM_send_char_array(sd, committer_send);
+            //send(sd, committer_send, strlen(committer_send),0);
+        }
+    }
+        // get run
+    else if (strncmp(buffer, "gr", 2) == 0) {
+        char committer_send[25];
+        sprintf(committer_send, "%d", run_num);
+        strcat(committer_send, "\n");
+        COMM_send_char_array(sd, committer_send);
+
+    } else
+        return atoi(buffer);
+
     return 0;
 }
 
