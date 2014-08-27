@@ -35,6 +35,7 @@ int COMM_telnet_client(int argc, char *argv[]);
     // Job Manager Functions
 int COMM_setup_job_manager_network(int argc , char *argv[]);
 int COMM_wait_request();
+int COMM_reply_request();
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
     

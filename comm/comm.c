@@ -334,19 +334,18 @@ int COMM_wait_request() {
 int COMM_reply_request() {
     // get rank
     if (strncmp(buffer, "gr", 2) == 0) {
-        char rank_id[10];
         struct sockaddr_in sender_credentials;
         getpeername(sd, (struct sockaddr*) &sender_credentials, (socklen_t*) & addrlen);
-        sprintf(rank_id, "%d", COMM_get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
-        COMM_send_char_array(sd, rank_id);
-        //send(sd, rank_id, strlen(rank_id), 0);
+        COMM_send_int(sd, COMM_get_rank_id(ip_list, inet_ntoa(sender_credentials.sin_addr), ntohs(sender_credentials.sin_port)));
     }
-        // set committer 
+    
+    // set committer 
     else if (strncmp(buffer, "sc", 2) == 0) {
         getpeername(sd, (struct sockaddr*) &committer, (socklen_t*) & addrlen);
         printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr), ntohs(committer.sin_port));
     }
-        // get committer
+    
+    // get committer
     else if (strncmp(buffer, "gc", 2) == 0) {
         if ((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0") == 0) && (ntohs(committer.sin_port) == 0))
             send(sd, "0", 1, 0);
@@ -361,17 +360,13 @@ int COMM_reply_request() {
             strcat(committer_send, port_str);
 
             // message format: ip|porta
-
             COMM_send_char_array(sd, committer_send);
-            //send(sd, committer_send, strlen(committer_send),0);
         }
     }
-        // get run
+    
+    // get run
     else if (strncmp(buffer, "gr", 2) == 0) {
-        char committer_send[25];
-        sprintf(committer_send, "%d", run_num);
-        strcat(committer_send, "\n");
-        COMM_send_char_array(sd, committer_send);
+        COMM_send_int(sd, run_num);
 
     } else
         return atoi(buffer);
