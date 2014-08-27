@@ -7,8 +7,8 @@ Alexandre L. B. F.
 #include "comm.h"
 
 /* Global Variables */
-char buffer[1025], lib_path[128];  //data buffer of 1K
-struct sockaddr_in committer;    // address of committer node
+char buffer[1025], * lib_path;      //data buffer of 1K
+struct sockaddr_in committer;       // address of committer node
 int new_socket, rank, run_num;
 
 /* Job Manager only */
@@ -113,6 +113,33 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
             printf("Problem getting the rank value\n");
         }
     }
+}
+
+void COMM_set_path(char * file_path) {
+    lib_path = strcpy(malloc(sizeof(char)*strlen(file_path)), file_path);
+}
+
+char * COMM_get_path() {
+   if(send(new_socket, "gp", 2, 0) < 0) {
+       printf("Get path failed \n");
+       return NULL;
+   } 
+
+   return COMM_read_char_array(new_socket);
+} 
+
+void COMM_increment_run() {
+    if(rank==0)
+        run_num++;
+}
+
+int COMM_get_run_num() {
+    if(send(new_socket, "gn", 2, 0) < 0) {
+        printf("Get run failed \n");
+        return -1;
+    }
+
+    return COMM_read_int(new_socket); 
 }
 
 void COMM_set_committer() {
@@ -332,21 +359,9 @@ int COMM_wait_request() {
 }
 
 int COMM_reply_request() {
-    // get rank
-    if (strncmp(buffer, "gr", 2) == 0) {
-        struct sockaddr_in sender_credentials;
-        getpeername(sd, (struct sockaddr*) &sender_credentials, (socklen_t*) & addrlen);
-        COMM_send_int(sd, COMM_get_rank_id(ip_list, inet_ntoa(sender_credentials.sin_addr), ntohs(sender_credentials.sin_port)));
-    }
-    
-    // set committer 
-    else if (strncmp(buffer, "sc", 2) == 0) {
-        getpeername(sd, (struct sockaddr*) &committer, (socklen_t*) & addrlen);
-        printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr), ntohs(committer.sin_port));
-    }
-    
+   
     // get committer
-    else if (strncmp(buffer, "gc", 2) == 0) {
+    if (strncmp(buffer, "gc", 2) == 0) {
         if ((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0") == 0) && (ntohs(committer.sin_port) == 0))
             send(sd, "0", 1, 0);
         else {
@@ -364,11 +379,31 @@ int COMM_reply_request() {
         }
     }
     
-    // get run
+    // get path
     else if (strncmp(buffer, "gr", 2) == 0) {
+        COMM_send_char_array(sd, lib_path);
+    }
+        
+    // get rank
+    else if (strncmp(buffer, "gr", 2) == 0) {
+        struct sockaddr_in sender_credentials;
+        getpeername(sd, (struct sockaddr*) &sender_credentials, (socklen_t*) & addrlen);
+        COMM_send_int(sd, COMM_get_rank_id(ip_list, inet_ntoa(sender_credentials.sin_addr), ntohs(sender_credentials.sin_port)));
+    }
+    
+    // get run
+    else if (strncmp(buffer, "gn", 2) == 0) {
         COMM_send_int(sd, run_num);
 
-    } else
+    } 
+    
+    // set committer 
+    else if (strncmp(buffer, "sc", 2) == 0) {
+        getpeername(sd, (struct sockaddr*) &committer, (socklen_t*) & addrlen);
+        printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr), ntohs(committer.sin_port));
+    }
+    
+    else
         return atoi(buffer);
 
     return 0;

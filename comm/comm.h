@@ -30,6 +30,8 @@ void COMM_set_committer();
 void COMM_get_committer();
 int COMM_request_committer();
 int COMM_get_rank_id();
+int COMM_get_run_num();
+char * COMM_get_path();
 int COMM_telnet_client(int argc, char *argv[]);
 
     // Job Manager Functions
@@ -38,6 +40,8 @@ int COMM_wait_request();
 int COMM_reply_request();
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
+void COMM_increment_run();
+void COMM_set_path(char * file_path);
     
 // General Propose
 int COMM_send_bytes(int sock, void * bytes, int size);
