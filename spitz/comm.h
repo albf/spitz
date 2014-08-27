@@ -25,22 +25,31 @@
 /* Functions */
 
 // Worker and Committer Functions
-void connect_to_job_manager(char ip_adr[]);
-void set_committer();
-void get_committer();
-int request_committer();
-int get_rank_id();
-int telnet_client(int argc, char *argv[]);
+void COMM_connect_to_job_manager(char ip_adr[]);
+void COMM_set_committer();
+void COMM_get_committer();
+int COMM_request_committer();
+int COMM_get_rank_id();
+int COMM_get_run_num();
+char * COMM_get_path();
+int COMM_telnet_client(int argc, char *argv[]);
+int COMM_get_alive();
 
     // Job Manager Functions
-int setup_job_manager_network(int argc , char *argv[]);
-int wait_request();
-void create_new_connection();
-void close_connection(int sock);
+int COMM_setup_job_manager_network(int argc , char *argv[]);
+int COMM_wait_request();
+int COMM_reply_request();
+void COMM_create_new_connection();
+void COMM_close_connection(int sock);
+void COMM_increment_run_num();
+void COMM_set_path(char * file_path);
     
 // General Propose
-int send_byte_array(int sock, unsigned char * array);       // with unknown size
-unsigned char * read_byte_array(int sock);                  // with unknown size
+int COMM_send_bytes(int sock, void * bytes, int size);
+void * COMM_read_bytes(int sock);
+int COMM_send_char_array(int sock, char * array);      // with unknown size
+char* COMM_read_char_array(int sock);                  // with unknown size
+int COMM_send_int(int sock, int value);
+int COMM_read_int(int sock);
 
 #endif	/* COMM_H */
-

@@ -13,7 +13,7 @@ int new_socket, rank, run_num;
 
 /* Job Manager only */
 int master_socket, addrlen, new_socket, client_socket[max_clients], sd;
-int max_sd;
+int max_sd, alive;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
@@ -113,6 +113,15 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
             printf("Problem getting the rank value\n");
         }
     }
+}
+
+int COMM_get_alive() {
+    if(send(new_socket,"ga", 2) != 0) {
+	printf("Get alive failed\n");
+	return -1;
+    }
+
+    return COMM_read_int(new_socket);
 }
 
 void COMM_set_path(char * file_path) {
@@ -293,6 +302,8 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     ip_list = LIST_add_ip_adress(ip_list, "127.0.0.0", PORT );
     rank = 0;
     run_num = 0;
+    lib_path = NULL;
+    alive = 0;
     
     return 1;
 }
@@ -330,7 +341,8 @@ int COMM_wait_request() {
       
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
-            COMM_create_new_connection();
+	alive++;
+        COMM_create_new_connection();
     }
       
     // I/O Operation
@@ -342,6 +354,7 @@ int COMM_wait_request() {
         {
             if ((valread = read( sd , buffer, 1024)) == 0)      // Someone is closing
             {
+		alive--;
                 COMM_close_connection(sd);
                 client_socket[i] = 0;
             }
@@ -359,9 +372,13 @@ int COMM_wait_request() {
 }
 
 int COMM_reply_request() {
-   
+   // get alive number
+    if (strncmp(buffer, "ga", 2) == 0) {
+	COMM_send_int(sd, alive);
+    }
+    
     // get committer
-    if (strncmp(buffer, "gc", 2) == 0) {
+    else if (strncmp(buffer, "gc", 2) == 0) {
         if ((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0") == 0) && (ntohs(committer.sin_port) == 0))
             send(sd, "0", 1, 0);
         else {
@@ -381,7 +398,10 @@ int COMM_reply_request() {
     
     // get path
     else if (strncmp(buffer, "gr", 2) == 0) {
-        COMM_send_char_array(sd, lib_path);
+        if(lib_path != NULL)
+	    COMM_send_char_array(sd, lib_path);
+	else
+	    COMM_send_char_array(sd, "NULL\n");
     }
         
     // get rank

@@ -33,6 +33,7 @@ int COMM_get_rank_id();
 int COMM_get_run_num();
 char * COMM_get_path();
 int COMM_telnet_client(int argc, char *argv[]);
+int COMM_get_alive();
 
     // Job Manager Functions
 int COMM_setup_job_manager_network(int argc , char *argv[]);
@@ -52,4 +53,3 @@ int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
 
 #endif	/* COMM_H */
-

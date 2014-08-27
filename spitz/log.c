@@ -20,7 +20,6 @@
 #include "log.h"
 
 #include <time.h>
-//#include <mpi.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include "comm.h"

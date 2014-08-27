@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <mpi.h>
 #include <dlfcn.h>
 #include <stdarg.h>
 #include <pthread.h>
@@ -67,17 +66,13 @@ static int get_task_manager_id(void)
 	int rank;
 	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     //return rank - 2;
-    return (get_rank_id()-2); 
+    return (COMM_get_rank_id()-2); 
 }
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-	unsigned long sz = strlen(so) + 1;
-	MPI_Bcast(&sz, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
-
-	if (sz)
-		MPI_Bcast(so, sz, MPI_CHAR, JOB_MANAGER, MPI_COMM_WORLD);
-
+	COMM_set_path(so);				// set lib path variable
+	
 	job_manager(argc, argv, so, final_result);
 }
 
@@ -327,22 +322,18 @@ void start_master_process(int argc, char *argv[], char *so)
 	/* Send zero to kill other processes */
 	info("terminating spitz");
 	unsigned long zero = 0;
-	MPI_Bcast(&zero, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
+//	MPI_Bcast(&zero, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
 }
 
 void start_slave_processes(int argc, char *argv[])
 {
 	int rank;
+	char *so;
 	
-    rank=get_rank_id(); 
-    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-	unsigned long sz;
-	MPI_Bcast(&sz, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
-
-	while (sz != 0) {
-		char *so = malloc(sz);
-		MPI_Bcast(so, sz, MPI_CHAR, JOB_MANAGER, MPI_COMM_WORLD);
+    	rank = COMM_get_rank_id(); 
+	so = COMM_get_path();
+	
+	while (strncmp(so, "NULL", 4) != 0) {
 		info("received a module to run %s", so);
 
 		void *handle = dlopen(so, RTLD_LAZY);
@@ -379,8 +370,8 @@ void start_slave_processes(int argc, char *argv[])
 				pthread_join(t[i], NULL);
 		}
 
-		MPI_Bcast(&sz, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
 		free(so);
+		so = COMM_get_path();
 	}
 }
 

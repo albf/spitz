@@ -1,6 +1,6 @@
 #include "list.h"
 
-struct connected_ip * add_ip_address (struct connected_ip * pointer, char * adr, int prt) {
+struct connected_ip * LIST_add_ip_adress (struct connected_ip * pointer, char * adr, int prt) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     ptr->address = adr;
     ptr->port = prt;
@@ -14,7 +14,7 @@ struct connected_ip * add_ip_address (struct connected_ip * pointer, char * adr,
     return ptr;
 }
 
-struct connected_ip * remove_ip_address (struct connected_ip * pointer, char * adr, int prt) {
+struct connected_ip * LIST_remove_ip_adress (struct connected_ip * pointer, char * adr, int prt) {
     struct connected_ip * home = pointer;
     struct connected_ip * ptr;
 
@@ -44,13 +44,13 @@ struct connected_ip * remove_ip_address (struct connected_ip * pointer, char * a
     return home;    
 }
 
-struct connected_ip * search_ip_address (struct connected_ip * pointer, char * adr, int prt) {
+struct connected_ip * LIST_search_ip_adress (struct connected_ip * pointer, char * adr, int prt) {
     if(pointer == NULL)
         return NULL;
 
     else
         while(pointer != NULL) {
-            if((strcmp((const char *)adr, (const char *)pointer->next)==0) && (prt == pointer->port)) {
+            if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) {
                 return pointer;              
             }
             pointer = pointer->next;
@@ -59,11 +59,11 @@ struct connected_ip * search_ip_address (struct connected_ip * pointer, char * a
     return NULL;
 }
 
-int get_id (struct connected_ip * pointer, char * adr, int prt) {
-    return (search_ip_address(pointer, adr, prt))->id;
+int LIST_get_id (struct connected_ip * pointer, char * adr, int prt) {
+    return (LIST_search_ip_adress(pointer, adr, prt))->id;
 }
 
-void print_all_ip (struct connected_ip * pointer) {
+void LIST_print_all_ip (struct connected_ip * pointer) {
     int total = 0;
     
     while(pointer != NULL) {
@@ -76,9 +76,9 @@ void print_all_ip (struct connected_ip * pointer) {
     }
 }
 
-int print_all_ip_ordered (struct connected_ip * pointer) {
+int LIST_print_all_ip_ordered (struct connected_ip * pointer) {
     if(pointer!=NULL) {
-        int num=print_all_ip_ordered (pointer->next);
+        int num=LIST_print_all_ip_ordered (pointer->next);
         printf("Connection: %d\n", num);
         printf("ip: %s\n", pointer->address);
         printf("port: %d\n", pointer->port);
@@ -88,7 +88,7 @@ int print_all_ip_ordered (struct connected_ip * pointer) {
     return 1;
 }
 
-int get_total_workers (struct connected_ip * pointer) {
+int LIST_get_total_workers (struct connected_ip * pointer) {
     int total = 0;
 
     while(pointer!=NULL) {
@@ -99,9 +99,9 @@ int get_total_workers (struct connected_ip * pointer) {
     return total;
 }
 
-void free_list (struct connected_ip * pointer) {
+void LIST_free_list (struct connected_ip * pointer) {
     if(pointer!=NULL) {
-        free_list(pointer->next);
+        LIST_free_list(pointer->next);
         free(pointer);
     }    
 }

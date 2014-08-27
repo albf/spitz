@@ -20,7 +20,6 @@
 
 #include "jobmanager.h"
 
-//#include <mpi.h>
 #include <dlfcn.h>
 #include "message.h"
 #include "log.h"
@@ -44,8 +43,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 		return;
 	}
 
-	int alive;
-	MPI_Comm_size(MPI_COMM_WORLD, &alive);
+	int alive = COMM_get_alive();	// get alive nodes from  job manager.
 
 	struct task *iter, *prev, *aux, *sent = NULL;
 
