@@ -43,6 +43,8 @@ int COMM_send_bytes(int sock, void * bytes, int size);
 void * COMM_read_bytes(int sock);
 int COMM_send_char_array(int sock, char * array);      // with unknown size
 char* COMM_read_char_array(int sock);                  // with unknown size
+int COMM_send_int(int sock, int value);
+int COMM_read_int(int sock);
 
 #endif	/* COMM_H */
 

@@ -7,10 +7,9 @@ Alexandre L. B. F.
 #include "comm.h"
 
 /* Global Variables */
-char buffer[1025];  //data buffer of 1K
+char buffer[1025], lib_path[128];  //data buffer of 1K
 struct sockaddr_in committer;    // address of committer node
-int new_socket;
-int rank;
+int new_socket, rank, run_num;
 
 /* Job Manager only */
 int master_socket, addrlen, new_socket, client_socket[max_clients], sd;
@@ -68,6 +67,20 @@ int COMM_send_char_array(int sock, char * array) {
 // Read char array using read bytes function
 char * COMM_read_char_array(int sock) {
     return (char *) COMM_read_bytes(sock);
+}
+
+int COMM_send_int(int sock, int value) {
+    return COMM_send_bytes(sock, (void *) &value, sizeof(int));
+}
+
+int COMM_read_int(int sock) {
+    int result;
+    int * rcv_int;
+    
+    rcv_int = (int *) COMM_read_bytes(sock);
+    result = * rcv_int;
+    free(rcv_int);
+    return result;
 }
 
 void COMM_connect_to_job_manager(char ip_adr[]) {
@@ -252,6 +265,7 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     addrlen = sizeof(address);
     ip_list = LIST_add_ip_adress(ip_list, "127.0.0.0", PORT );
     rank = 0;
+    run_num = 0;
     
     return 1;
 }
@@ -323,7 +337,8 @@ int COMM_wait_request() {
                     char rank_id[10];
                     getpeername(sd, (struct sockaddr*)&sender_credentials, (socklen_t*)&addrlen);
                     sprintf(rank_id, "%d", COMM_get_rank_id(ip_list, inet_ntoa(committer.sin_addr), ntohs(committer.sin_port)));
-                    send(sd, rank_id, strlen(rank_id), 0); 
+                    COMM_send_char_array(sd, rank_id);
+                    //send(sd, rank_id, strlen(rank_id), 0); 
                 }
                 
                 // set committer 
@@ -347,14 +362,19 @@ int COMM_wait_request() {
                         strcat (committer_send, port_str);
                         
                         // message format: ip|porta
-                        send(sd, committer_send, strlen(committer_send),0);
+                        
+                        COMM_send_char_array(sd, committer_send);
+                        //send(sd, committer_send, strlen(committer_send),0);
                     }
                 }
 
-                // test
-                else if(strncmp(buffer, "ts", 2)==0) {
-                    char a_array[20] = "alexandre\n";
-                    COMM_send_char_array(sd, a_array);
+                // get run
+                else if(strncmp(buffer, "gr", 2)==0) {
+                    char committer_send[25];
+                    sprintf(committer_send, "%d", run_num);
+                    strcat (committer_send, "\n");
+                    COMM_send_char_array(sd, committer_send);
+                    
                 }
                 else
                     return atoi(buffer);
