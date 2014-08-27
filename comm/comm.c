@@ -128,7 +128,7 @@ char * COMM_get_path() {
    return COMM_read_char_array(new_socket);
 } 
 
-void COMM_increment_run() {
+void COMM_increment_run_num() {
     if(rank==0)
         run_num++;
 }

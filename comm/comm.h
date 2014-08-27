@@ -40,7 +40,7 @@ int COMM_wait_request();
 int COMM_reply_request();
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
-void COMM_increment_run();
+void COMM_increment_run_num();
 void COMM_set_path(char * file_path);
     
 // General Propose
