@@ -46,9 +46,7 @@ static void vmessage(FILE *f, const char *msg, const char *prefix,
 		enum color color, va_list ap)
 {
 	int rank;
-	
-	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank=get_rank_id();
+	rank=COMM_get_rank_id();
 	
 	const char *actor;
 	if (rank == 0)
@@ -79,10 +77,9 @@ void info(const char *msg, ...)
 {
 	if (LOG_LEVEL < 1)
 		return;
-	int rank;
 	
-	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank = get_rank_id();	
+	int rank;
+	rank = COMM_get_rank_id();	
 	
 	va_list ap;
 	va_start(ap, msg);
@@ -94,11 +91,10 @@ void debug(const char *msg, ...)
 {
 	if (LOG_LEVEL < 2)
 		return;
+	
 	int rank;
-
-	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank = get_rank_id();
-
+	rank = COMM_get_rank_id();
+	
 	va_list ap;
 	va_start(ap, msg);
 	vmessage(stdout, msg, "debug:", GREEN, ap);
@@ -108,9 +104,7 @@ void debug(const char *msg, ...)
 void warning(const char *msg, ...)
 {
 	int rank;
-	
-	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank = get_rank_id();
+	rank = COMM_get_rank_id();
 	
 	va_list ap;
 	va_start(ap, msg);
@@ -123,7 +117,7 @@ void error(const char *msg, ...)
 	int rank;
 
 	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank = get_rank_id();
+	rank = COMM_get_rank_id();
 	
 	va_list ap;
 	va_start(ap, msg);

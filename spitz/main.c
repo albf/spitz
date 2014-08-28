@@ -78,9 +78,9 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
 void committer(int argc, char *argv[], void *handle)
 {
-	int alive = 1;
-	struct byte_array ba;
-	byte_array_init(&ba, 100);
+	int alive = 1, socket_serv=0;
+	struct byte_array * ba;
+	byte_array_init(ba, 100);
 	size_t task_id;
 
 	// TODO: use a better data structure (like AVL tree)
@@ -101,11 +101,11 @@ void committer(int argc, char *argv[], void *handle)
 	while (alive) {
 		int already_committed;
 		enum message_type type;
-		get_message(&ba, &type, NULL);
-
+		ba = COMM_wait_request(&type, &socket_serv);
+		
 		switch (type) {
 			case MSG_RESULT:
-				byte_array_unpack64(&ba, &task_id);
+				byte_array_unpack64(ba, &task_id);
 				debug("got a RESULT message for task %d", task_id);
 				already_committed = 0;
 				for (i = 0; i < len; i++)
@@ -118,17 +118,17 @@ void committer(int argc, char *argv[], void *handle)
 					}
 					committed[len++] = task_id;
 
-					commit_pit(user_data, &ba);
-					byte_array_clear(&ba);
-					byte_array_pack64(&ba, task_id);
+					commit_pit(user_data, ba);
+					byte_array_clear(ba);
+					byte_array_pack64(ba, task_id);
 					send_message(&ba, MSG_DONE, JOB_MANAGER);
 				}
 				break;
 			case MSG_KILL:
 				info("got a KILL message, committing job");
-				byte_array_clear(&ba);
+				byte_array_clear(ba);
 				if (commit_job) {
-					commit_job(user_data, &ba);
+					commit_job(user_data, ba);
 					send_message(&ba, MSG_RESULT, JOB_MANAGER);
 				}
 				alive = 0;
@@ -140,7 +140,7 @@ void committer(int argc, char *argv[], void *handle)
 
 	//setup_free(user_data);
 	info("terminating committer");
-	byte_array_free(&ba);
+	byte_array_free(ba);
 }
 
 void *worker(void *ptr)
