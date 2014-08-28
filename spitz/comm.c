@@ -34,12 +34,15 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 }
 
 // Receive the message responsible for the communication between processes
-void COMM_get_message(struct byte_array *ba, enum message_type *type, int rcv_socket)
+void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket)
 {
 	struct byte_array _ba;
 	int len;
 
-    *type = (enum message_type) COMM_read_int(rcv_socket);    
+    *type = (enum message_type) COMM_read_int(rcv_socket);
+    if((*((int *)type)) == -1)
+        return;
+
     ba->ptr = COMM_read_bytes(rcv_socket, &len);    
     
 	if (!ba) {
@@ -75,6 +78,11 @@ void * COMM_read_bytes(int sock, int * size) {
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
 
+        if(total_rcv == 0) {
+            *size = -1;
+            return NULL;
+        }
+        
         if(received_char!='|')
             message_size[offset]=received_char;
         else
@@ -117,6 +125,9 @@ int COMM_read_int(int sock) {
     int * rcv_int;
     
     rcv_int = (int *) COMM_read_bytes(sock, NULL);
+    if(rcv_int == NULL)
+        return -1;
+    
     result = * rcv_int;
     free(rcv_int);
     return result;
@@ -336,8 +347,9 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     if (listen(master_socket, 3) < 0) {
         return -1;
     }
-      
-    addrlen = sizeof(address);
+    
+    // Start list of variables
+    addrlen = sizeof(address);                                      
     ip_list = LIST_add_ip_adress(ip_list, "127.0.0.0", PORT );
     rank = 0;
     run_num = 0;
@@ -348,10 +360,12 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     return 0;
 }
 
-// Job Manager function
-int COMM_wait_request() {
-    int i, valread, activity;
- 
+// Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
+struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket) {
+    int i, activity;
+    struct byte_array * ba;
+    enum message_type * type_rcv;
+    
     puts("Waiting for request \n");
      
     //clear the socket set
@@ -381,34 +395,38 @@ int COMM_wait_request() {
       
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
-	alive++;
+        alive++;
         COMM_create_new_connection();
     }
       
     // I/O Operation
     for (i = 0; i < max_clients; i++) 
     {
-        sd = client_socket[i];
+        sd = client_socket[loop_b];
           
         if (FD_ISSET( sd , &readfds)) 
         {
-            if ((valread = read( sd , buffer, 1024)) == 0)      // Someone is closing
+            COMM_read_message(ba,type,sd);
+           
+            if ((*((int *)type)) == -1)      // Someone is closing
             {
 		        alive--;
                 COMM_close_connection(sd);
                 client_socket[i] = 0;
             }
               
-            else                                                // Other request
+            else                            // Other request
             {
-                buffer[valread] = '\0';
-                printf("buffer: %s, valread: %d\n", buffer, valread);
-                return COMM_reply_request();
+                *type = *type_rcv;
+                *origin_socket = *sd;
+                return ba;
             }
         }
+    
+        loop_b = (loop_b+1)%max_clients;
     }
       
-    return 0;
+    return NULL;
 }
 
 int COMM_reply_request() {

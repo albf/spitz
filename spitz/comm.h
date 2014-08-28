@@ -58,7 +58,7 @@ int COMM_get_alive();
 
     // Job Manager Functions
 int COMM_setup_job_manager_network(int argc , char *argv[]);
-int COMM_wait_request();
+struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket);
 int COMM_reply_request();
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
@@ -73,6 +73,6 @@ char* COMM_read_char_array(int sock);                  // with unknown size
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
-void COMM_get_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
+void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
 
 #endif	/* COMM_H */
