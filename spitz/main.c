@@ -121,7 +121,7 @@ void committer(int argc, char *argv[], void *handle)
 					commit_pit(user_data, ba);
 					byte_array_clear(ba);
 					byte_array_pack64(ba, task_id);
-					send_message(&ba, MSG_DONE, JOB_MANAGER);
+					COMM_send_message(ba, MSG_DONE, COMM_get_socket_manager());
 				}
 				break;
 			case MSG_KILL:
@@ -129,7 +129,7 @@ void committer(int argc, char *argv[], void *handle)
 				byte_array_clear(ba);
 				if (commit_job) {
 					commit_job(user_data, ba);
-					send_message(&ba, MSG_RESULT, JOB_MANAGER);
+					COMM_send_message(ba, MSG_RESULT, COMM_get_socket_manager());
 				}
 				alive = 0;
 				break;
@@ -214,7 +214,7 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
 		n->next = NULL;
 		n = aux;
 		while (n) {
-			send_message(&n->ba, MSG_RESULT, COMMITTER);
+			COMM_send_message(&n->ba, MSG_RESULT, COMM_get_socket_committer());
 			byte_array_free(&n->ba);
 			aux = n->next;
 			free(n);
@@ -231,7 +231,7 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
 				len++;
 		}
 		while (n) {
-			send_message(&n->ba, MSG_RESULT, COMMITTER);
+			COMM_send_message(&n->ba, MSG_RESULT,COMM_get_socket_committer());
 			byte_array_free(&n->ba);
 			aux = n->next;
 			free(n);
@@ -259,8 +259,8 @@ void task_manager(struct thread_data *d)
 		struct byte_array task;
 
 		debug("sending READY message to JOB_MANAGER");
-		send_message(NULL, MSG_READY, JOB_MANAGER);
-		get_message(&ba, &type, NULL);
+		COMM_send_message(NULL, MSG_READY, COMM_get_socket_manager());
+		COMM_read_message(&ba, &type, COMM_get_socket_manager());
 
 		switch (type) {
 			case MSG_TASK:
@@ -381,18 +381,18 @@ int main(int argc, char *argv[])
     enum actor type=atoi(argv[0]);
 
     if(type==JOB_MANAGER) {
-        setup_job_manager_network(argc , argv);
-        rank=0; 
+        COMM_setup_job_manager_network(argc , argv);
+        COMM_set_rank(0); 
     } 
     else {
-        connect_to_job_manager(argv[1]);
-        get_rank_id();
+        COMM_connect_to_job_manager(argv[1]);
+        COMM_get_rank_id();
         
-        if(type==COMMITTER)
-            set_committer();    
-    
-        else 
-            get_committer();
+        if(type==COMMITTER) {		// The committer sets itself in the jm	
+            COMM_set_committer();    
+		}
+        else						// Task Managers get the committer 
+            COMM_get_committer();
     }
     
     size=3;
@@ -442,6 +442,6 @@ int main(int argc, char *argv[])
 	else
 		start_slave_processes(argc, argv);
 
-	MPI_Finalize();
+	//MPI_Finalize();
 	return 0;
 }

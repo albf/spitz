@@ -51,44 +51,45 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 	spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
 	enum message_type type;
-	struct byte_array ba;
-	byte_array_init(&ba, 10);
+	struct byte_array * ba;
+	byte_array_init(ba, 10);
 	void *user_data = ctor(argc, argv);
 	size_t tid, task_id = 0;
 	while (1) {
 		int rank;
 		struct task *node;
-
-		get_message(&ba, &type, &rank);
+		int origin_socket;
+		ba = COMM_wait_request(&type, &origin_socket); 
+		
 		switch (type) {
 			case MSG_READY:
-				byte_array_clear(&ba);
-				byte_array_pack64(&ba, task_id);
-				if (tgen(user_data, &ba)) {
+				byte_array_clear(ba);
+				byte_array_pack64(ba, task_id);
+				if (tgen(user_data, ba)) {
 					node = malloc(sizeof(*node));
 					node->id = task_id;
-					byte_array_init(&node->data, ba.len);
-					byte_array_pack8v(&node->data, ba.ptr, ba.len);
+					byte_array_init(&node->data, ba->len);
+					byte_array_pack8v(&node->data, ba->ptr, ba->len);
 					debug("sending generated task %d to %d", task_id, rank);
 					node->next = sent;
 					sent = node;
 					aux = sent;
-					send_message(&ba, MSG_TASK, rank);
+					COMM_send_message(ba, MSG_TASK, origin_socket);
 					task_id++;
 				} else if (sent != NULL) {
-					send_message(&aux->data, MSG_TASK, rank);
+					COMM_send_message(&aux->data, MSG_TASK, origin_socket);
 					debug("replicating task %d", aux->id);
 					aux = aux->next;
 					if (!aux)
 						aux = sent;
 				} else {
 					debug("sending KILL to rank %d", rank);
-					send_message(&ba, MSG_KILL, rank);
+					COMM_send_message(ba, MSG_KILL, origin_socket);
 					alive--;
 				}
 				break;
 			case MSG_DONE:
-				byte_array_unpack64(&ba, &tid);
+				byte_array_unpack64(ba, &tid);
 				iter = sent;
 				prev = NULL;
 				while (iter->id != tid) {
@@ -116,15 +117,15 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
 		if (alive == 2) {
 			info("sending KILL to committer");
-			send_message(&ba, MSG_KILL, COMMITTER);
+			COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());
 
 			info("fetching final result");
-			get_message(final_result, NULL, NULL);
+			//COMM_read_message(final_result, NULL, NULL);
 			break;
 		}
 	}
 
-	byte_array_free(&ba);
+	byte_array_free(ba);
 
 	info("terminating job manager");
 }

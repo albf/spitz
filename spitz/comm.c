@@ -8,7 +8,7 @@ Alexandre L. B. F.
 
 /* Global Variables */
 char buffer[1025], * lib_path;      	// data buffer of 1K
-struct sockaddr_in addr_committer;       	// address of committer node
+struct sockaddr_in addr_committer;      // address of committer node
 int socket_manager, socket_committer;   // Important socket values
 int rank, run_num;                      // Rank and run_num variables
 int loop_b;                             // Used to balance the requests
@@ -19,6 +19,17 @@ int max_sd, alive;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
 
+void COMM_set_rank(int new_rank) {
+    rank = new_rank;
+}
+
+int COMM_get_socket_committer() {
+    return socket_committer;
+}
+
+int COMM_get_socket_manager() {
+    return socket_manager;
+}
 
 // Send message, used to make request between processes 
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
