@@ -30,7 +30,7 @@
 #include "cfifo.h"
 #include "barray.h"
 #include "log.h"
-#include "message.h"
+//#include "message.h"
 #include "jobmanager.h"
 #include "comm.h"
 

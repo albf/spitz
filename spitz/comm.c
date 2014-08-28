@@ -7,15 +7,50 @@ Alexandre L. B. F.
 #include "comm.h"
 
 /* Global Variables */
-char buffer[1025], * lib_path;      //data buffer of 1K
-struct sockaddr_in committer;       // address of committer node
-int new_socket, rank, run_num;
+char buffer[1025], * lib_path;      	// data buffer of 1K
+struct sockaddr_in committer;       	// address of committer node
+int socket_manager, socket_committer;   // Important socket values
+int rank, run_num;                      // Rank and run_num variables
+int loop_b;                             // Used to balance the requests
 
 /* Job Manager only */
-int master_socket, addrlen, new_socket, client_socket[max_clients], sd;
+int master_socket, addrlen, socket_manager, client_socket[max_clients], sd;
 int max_sd, alive;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
+
+
+// Send message, used to make request between processes 
+void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
+	struct byte_array _ba;
+	if (!ba) {
+		_ba.ptr = NULL;
+		_ba.len = 0;
+		ba = &_ba;
+	}
+        
+    COMM_send_int(dest_socket, type);   
+    COMM_send_bytes(dest_socket, ba->ptr, (int)ba->len);
+}
+
+// Receive the message responsible for the communication between processes
+void COMM_get_message(struct byte_array *ba, enum message_type *type, int rcv_socket)
+{
+	struct byte_array _ba;
+	int len;
+
+    *type = (enum message_type) COMM_read_int(rcv_socket);    
+    ba->ptr = COMM_read_bytes(rcv_socket, &len);    
+    
+	if (!ba) {
+		_ba.ptr = NULL;
+		_ba.len = 0;
+		ba = &_ba;
+	} else {
+		byte_array_resize(ba, len);
+		ba->len = len, ba->iptr = ba->ptr;
+	}
+}
 
 // Send N bytes pointer by bytes pointer.
 int COMM_send_bytes(int sock, void * bytes, int size) {
@@ -25,13 +60,14 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     sprintf(size_c, "%d", size);
     strcat(size_c, "|\n");
     return_value = (int) send(sock, size_c, (strlen(size_c)-1), 0); // don't send '\n'
-    return_value = (int) send(sock, bytes, size, 0);
+    if(size>0)
+    	return_value = (int) send(sock, bytes, size, 0);
 
     return 0;    
 }
 
 // Read unknown type and size from socket.
-void * COMM_read_bytes(int sock) {
+void * COMM_read_bytes(int sock, int * size) {
     char message_size[20], received_char='0';
     int total_rcv, offset=0, msg_size;
     char * bytes_rcv;
@@ -49,9 +85,12 @@ void * COMM_read_bytes(int sock) {
 
     msg_size = atoi(message_size);
     bytes_rcv = malloc(msg_size);
-    offset = 0;    
+    offset = 0;
     
-    while(offset < msg_size) {
+    if(size != NULL)
+    	* size = msg_size;    
+    
+    while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (bytes_rcv+offset), (msg_size-offset));
         offset+=total_rcv;
     }
@@ -66,7 +105,7 @@ int COMM_send_char_array(int sock, char * array) {
 
 // Read char array using read bytes function
 char * COMM_read_char_array(int sock) {
-    return (char *) COMM_read_bytes(sock);
+    return (char *) COMM_read_bytes(sock, NULL);
 }
 
 int COMM_send_int(int sock, int value) {
@@ -77,7 +116,7 @@ int COMM_read_int(int sock) {
     int result;
     int * rcv_int;
     
-    rcv_int = (int *) COMM_read_bytes(sock);
+    rcv_int = (int *) COMM_read_bytes(sock, NULL);
     result = * rcv_int;
     free(rcv_int);
     return result;
@@ -89,8 +128,8 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     int valread;
     
     //Create socket
-    new_socket = socket(AF_INET , SOCK_STREAM , 0);
-    if (new_socket == -1)
+    socket_manager = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_manager == -1)
     {
         printf("Could not create socket");
     }
@@ -101,12 +140,12 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     address.sin_port = htons( 8888 );
  
     //Connect to remote server
-    if (connect(new_socket , (struct sockaddr *)&address , sizeof(address)) < 0) {
+    if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
         printf("Could not connect to the Job Manager.\n");
     }
     else {
         puts("Connected Successfully to the Job Manager\n");
-        if(valread = read(new_socket, rcv_rank, 10)>0) {
+        if(valread = read(socket_manager, rcv_rank, 10)>0) {
             rank = atoi(rcv_rank); 
         }
         else {
@@ -116,12 +155,12 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
 }
 
 int COMM_get_alive() {
-    if(send(new_socket,"ga", 2) != 0) {
+    if(send(socket_manager,"ga", 2, 0) != 0) {
 	printf("Get alive failed\n");
 	return -1;
     }
 
-    return COMM_read_int(new_socket);
+    return COMM_read_int(socket_manager);
 }
 
 void COMM_set_path(char * file_path) {
@@ -129,12 +168,12 @@ void COMM_set_path(char * file_path) {
 }
 
 char * COMM_get_path() {
-   if(send(new_socket, "gp", 2, 0) < 0) {
+   if(send(socket_manager, "gp", 2, 0) < 0) {
        printf("Get path failed \n");
        return NULL;
    } 
 
-   return COMM_read_char_array(new_socket);
+   return COMM_read_char_array(socket_manager);
 } 
 
 void COMM_increment_run_num() {
@@ -143,17 +182,17 @@ void COMM_increment_run_num() {
 }
 
 int COMM_get_run_num() {
-    if(send(new_socket, "gn", 2, 0) < 0) {
+    if(send(socket_manager, "gn", 2, 0) < 0) {
         printf("Get run failed \n");
         return -1;
     }
 
-    return COMM_read_int(new_socket); 
+    return COMM_read_int(socket_manager); 
 }
 
 void COMM_set_committer() {
     // sent set committer request
-    if (send(new_socket, "sc", 2, 0) < 0) {
+    if (send(socket_manager, "sc", 2, 0) < 0) {
         printf("Set committer failed\n");
         return;
     }
@@ -173,13 +212,13 @@ int COMM_request_committer() {
     int c_port, valread;
     char * token;
     
-    if (send(new_socket, "gc", 2, 0) < 0) {
+    if (send(socket_manager, "gc", 2, 0) < 0) {
         printf("Get committer failed\n");
         return -1;
     }
 
     //Receive a reply from the server
-    if (valread = read(new_socket, buffer, 1024) >= 0) {
+    if (valread = read(socket_manager, buffer, 1024) >= 0) {
         if (strlen(buffer) == 1) {              // Job manager doesn't know yet
             return -1;
         } else {
@@ -209,12 +248,12 @@ int COMM_get_rank_id() {
     char recv_id[10];
     int valread;
         
-    if (send(new_socket, "gr", 2, 0) < 0) {
+    if (send(socket_manager, "gr", 2, 0) < 0) {
         printf("Get rank failed\n");
         return -1;
     }
 
-    if (valread = read(new_socket,recv_id ,10) >= 0) {
+    if (valread = read(socket_manager,recv_id ,10) >= 0) {
         recv_id[valread] = '\0'; 
         return atoi(recv_id);
     }
@@ -232,16 +271,16 @@ int COMM_telnet_client(int argc, char *argv[]) {
         scanf("%s" , buffer);
          
         //Send some data
-        if( send(new_socket , buffer , strlen(buffer) , 0) < 0)
+        if( send(socket_manager , buffer , strlen(buffer) , 0) < 0)
         {
             puts("Send failed");
             return 1;
         }
         
-        char * return_array = COMM_read_char_array(new_socket); 
+        char * return_array = COMM_read_char_array(socket_manager); 
         
         //Receive a reply from the server
-/*        if( recv(new_socket , buffer , 1024 , 0) < 0)
+/*        if( recv(socket_manager , buffer , 1024 , 0) < 0)
         {
             puts("recv failed");
             break;
@@ -251,7 +290,7 @@ int COMM_telnet_client(int argc, char *argv[]) {
         puts(buffer);
     }
      
-    close(new_socket);
+    close(socket_manager);
     return 0;
 }
 
@@ -304,8 +343,9 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     run_num = 0;
     lib_path = NULL;
     alive = 0;
+    loop_b=0;
     
-    return 1;
+    return 0;
 }
 
 // Job Manager function
@@ -354,7 +394,7 @@ int COMM_wait_request() {
         {
             if ((valread = read( sd , buffer, 1024)) == 0)      // Someone is closing
             {
-		alive--;
+		        alive--;
                 COMM_close_connection(sd);
                 client_socket[i] = 0;
             }
@@ -397,7 +437,7 @@ int COMM_reply_request() {
     }
     
     // get path
-    else if (strncmp(buffer, "gr", 2) == 0) {
+    else if (strncmp(buffer, "gp", 2) == 0) {
         if(lib_path != NULL)
 	    COMM_send_char_array(sd, lib_path);
 	else
@@ -411,7 +451,7 @@ int COMM_reply_request() {
         COMM_send_int(sd, COMM_get_rank_id(ip_list, inet_ntoa(sender_credentials.sin_addr), ntohs(sender_credentials.sin_port)));
     }
     
-    // get run
+    // get run_num
     else if (strncmp(buffer, "gn", 2) == 0) {
         COMM_send_int(sd, run_num);
 
@@ -434,17 +474,17 @@ void COMM_create_new_connection() {
     char id_send[10];
     struct sockaddr_in address;
     
-    if ((new_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+    if ((socket_manager = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
 	    printf("Problem accepting connection");
     }
   
     //inform user of socket number - used in send and receive commands
-    printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+    printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , socket_manager , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
     // Add new connection to the list, assign rank id and send to the user.
     ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)); 
     sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
-    send(new_socket,id_send, 10,0);
+    send(socket_manager,id_send, 10,0);
     
     //add new socket to array of sockets
     for (i = 0; i < max_clients; i++) 
@@ -452,7 +492,7 @@ void COMM_create_new_connection() {
 	//if position is empty
         if( client_socket[i] == 0 )
         {
-            client_socket[i] = new_socket;
+            client_socket[i] = socket_manager;
             printf("Adding to list of sockets as %d\n" , i);
                  
             break;

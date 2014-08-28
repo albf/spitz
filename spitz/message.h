@@ -31,9 +31,15 @@ enum actor {
 enum message_type {
 	MSG_READY,
 	MSG_TASK,
-	MSG_RESULT,
-	MSG_KILL,
-	MSG_DONE,
+	MSG_RESULT,	
+	MSG_KILL,	
+	MSG_DONE,	
+	MSG_GET_ALIVE,
+	MSG_GET_COMMITTER,
+	MSG_GET_PATH,
+	MSG_GET_RANK,
+	MSG_GET_RUNNUM,
+	MSG_SET_COMMITTER,	
 };
 
 void get_message(struct byte_array *ba, enum message_type *type, int *rank);

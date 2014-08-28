@@ -1,4 +1,4 @@
-SRC = cfifo.c log.c main.c jobmanager.c message.c list.c comm.c
+SRC = cfifo.c log.c main.c jobmanager.c list.c comm.c
 
 CPPFLAGS = -I.
 CFLAGS = -g
