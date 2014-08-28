@@ -8,7 +8,7 @@ Alexandre L. B. F.
 
 /* Global Variables */
 char buffer[1025], * lib_path;      	// data buffer of 1K
-struct sockaddr_in committer;       	// address of committer node
+struct sockaddr_in addr_committer;       	// address of committer node
 int socket_manager, socket_committer;   // Important socket values
 int rank, run_num;                      // Rank and run_num variables
 int loop_b;                             // Used to balance the requests
@@ -235,12 +235,12 @@ int COMM_request_committer() {
         } else {
             // otherwise, get the ip and port values.
             token = strtok(buffer, "|\0");
-            committer.sin_addr.s_addr = inet_addr(token);
-            committer.sin_family = AF_INET;
+            addr_committer.sin_addr.s_addr = inet_addr(token);
+            addr_committer.sin_family = AF_INET;
             
             token = strtok(NULL, "|\0");
             c_port = atoi(strtok(token, "|"));
-            committer.sin_port = htons(c_port);
+            addr_committer.sin_port = htons(c_port);
             return 1;
             
         }
@@ -311,8 +311,8 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     struct sockaddr_in address;
     
     ip_list = NULL;
-    committer.sin_addr.s_addr = 0;
-    committer.sin_port = 0;
+    addr_committer.sin_addr.s_addr = 0;
+    addr_committer.sin_port = 0;
       
     for (i = 0; i < max_clients; i++) {
         client_socket[i] = 0;
@@ -418,7 +418,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
             else                            // Other request
             {
                 *type = *type_rcv;
-                *origin_socket = *sd;
+                *origin_socket = sd;
                 return ba;
             }
         }
@@ -437,14 +437,14 @@ int COMM_reply_request() {
     
     // get committer
     else if (strncmp(buffer, "gc", 2) == 0) {
-        if ((strcmp((const char *) inet_ntoa(committer.sin_addr), "0.0.0.0") == 0) && (ntohs(committer.sin_port) == 0))
+        if ((strcmp((const char *) inet_ntoa(addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(addr_committer.sin_port) == 0))
             send(sd, "0", 1, 0);
         else {
             char committer_send[25] = "";
-            strcat(committer_send, inet_ntoa(committer.sin_addr));
+            strcat(committer_send, inet_ntoa(addr_committer.sin_addr));
 
             char port_str[6]; // used to represent a short int 
-            sprintf(port_str, "%d", (int) ntohs(committer.sin_port));
+            sprintf(port_str, "%d", (int) ntohs(addr_committer.sin_port));
 
             strcat(committer_send, "|");
             strcat(committer_send, port_str);
@@ -477,8 +477,8 @@ int COMM_reply_request() {
     
     // set committer 
     else if (strncmp(buffer, "sc", 2) == 0) {
-        getpeername(sd, (struct sockaddr*) &committer, (socklen_t*) & addrlen);
-        printf("Set committer, ip %s, port %d", inet_ntoa(committer.sin_addr), ntohs(committer.sin_port));
+        getpeername(sd, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
+        printf("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), ntohs(addr_committer.sin_port));
     }
     
     else
