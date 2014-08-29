@@ -16,10 +16,11 @@ struct connected_ip {
     char * address;
     int port;
     int id;
+    int socket;
 };
 
 // List manipulation 
-struct connected_ip * LIST_add_ip_adress(struct connected_ip * pointer, char * adr, int prt);
+struct connected_ip * LIST_add_ip_adress(struct connected_ip * pointer, char * adr, int prt, int socket);
 struct connected_ip * LIST_remove_ip_adress(struct connected_ip * pointer, char * adr, int prt);
 struct connected_ip * LIST_search_ip_adress(struct connected_ip * pointer, char * adr, int prt);
 void LIST_free_list(struct connected_ip * pointer);
@@ -27,6 +28,7 @@ void LIST_free_list(struct connected_ip * pointer);
 // Other requests
 int LIST_get_id(struct connected_ip * pointer, char * adr, int prt);
 int LIST_get_total_workers(struct connected_ip * pointer);
+int LIST_get_socket (struct connected_ip * pointer, int rank_id);
 
 // Debug Information
 void LIST_print_all_ip(struct connected_ip * pointer);

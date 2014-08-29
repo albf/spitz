@@ -29,104 +29,114 @@ typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
 struct task {
-	size_t id;
-	struct byte_array data;
-	struct task *next;
+    size_t id;
+    struct byte_array data;
+    struct task *next;
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-	void *ptr = dlopen(so, RTLD_LAZY);
+    void *ptr = dlopen(so, RTLD_LAZY);
 
-	if (!ptr) {
-		error("could not open %s", so);
-		return;
-	}
+    if (!ptr) {
+        error("could not open %s", so);
+        return;
+    }
 
-	int alive = COMM_get_alive();	// get alive nodes from  job manager.
+    int alive = COMM_get_alive();	// get alive nodes from  job manager.
 
-	struct task *iter, *prev, *aux, *sent = NULL;
+    struct task *iter, *prev, *aux, *sent = NULL;
 
-	spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");
-	spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
+    spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");
+    spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
-	enum message_type type;
-	struct byte_array * ba;
-	byte_array_init(ba, 10);
-	void *user_data = ctor(argc, argv);
-	size_t tid, task_id = 0;
-	while (1) {
-		int rank;
-		struct task *node;
-		int origin_socket;
-		ba = COMM_wait_request(&type, &origin_socket); 
-		
-		switch (type) {
-			case MSG_READY:
-				byte_array_clear(ba);
-				byte_array_pack64(ba, task_id);
-				if (tgen(user_data, ba)) {
-					node = malloc(sizeof(*node));
-					node->id = task_id;
-					byte_array_init(&node->data, ba->len);
-					byte_array_pack8v(&node->data, ba->ptr, ba->len);
-					debug("sending generated task %d to %d", task_id, rank);
-					node->next = sent;
-					sent = node;
-					aux = sent;
-					COMM_send_message(ba, MSG_TASK, origin_socket);
-					task_id++;
-				} else if (sent != NULL) {
-					COMM_send_message(&aux->data, MSG_TASK, origin_socket);
-					debug("replicating task %d", aux->id);
-					aux = aux->next;
-					if (!aux)
-						aux = sent;
-				} else {
-					debug("sending KILL to rank %d", rank);
-					COMM_send_message(ba, MSG_KILL, origin_socket);
-					alive--;
-				}
-				break;
-			case MSG_DONE:
-				byte_array_unpack64(ba, &tid);
-				iter = sent;
-				prev = NULL;
-				while (iter->id != tid) {
-					prev = iter;
-					iter = iter->next;
-				}
-				if (prev)
-					prev->next = iter->next;
-				else
-					sent = iter->next;
+    enum message_type type;
+    struct byte_array * ba;
+    byte_array_init(ba, 10);
+    void *user_data = ctor(argc, argv);
+    size_t tid, task_id = 0;
+    while (1) {
+        int rank;
+        struct task *node;
+        int origin_socket;
+        ba = COMM_wait_request(&type, &origin_socket); 
+        
+        switch (type) {
+            case MSG_READY:
+                byte_array_clear(ba);
+                byte_array_pack64(ba, task_id);
+                if (tgen(user_data, ba)) {
+                    node = malloc(sizeof(*node));
+                    node->id = task_id;
+                    byte_array_init(&node->data, ba->len);
+                    byte_array_pack8v(&node->data, ba->ptr, ba->len);
+                    debug("sending generated task %d to %d", task_id, rank);
+                    node->next = sent;
+                    sent = node;
+                    aux = sent;
+                    COMM_send_message(ba, MSG_TASK, origin_socket);
+                    task_id++;
+                } else if (sent != NULL) {
+                    COMM_send_message(&aux->data, MSG_TASK, origin_socket);
+                    debug("replicating task %d", aux->id);
+                    aux = aux->next;
+                    if (!aux)
+                        aux = sent;
+                } else {
+                    debug("sending KILL to rank %d", rank);
+                    COMM_send_message(ba, MSG_KILL, origin_socket);
+                    alive--;
+                }
+                break;
+            case MSG_DONE:
+                byte_array_unpack64(ba, &tid);
+                iter = sent;
+                prev = NULL;
+                while (iter->id != tid) {
+                    prev = iter;
+                    iter = iter->next;
+                }
+                if (prev)
+                    prev->next = iter->next;
+                else
+                    sent = iter->next;
 
-				if (aux == iter) {
-					aux = aux->next;
-					if (!aux)
-						aux = sent;
-				}
+                if (aux == iter) {
+                    aux = aux->next;
+                    if (!aux)
+                        aux = sent;
+                }
 
-				debug("TASK %d is complete! sent = %p", tid, sent);
-				byte_array_free(&iter->data);
-				free(iter);
-				break;
-			default:
-				break;
-		}
+                debug("TASK %d is complete! sent = %p", tid, sent);
+                byte_array_free(&iter->data);
+                free(iter);
+                break;
+            case MSG_GET_COMMITTER:
+                COMM_send_committer();
+            case MSG_GET_PATH:
+                COMM_send_path();
+            case MSG_GET_RUNNUM:
+                byte_array_clear(ba);
+                byte_array_pack64(ba, run_num);
+                COMM_send_message(ba,MSG_GET_RUNNUM,origin_socket);
+            case MSG_SET_COMMITTER:
+                COMM_register_committer();
+            default:
+                break;
+        }
 
-		if (alive == 2) {
-			info("sending KILL to committer");
-			COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());
+        if (alive == 2) {
+            info("sending KILL to committer");
+            COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());
 
-			info("fetching final result");
-			//COMM_read_message(final_result, NULL, NULL);
-			break;
-		}
-	}
+            info("fetching final result");
+            //COMM_read_message(final_result, NULL, NULL);
+            break;
+        }
+    }
 
-	byte_array_free(ba);
+    byte_array_free(ba);
 
-	info("terminating job manager");
+    info("terminating job manager");
 }
 

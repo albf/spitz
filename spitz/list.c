@@ -1,10 +1,11 @@
 #include "list.h"
 
-struct connected_ip * LIST_add_ip_adress (struct connected_ip * pointer, char * adr, int prt) {
+struct connected_ip * LIST_add_ip_adress (struct connected_ip * pointer, char * adr, int prt, int socket) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     ptr->address = adr;
     ptr->port = prt;
     ptr->next = pointer;
+    ptr->socket = socket;
     
     if(ptr->next == NULL)
         ptr->id=0;
@@ -104,4 +105,15 @@ void LIST_free_list (struct connected_ip * pointer) {
         LIST_free_list(pointer->next);
         free(pointer);
     }    
+}
+
+int LIST_get_socket (struct connected_ip * pointer, int rank_id) {
+    if (pointer == NULL)
+        return -1;
+    
+    else if (pointer->id == rank_id)
+        return pointer->socket;
+
+    else
+        return LIST_get_socket(pointer->next, rank_id);
 }
