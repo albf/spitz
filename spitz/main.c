@@ -377,8 +377,8 @@ void start_slave_processes(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    int size, rank;
-    enum actor type=atoi(argv[0]);
+    int size;
+    enum actor type=atoi(argv[1]);
 
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
     if (debug) {
         int amount = atoi(debug);
         pid_t pid = getpid();
-        printf("Rank %d at pid %d\n", rank, pid);
+        printf("Rank %d at pid %d\n", COMM_get_rank_id(), pid);
         sleep(amount);
     }
 
@@ -415,23 +415,23 @@ int main(int argc, char *argv[])
     if (fifosz)
         FIFOSZ = atoi(fifosz);
 
-    if (rank == 0 && LOG_LEVEL >= 1)
+    if (type == JOB_MANAGER && LOG_LEVEL >= 1)
         printf("Welcome to spitz " SPITZ_VERSION "\n");
 
-    if (rank == 0 && argc < 2) {
+    if (type == JOB_MANAGER && argc < 2) {
         fprintf(stderr, "Usage: SO_PATH\n");
         return EXIT_FAILURE;
     }
 
     nworkers = (size - 2) * NTHREADS;
 
-    char *so = argv[1];
+    char *so = argv[2];
 
     /* Remove the first two arguments */
     argc -= 2;
     argv += 2;
 
-    if (rank == JOB_MANAGER)
+    if (type == JOB_MANAGER)
         start_master_process(argc, argv, so);
     else
         start_slave_processes(argc, argv);

@@ -304,6 +304,7 @@ int COMM_telnet_client(int argc, char *argv[]) {
     return 0;
 }
 
+// Setup committer, to receive incomings.
 int COMM_setup_committer() {
     int i, opt = 1;
     struct sockaddr_in address;

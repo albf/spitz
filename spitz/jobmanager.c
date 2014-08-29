@@ -51,7 +51,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
     enum message_type type;
-    struct byte_array * ba;
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba, 10);
     void *user_data = ctor(argc, argv);
     size_t tid, task_id = 0;
