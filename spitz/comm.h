@@ -23,6 +23,7 @@
 #define PORT_MANAGER 8888
 #define PORT_COMMITTER 9999
 #define max_clients 30
+#define max_pending_connections 3
 
 // Enums of actor and message type
 enum actor {
@@ -47,6 +48,7 @@ enum message_type {
 
 // Worker and Committer Functions
 void COMM_connect_to_job_manager(char ip_adr[]);
+int COMM_setup_committer();
 void COMM_set_committer();
 void COMM_get_committer();
 int COMM_request_committer();
@@ -60,7 +62,7 @@ int COMM_get_socket_manager();
 int COMM_get_socket_committer();
 
 // Job Manager Functions
-int COMM_setup_job_manager_network(int argc , char *argv[]);
+int COMM_setup_job_manager_network();
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket);
 int COMM_register_committer();
 void COMM_create_new_connection();

@@ -286,8 +286,55 @@ int COMM_telnet_client(int argc, char *argv[]) {
     return 0;
 }
 
-int COMM_setup_job_manager_network(int argc , char *argv[])
-{
+int COMM_setup_committer() {
+    int i, opt = 1;
+    struct sockaddr_in address;
+    enum message_type type = MSG_SET_COMMITTER; 
+    
+    COMM_send_message(NULL, type, socket_manager);      // set as a committer with manager
+    
+    for (i = 0; i < max_clients; i++)
+        client_socket[i] = 0;
+      
+    //  create a master socket
+    if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+        printf("socket failed\n");
+        return -1;
+    }
+  
+    //set master socket to allow multiple connections
+    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+        printf("setsockopt\n");
+        return -1;
+    }
+  
+    //type of socket created
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( PORT_COMMITTER );
+      
+    //bind the socket to localhost port PORT_COMMITTER
+    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+    {
+        printf("bind failed\n");
+        return -1;
+    }
+    printf("Listener on port %d \n", PORT_MANAGER);
+     
+    //try to specify maximum of max_pending_connections pending connections for the master socket
+    if (listen(master_socket, max_pending_connections) < 0) {
+        return -1;
+    }
+    
+    // Start list of variables
+    addrlen = sizeof(address);                                      
+    lib_path = NULL;
+    loop_b = 0;
+    
+    return 0;
+}
+
+int COMM_setup_job_manager_network() {
     int i, opt = 1;
     struct sockaddr_in address;
     
@@ -295,9 +342,8 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     addr_committer.sin_addr.s_addr = 0;
     addr_committer.sin_port = 0;
       
-    for (i = 0; i < max_clients; i++) {
+    for (i = 0; i < max_clients; i++) 
         client_socket[i] = 0;
-    }
       
     //  create a master socket
     if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
@@ -316,7 +362,7 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons( PORT_MANAGER );
       
-    //bind the socket to localhost port 8888
+    //bind the socket to localhost port PORT_MANAGER
     if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
         printf("bind failed\n");
@@ -325,7 +371,7 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     printf("Listener on port %d \n", PORT_MANAGER);
      
     //try to specify maximum of 3 pending connections for the master socket
-    if (listen(master_socket, 3) < 0) {
+    if (listen(master_socket, max_pending_connections) < 0) {
         return -1;
     }
     
@@ -336,7 +382,7 @@ int COMM_setup_job_manager_network(int argc , char *argv[])
     run_num = 0;
     lib_path = NULL;
     alive = 0;
-    loop_b=0;
+    loop_b = 0;
     
     return 0;
 }

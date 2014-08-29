@@ -388,9 +388,9 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(argv[1]);
         COMM_get_rank_id();
         
-        if(type==COMMITTER) {		// The committer sets itself in the jm	
-            COMM_set_committer();    
-        }
+        if(type==COMMITTER) 		// The committer sets itself in the jm
+            COMM_setup_committer();
+        
         else						// Task Managers get the committer 
             COMM_get_committer();
     }
