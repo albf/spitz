@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
             COMM_setup_committer();
         
         else						// Task Managers get the committer 
-            COMM_get_committer();
+            COMM_connect_to_committer();
     }
     
     char *debug = getenv("SPITS_DEBUG_SLEEP");

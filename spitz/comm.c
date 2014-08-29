@@ -171,6 +171,24 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     }
 }
 
+// Get committer with the job manager and estabilish a connection.
+void COMM_connect_to_committer() {
+    COMM_get_committer();
+    
+    //Create socket
+    socket_manager = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_manager == -1)
+        printf("Could not create socket");
+     
+    //Connect to remote server
+    if (connect(socket_committer , (struct sockaddr *)&addr_committer , sizeof(addr_committer)) < 0) 
+        printf("Could not connect to the Committer.\n");
+    
+    else 
+        puts("Connected Successfully to the Committer\n");
+        
+}
+
 int COMM_get_alive() {
     if(send(socket_manager,"ga", 2, 0) != 0) {
         printf("Get alive failed\n");
@@ -499,11 +517,14 @@ void COMM_create_new_connection() {
     //inform user of socket number - used in send and receive commands
     printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , socket_manager , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
-    // Add new connection to the list, assign rank id and send to the user.
+    // Add new connection to the list, assign rank id and send to the client (if the manager.
     ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), socket_manager); 
     sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
-    send(socket_manager,id_send, 10,0);
     
+    if(my_rank == 0) {
+      send(socket_manager,id_send, 10,0);
+    }
+
     //add new socket to array of sockets
     for (i = 0; i < max_clients; i++) 
     {

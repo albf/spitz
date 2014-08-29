@@ -48,6 +48,7 @@ enum message_type {
 
 // Worker and Committer Functions
 void COMM_connect_to_job_manager(char ip_adr[]);
+void COMM_connect_to_committer();
 int COMM_setup_committer();
 void COMM_set_committer();
 void COMM_get_committer();
@@ -87,5 +88,6 @@ extern struct sockaddr_in addr_committer;               // address of committer 
 extern char * lib_path;                                 // path of binary
 extern int run_num;
 extern socket_manager, socket_committer;
+extern int my_rank;
 
 #endif	/* COMM_H */
