@@ -41,8 +41,7 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 }
 
 // Receive the message responsible for the communication between processes
-void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket)
-{
+void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
     struct byte_array _ba;
     int len;
 
@@ -80,7 +79,7 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
 void * COMM_read_bytes(int sock, int * size) {
     char message_size[20], received_char='0';
     int total_rcv, offset=0, msg_size;
-    char * bytes_rcv;
+    char * bytes_rcv = NULL;
 
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
@@ -99,8 +98,9 @@ void * COMM_read_bytes(int sock, int * size) {
     }
 
     msg_size = atoi(message_size);
-    bytes_rcv = malloc(msg_size);
     offset = 0;
+    if(msg_size > 0)
+        bytes_rcv = malloc(msg_size);
     
     if(size != NULL)
     	* size = msg_size;    
@@ -229,10 +229,7 @@ int COMM_get_run_num() {
 
 void COMM_set_committer() {
     // sent set committer request
-    if (send(socket_manager, "sc", 2, 0) < 0) {
-        printf("Set committer failed\n");
-        return;
-    }
+    COMM_send_message(NULL, MSG_SET_COMMITTER, socket_manager);      // set as a committer with manager
     printf("Set committer successfully\n");
 }
 
@@ -313,9 +310,8 @@ int COMM_telnet_client(int argc, char *argv[]) {
 int COMM_setup_committer() {
     int i, opt = 1;
     struct sockaddr_in address;
-    enum message_type type = MSG_SET_COMMITTER; 
     
-    COMM_send_message(NULL, type, socket_manager);      // set as a committer with manager
+    COMM_set_committer();
     
     for (i = 0; i < max_clients; i++)
         client_socket[i] = 0;
@@ -446,7 +442,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
         *type = MSG_NEW_CONNECTION;
-        return NULL;
+        return ba;
     }
       
     // I/O Operation
@@ -478,7 +474,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         loop_b = (loop_b+1)%max_clients;
     }
       
-    return NULL;
+    return ba;
 }
 
 void COMM_send_committer() {
