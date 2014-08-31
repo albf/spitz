@@ -42,7 +42,6 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 
 // Receive the message responsible for the communication between processes
 struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
-    int len;
 
     *type = (enum message_type) COMM_read_int(rcv_socket);
     if((*((int *)type)) == -1)
@@ -54,8 +53,7 @@ struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *
         ba->len = 0;
     } else {
     
-    ba->len = len, ba->iptr = ba->ptr;
-    COMM_read_bytes(rcv_socket, &len, ba);
+    COMM_read_bytes(rcv_socket, NULL, ba);
     
     return ba;
     }
@@ -99,10 +97,12 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
     msg_size = atoi(message_size);
     offset = 0;
     byte_array_resize(ba, msg_size);
+    ba->len = msg_size, ba->iptr = ba->ptr;
     
-    if(size != NULL)
+    if(size != NULL) {
     	* size = msg_size;    
-    
+    }
+        
     while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
         offset+=total_rcv;
@@ -203,11 +203,15 @@ void COMM_set_path(char * file_path) {
 }
 
 char * COMM_get_path() {
-   if(send(socket_manager, "gp", 2, 0) < 0) {
-       printf("Get path failed \n");
-       return NULL;
-   } 
-   return COMM_read_char_array(socket_manager);
+    struct byte_array * ba;
+    char * path_r;
+    
+    COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
+    ba = COMM_read_message(ba, NULL, socket_manager);
+    path_r = (char *) ba->ptr;
+    free(ba);
+    
+    return path_r;
 } 
 
 void COMM_increment_run_num() {
@@ -406,7 +410,6 @@ int COMM_setup_job_manager_network() {
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity;
-    enum message_type * type_rcv;
     
     puts("Waiting for request \n");
      
@@ -461,7 +464,6 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
               
             else                            // Other request
             {
-                *type = *type_rcv;
                 *origin_socket = sd;
                 return ba;
             }

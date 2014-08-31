@@ -328,9 +328,7 @@ void start_master_process(int argc, char *argv[], char *so)
 void start_slave_processes(int argc, char *argv[])
 {
     int rank = COMM_get_rank_id();
-   
-    COMM_send_message(NULL, MSG_GET_PATH, socket_manager); 
-    lib_path = COMM_read_char_array (socket_manager);
+    lib_path = COMM_get_path();
     
     while (strncmp(lib_path, "NULL", 4) != 0) {
         info("received a module to run %s", lib_path);
@@ -370,8 +368,7 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         free(lib_path);
-        COMM_send_message(NULL, MSG_GET_PATH, socket_manager); 
-        lib_path = COMM_read_char_array (socket_manager);
+        lib_path = COMM_get_path();
     }
 }
 
