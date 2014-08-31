@@ -38,7 +38,7 @@ struct task {
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    ifFinished = 0;
+    isFinished = 0;
     void *ptr = dlopen(so, RTLD_LAZY);
 
     if (!ptr) {
