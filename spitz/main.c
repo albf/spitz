@@ -101,7 +101,7 @@ void committer(int argc, char *argv[], void *handle)
     while (alive) {
         int already_committed;
         enum message_type type;
-        ba = COMM_wait_request(&type, &socket_serv);
+        ba = COMM_wait_request(&type, &socket_serv, ba);
         
         switch (type) {
             case MSG_RESULT:
@@ -385,10 +385,10 @@ int main(int argc, char *argv[])
         COMM_set_rank_id(0);
     } 
     else {
-        COMM_connect_to_job_manager(argv[1]);
+        COMM_connect_to_job_manager(argv[2]);
         COMM_get_rank_id();
         
-        if(type==COMMITTER) 		// The committer sets itself in the jm
+        if(type==COMMITTER) 		                // The committer sets itself in the jm
             COMM_setup_committer();
         
         else						// Task Managers get the committer 
@@ -425,11 +425,11 @@ int main(int argc, char *argv[])
 
     nworkers = (size - 2) * NTHREADS;
 
-    char *so = argv[2];
+    char *so = argv[3];
 
     /* Remove the first two arguments */
-    argc -= 2;
-    argv += 2;
+    argc -= 3;
+    argv += 3;
 
     if (type == JOB_MANAGER)
         start_master_process(argc, argv, so);

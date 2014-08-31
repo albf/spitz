@@ -40,8 +40,10 @@ enum message_type {
 	MSG_GET_COMMITTER,	// Worker to Job Manager 
 	MSG_GET_PATH,		// Worker to Job Manager
 	MSG_GET_RUNNUM,		// Worker/Committer to Job Manager
-    MSG_GET_ALIVE,      // Worker to JobManager/Committer
+        MSG_GET_ALIVE,          // Worker to JobManager
 	MSG_SET_COMMITTER,	// Committer to Job Manager
+        MSG_NEW_CONNECTION,     // Worker/Committer to Job Manager/Commiter
+        MSG_CLOSE_CONNECTION    // Worker/Committer to Job Manager/Commiter
 };
 
 /* Functions */
@@ -64,7 +66,7 @@ int COMM_get_socket_committer();
 
 // Job Manager Functions
 int COMM_setup_job_manager_network();
-struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket);
+struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket,struct byte_array * ba);
 int COMM_register_committer();
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
@@ -72,6 +74,7 @@ void COMM_increment_run_num();
 void COMM_set_path(char * file_path);
 void COMM_send_committer();
 void COMM_send_path();
+void COMM_LIST_print_ip_list();
 
 // General Propose
 int COMM_send_bytes(int sock, void * bytes, int size);

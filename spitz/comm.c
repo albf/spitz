@@ -10,7 +10,7 @@ Alexandre L. B. F.
 char buffer[1025], * lib_path;      	// data buffer of 1K
 struct sockaddr_in addr_committer;      // address of committer node
 int socket_manager, socket_committer;   // Important socket values
-int my_rank, run_num;                      // Rank and run_num variables
+int my_rank, run_num;                   // Rank and run_num variables
 int loop_b;                             // Used to balance the requests
 
 /* Job Manager only */
@@ -190,7 +190,12 @@ void COMM_connect_to_committer() {
 }
 
 int COMM_get_alive() {
-    if(send(socket_manager,"ga", 2, 0) != 0) {
+    if(my_rank==0)
+        return alive;
+
+    
+    // TO DO
+    else if(send(socket_manager,"ga", 2, 0) != 0) {
         printf("Get alive failed\n");
         return -1;
     }
@@ -407,9 +412,8 @@ int COMM_setup_job_manager_network() {
 }
 
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
-struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket) {
+struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity;
-    struct byte_array * ba;
     enum message_type * type_rcv;
     
     puts("Waiting for request \n");
@@ -441,8 +445,8 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
       
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(master_socket, &readfds)) {
-        alive++;
-        COMM_create_new_connection();
+        *type = MSG_NEW_CONNECTION;
+        return NULL;
     }
       
     // I/O Operation
@@ -456,9 +460,11 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
            
             if ((*((int *)type)) == -1)      // Someone is closing
             {
-		        alive--;
-                COMM_close_connection(sd);
                 client_socket[i] = 0;
+                * type = MSG_CLOSE_CONNECTION;
+                byte_array_clear(ba);
+                 _byte_array_pack64(ba, (uint64_t) sd);
+                return ba;
             }
               
             else                            // Other request
@@ -518,12 +524,11 @@ void COMM_create_new_connection() {
     //inform user of socket number - used in send and receive commands
     printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , socket_manager , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
-    // Add new connection to the list, assign rank id and send to the client (if the manager.
-    ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), socket_manager); 
-    sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
-    
+    // Add new connection to the list, assign rank id and send to the client (if the manager).
     if(my_rank == 0) {
-      send(socket_manager,id_send, 10,0);
+        ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), socket_manager); 
+        sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
+        send(socket_manager,id_send, 10,0);
     }
 
     //add new socket to array of sockets
@@ -534,10 +539,12 @@ void COMM_create_new_connection() {
         {
             client_socket[i] = socket_manager;
             printf("Adding to list of sockets as %d\n" , i);
-                 
+            COMM_LIST_print_ip_list(); 
             break;
         }
     }
+
+    alive++;
 }
 
 void COMM_close_connection(int sock) {
@@ -546,10 +553,13 @@ void COMM_close_connection(int sock) {
     //Somebody disconnected , get his details and print
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&addrlen);
     printf("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-    ip_list = LIST_remove_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+
+    if(my_rank==0)
+        ip_list = LIST_remove_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
     
     //Close the socket 
     close( sd );
+    alive--;
 }
 
 void COMM_LIST_print_ip_list() {

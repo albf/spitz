@@ -14,10 +14,10 @@ picpp.so: pi.cpp
 test: pi.so picpp.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 0 $$PWD/pi.so 10000
+			gdb --args ./spitz 1 127.0.0.1 $$PWD/pi.so 10000
 	#LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 	#		mpirun -np 3 spitz $$PWD/picpp.so 10000
-
+	# format : ./spitz #type #ipManager #Path.so #TotalJobs
 
 debug: pi.so picpp.so
 	export SPITS_LOG_LEVEL=2

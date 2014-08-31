@@ -28,6 +28,8 @@
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
+int isFinished;
+
 struct task {
     size_t id;
     struct byte_array data;
@@ -36,14 +38,13 @@ struct task {
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
+    ifFinished = 0;
     void *ptr = dlopen(so, RTLD_LAZY);
 
     if (!ptr) {
         error("could not open %s", so);
         return;
     }
-
-    int alive = COMM_get_alive();	// get alive nodes from  job manager.
 
     struct task *iter, *prev, *aux, *sent = NULL;
 
@@ -59,7 +60,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         int rank;
         struct task *node;
         int origin_socket;
-        ba = COMM_wait_request(&type, &origin_socket); 
+        ba = COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
             case MSG_READY:
@@ -82,10 +83,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     aux = aux->next;
                     if (!aux)
                         aux = sent;
-                } else {
+                } else {        // will pass here if ended at least once
                     debug("sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
-                    alive--;
+                    isFinished=1;
                 }
                 break;
             case MSG_DONE:
@@ -111,21 +112,33 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 byte_array_free(&iter->data);
                 free(iter);
                 break;
+            case MSG_NEW_CONNECTION:
+                COMM_create_new_connection();
+                break;
+            case MSG_CLOSE_CONNECTION:  ;
+                uint64_t socket_cl;
+                _byte_array_unpack64(ba, &socket_cl);
+                COMM_close_connection((int)socket_cl);
+                break;
             case MSG_GET_COMMITTER:
                 COMM_send_committer();
+                break;
             case MSG_GET_PATH:
                 COMM_send_path();
+                break;
             case MSG_GET_RUNNUM:
                 byte_array_clear(ba);
                 byte_array_pack64(ba, run_num);
                 COMM_send_message(ba,MSG_GET_RUNNUM,origin_socket);
+                break;
             case MSG_SET_COMMITTER:
                 COMM_register_committer();
+                break;
             default:
                 break;
         }
 
-        if (alive == 2) {
+        if ((COMM_get_alive() == 2) && (isFinished==1)) {
             info("sending KILL to committer");
             COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());
 
