@@ -77,14 +77,14 @@ void COMM_send_path();
 void COMM_LIST_print_ip_list();
 
 // General Propose
+struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
 int COMM_send_bytes(int sock, void * bytes, int size);
-void * COMM_read_bytes(int sock, int * size);
-int COMM_send_char_array(int sock, char * array);      // with unknown size
-char* COMM_read_char_array(int sock);                  // with unknown size
+void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
+void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
+int COMM_send_char_array(int sock, char * array);               // with unknown size
+char * COMM_read_char_array(int sock);                          // with unknown size
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
-void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
-void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
 
 // Extern Variables
 extern struct sockaddr_in addr_committer;               // address of committer node

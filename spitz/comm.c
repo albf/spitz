@@ -41,23 +41,23 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 }
 
 // Receive the message responsible for the communication between processes
-void COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
-    struct byte_array _ba;
+struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
     int len;
 
     *type = (enum message_type) COMM_read_int(rcv_socket);
     if((*((int *)type)) == -1)
-        return;
+        return ba;
 
-    ba->ptr = COMM_read_bytes(rcv_socket, &len);    
-
-    if (!ba) {
-        _ba.ptr = NULL;
-        _ba.len = 0;
-        ba = &_ba;
+    if (ba==NULL) {
+        ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+        ba->ptr = NULL;
+        ba->len = 0;
     } else {
-    byte_array_resize(ba, len);
+    
     ba->len = len, ba->iptr = ba->ptr;
+    COMM_read_bytes(rcv_socket, &len, ba);
+    
+    return ba;
     }
 }
 
@@ -76,17 +76,16 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
 }
 
 // Read unknown type and size from socket.
-void * COMM_read_bytes(int sock, int * size) {
+void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
     char message_size[20], received_char='0';
     int total_rcv, offset=0, msg_size;
-    char * bytes_rcv = NULL;
 
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
 
         if(total_rcv == 0) {
             *size = -1;
-            return NULL;
+            return;
         }
         
         if(received_char!='|')
@@ -99,18 +98,15 @@ void * COMM_read_bytes(int sock, int * size) {
 
     msg_size = atoi(message_size);
     offset = 0;
-    if(msg_size > 0)
-        bytes_rcv = malloc(msg_size);
+    byte_array_resize(ba, msg_size);
     
     if(size != NULL)
     	* size = msg_size;    
     
     while(offset < msg_size) {		// if zero, doesn't come in
-        total_rcv = read(sock, (bytes_rcv+offset), (msg_size-offset));
+        total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
         offset+=total_rcv;
     }
-   
-    return (void *) bytes_rcv;
 }
 
 // Send char array using send bytes function
@@ -118,9 +114,11 @@ int COMM_send_char_array(int sock, char * array) {
     return COMM_send_bytes(sock, (void *) array, strlen(array));
 }
 
-// Read char array using read bytes function
 char * COMM_read_char_array(int sock) {
-    return (char *) COMM_read_bytes(sock, NULL);
+    struct byte_array ba;
+    byte_array_init(&ba, 0);
+    COMM_read_bytes(sock, NULL, &ba);
+    return (char *) ba.ptr; 
 }
 
 int COMM_send_int(int sock, int value) {
@@ -128,16 +126,14 @@ int COMM_send_int(int sock, int value) {
 }
 
 int COMM_read_int(int sock) {
-    int result;
-    int * rcv_int;
+    struct byte_array ba;
+    int * result;
     
-    rcv_int = (int *) COMM_read_bytes(sock, NULL);
-    if(rcv_int == NULL)
-        return -1;
+    byte_array_init(&ba, 0);
+    COMM_read_bytes(sock, NULL, &ba);
     
-    result = * rcv_int;
-    free(rcv_int);
-    return result;
+    result = (int *) ba.ptr;
+    return * result;
 }
 
 void COMM_connect_to_job_manager(char ip_adr[]) {
@@ -452,7 +448,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
           
         if (FD_ISSET( sd , &readfds)) 
         {
-            COMM_read_message(ba,type,sd);
+            ba = COMM_read_message(ba,type,sd);
            
             if ((*((int *)type)) == -1)      // Someone is closing
             {

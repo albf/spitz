@@ -250,8 +250,8 @@ void task_manager(struct thread_data *d)
     int min_results = 10;
     enum blocking b = NONBLOCKING;
 
-    struct byte_array ba;
-    byte_array_init(&ba, 100);
+    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+    byte_array_init(ba, 100);
 
     info("starting task manager main loop");
     while (alive) {
@@ -260,14 +260,14 @@ void task_manager(struct thread_data *d)
 
         debug("sending READY message to JOB_MANAGER");
         COMM_send_message(NULL, MSG_READY, COMM_get_socket_manager());
-        COMM_read_message(&ba, &type, COMM_get_socket_manager());
+        ba = COMM_read_message(ba, &type, COMM_get_socket_manager());
 
         switch (type) {
             case MSG_TASK:
                 debug("waiting task buffer to free some space");
                 sem_wait(&d->sem);
-                byte_array_init(&task, ba.len);
-                byte_array_pack8v(&task, ba.ptr, ba.len);
+                byte_array_init(&task, ba->len);
+                byte_array_pack8v(&task, ba->ptr, ba->len);
 
                 pthread_mutex_lock(&d->tlock);
                 cfifo_push(&d->f, &task);
@@ -292,7 +292,7 @@ void task_manager(struct thread_data *d)
     }
 
     info("terminating task manager");
-    byte_array_free(&ba);
+    byte_array_free(ba);
 }
 
 void start_master_process(int argc, char *argv[], char *so)
