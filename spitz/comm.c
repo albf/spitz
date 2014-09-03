@@ -240,25 +240,25 @@ void COMM_get_committer() {
 }
 
 int COMM_request_committer() {
-    int c_port, valread;
-    char * token;
+    int c_port;
+    char * token, * rcv_msg;
     
     COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
     
-    if (valread = read(socket_manager, buffer, 1024) >= 0) {        //receive a reply from the server
-        if (strlen(buffer) == 1) {                                  // Job manager doesn't know yet
+    if ((rcv_msg = COMM_read_char_array(socket_manager)) != NULL) {     //receive a reply from the server
+        if (strlen(buffer) == 1) {                                      // Job manager doesn't know yet
             return -1;
         } else {
             // otherwise, get the ip and port values.
-            token = strtok(buffer, "|\0");
+            token = strtok(rcv_msg, "|\0");
             addr_committer.sin_addr.s_addr = inet_addr(token);
             addr_committer.sin_family = AF_INET;
             
             token = strtok(NULL, "|\0");
-            c_port = atoi(strtok(token, "|"));
+            c_port = atoi(token);
+            //c_port = atoi(strtok(token, "|"));
             addr_committer.sin_port = htons(c_port);
             return 1;
-            
         }
     }
     return -1;
@@ -472,8 +472,10 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
 }
 
 void COMM_send_committer() {
+    char no_answer[2] = "0\n";
+    
     if ((strcmp((const char *) inet_ntoa(addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(addr_committer.sin_port) == 0))
-        send(sd, "0", 1, 0);
+        COMM_send_char_array(sd, no_answer);
     else {
         char committer_send[25] = "";
         strcat(committer_send, inet_ntoa(addr_committer.sin_addr));
