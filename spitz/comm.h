@@ -74,6 +74,7 @@ void COMM_increment_run_num();
 void COMM_set_path(char * file_path);
 void COMM_send_committer();
 void COMM_send_path();
+void COMM_send_alive(int origin_socket);
 void COMM_LIST_print_ip_list();
 
 // General Propose

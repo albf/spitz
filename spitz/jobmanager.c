@@ -134,6 +134,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_SET_COMMITTER:
                 COMM_register_committer();
                 break;
+            case MSG_GET_ALIVE:
+                COMM_send_alive(origin_socket);
+                break;
             default:
                 break;
         }

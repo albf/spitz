@@ -79,7 +79,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 void committer(int argc, char *argv[], void *handle)
 {
     int alive = 1, socket_serv=0;
-    struct byte_array * ba;
+    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
     size_t task_id;
 
@@ -379,11 +379,9 @@ int main(int argc, char *argv[])
 
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
-        COMM_set_rank_id(0);
     } 
     else {
         COMM_connect_to_job_manager(argv[2]);
-        COMM_get_rank_id();
         
         if(type==COMMITTER) 		                // The committer sets itself in the jm
             COMM_setup_committer();

@@ -111,7 +111,7 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 
 // Send char array using send bytes function
 int COMM_send_char_array(int sock, char * array) {
-    return COMM_send_bytes(sock, (void *) array, strlen(array));
+    return COMM_send_bytes(sock, (void *) array, strlen(array)+1);      // send the \n
 }
 
 char * COMM_read_char_array(int sock) {
@@ -185,16 +185,15 @@ void COMM_connect_to_committer() {
         
 }
 
+void COMM_send_alive(int origin_socket) {
+    COMM_send_int(origin_socket, alive);
+}
+
 int COMM_get_alive() {
     if(my_rank==0)
         return alive;
-
-    
-    // TO DO
-    else if(send(socket_manager,"ga", 2, 0) != 0) {
-        printf("Get alive failed\n");
-        return -1;
-    }
+   
+    COMM_send_message(NULL, MSG_GET_ALIVE, socket_manager);
     return COMM_read_int(socket_manager);
 }
 
@@ -203,16 +202,16 @@ void COMM_set_path(char * file_path) {
 }
 
 char * COMM_get_path() {
-    struct byte_array * ba;
-    char * path_r;
-    
     COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
-    ba = COMM_read_message(ba, NULL, socket_manager);
-    path_r = (char *) ba->ptr;
-    free(ba);
-    
-    return path_r;
+    return COMM_read_char_array(socket_manager);
 } 
+
+void COMM_send_path() {
+    if(lib_path != NULL)
+	    COMM_send_char_array(sd, lib_path);
+	else
+	    COMM_send_char_array(sd, "NULL\n");
+}
 
 void COMM_increment_run_num() {
     if(my_rank==0)
@@ -244,11 +243,8 @@ int COMM_request_committer() {
     int c_port, valread;
     char * token;
     
-    if (send(socket_manager, "gc", 2, 0) < 0) {
-        printf("Get committer failed\n");
-        return -1;
-    }
-
+    COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
+    
     if (valread = read(socket_manager, buffer, 1024) >= 0) {        //receive a reply from the server
         if (strlen(buffer) == 1) {                                  // Job manager doesn't know yet
             return -1;
@@ -493,15 +489,9 @@ void COMM_send_committer() {
     }
 }
 
-void COMM_send_path() {
-    if(lib_path != NULL)
-	    COMM_send_char_array(sd, lib_path);
-	else
-	    COMM_send_char_array(sd, "NULL\n");
-}
-
 int COMM_register_committer() {
     getpeername(sd, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
+    addr_committer.sin_port = (in_port_t) PORT_COMMITTER; 
     printf("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), ntohs(addr_committer.sin_port));
     return 0;
 }
