@@ -54,7 +54,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     enum message_type type;
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba, 10);
-    void *user_data = ctor(argc, argv);
+    void *user_data = ctor((argc-1), (argv+1));
     size_t tid, task_id = 0;
     while (1) {
         int rank;
