@@ -14,7 +14,7 @@ int my_rank, run_num;                   // Rank and run_num variables
 int loop_b;                             // Used to balance the requests
 
 /* Job Manager only */
-int master_socket, addrlen, socket_manager, client_socket[max_clients], sd;
+int master_socket, addrlen, client_socket[max_clients], sd;
 int max_sd, alive;
 fd_set readfds; //set of socket descriptors
 struct connected_ip * ip_list;
@@ -237,7 +237,7 @@ void COMM_get_committer() {
 int COMM_request_committer() {
     int c_port;
     char * token, * rcv_msg;
-    
+
     COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
     
     if ((rcv_msg = COMM_read_char_array(socket_manager)) != NULL) {     //receive a reply from the server
@@ -308,13 +308,13 @@ int COMM_setup_committer() {
         client_socket[i] = 0;
       
     //  create a master socket
-    if( (socket_committer = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+    if( (master_socket= socket(AF_INET , SOCK_STREAM , 0)) == 0) {
         printf("socket failed\n");
         return -1;
     }
   
     //set master socket to allow multiple connections
-    if( setsockopt(socket_committer, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
         printf("setsockopt\n");
         return -1;
     }
@@ -325,7 +325,7 @@ int COMM_setup_committer() {
     address.sin_port = htons( PORT_COMMITTER );
       
     //bind the socket to localhost port PORT_COMMITTER
-    if (bind(socket_committer, (struct sockaddr *)&address, sizeof(address))<0) 
+    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
         printf("bind failed\n");
         return -1;
@@ -333,7 +333,7 @@ int COMM_setup_committer() {
     printf("Listener on port %d \n", PORT_COMMITTER);
      
     //try to specify maximum of max_pending_connections pending connections for the master socket
-    if (listen(socket_committer, max_pending_connections) < 0) {
+    if (listen(master_socket, max_pending_connections) < 0) {
         return -1;
     }
     
@@ -400,8 +400,8 @@ int COMM_setup_job_manager_network() {
 
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
-    int i, activity;
-    
+    int i, activity; 
+
     puts("Waiting for request \n");
      
     //clear the socket set
