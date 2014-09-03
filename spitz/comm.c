@@ -488,8 +488,8 @@ void COMM_send_committer() {
 
 int COMM_register_committer() {
     getpeername(sd, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
-    addr_committer.sin_port = (in_port_t) PORT_COMMITTER; 
-    printf("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), ntohs(addr_committer.sin_port));
+    addr_committer.sin_port = htons (PORT_COMMITTER); 
+    printf("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), htons(addr_committer.sin_port));
     return 0;
 }
 
@@ -518,8 +518,12 @@ void COMM_create_new_connection() {
         if( client_socket[i] == 0 )
         {
             client_socket[i] = rcv_socket;
-            printf("Adding to list of sockets as %d\n" , i);
-            COMM_LIST_print_ip_list(); 
+            
+            if(my_rank==0) {
+                printf("Adding to list of sockets as %d\n" , i);
+                COMM_LIST_print_ip_list(); 
+            }
+
             break;
         }
     }
