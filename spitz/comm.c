@@ -158,12 +158,7 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     }
     else {
         puts("Connected Successfully to the Job Manager\n");
-        if(valread = read(socket_manager, rcv_rank, 10)>0) {
-            my_rank = atoi(rcv_rank); 
-        }
-        else {
-            printf("Problem getting the rank value\n");
-        }
+        my_rank = COMM_read_int(socket_manager); 
     }
 }
 
@@ -172,8 +167,8 @@ void COMM_connect_to_committer() {
     COMM_get_committer();
     
     //Create socket
-    socket_manager = socket(AF_INET , SOCK_STREAM , 0);
-    if (socket_manager == -1)
+    socket_committer = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_committer == -1)
         printf("Could not create socket");
      
     //Connect to remote server
@@ -302,7 +297,7 @@ int COMM_telnet_client(int argc, char *argv[]) {
     return 0;
 }
 
-// Setup committer, to receive incomings.
+// Setup committer, to receive incoming connections.
 int COMM_setup_committer() {
     int i, opt = 1;
     struct sockaddr_in address;
@@ -313,13 +308,13 @@ int COMM_setup_committer() {
         client_socket[i] = 0;
       
     //  create a master socket
-    if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+    if( (socket_committer = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
         printf("socket failed\n");
         return -1;
     }
   
     //set master socket to allow multiple connections
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+    if( setsockopt(socket_committer, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
         printf("setsockopt\n");
         return -1;
     }
@@ -330,7 +325,7 @@ int COMM_setup_committer() {
     address.sin_port = htons( PORT_COMMITTER );
       
     //bind the socket to localhost port PORT_COMMITTER
-    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+    if (bind(socket_committer, (struct sockaddr *)&address, sizeof(address))<0) 
     {
         printf("bind failed\n");
         return -1;
@@ -338,7 +333,7 @@ int COMM_setup_committer() {
     printf("Listener on port %d \n", PORT_COMMITTER);
      
     //try to specify maximum of max_pending_connections pending connections for the master socket
-    if (listen(master_socket, max_pending_connections) < 0) {
+    if (listen(socket_committer, max_pending_connections) < 0) {
         return -1;
     }
     
@@ -393,7 +388,7 @@ int COMM_setup_job_manager_network() {
     
     // Start list of variables
     addrlen = sizeof(address);                                      
-    ip_list = LIST_add_ip_adress(ip_list, "127.0.0.0", PORT_MANAGER, -1);
+    ip_list = LIST_add_ip_adress(ip_list, "127.0.0.1", PORT_MANAGER, -1);
     my_rank = 0;
     run_num = 0;
     lib_path = NULL;
@@ -499,22 +494,21 @@ int COMM_register_committer() {
 }
 
 void COMM_create_new_connection() {
-    int i;
-    char id_send[10];
+    int i, rcv_socket, id_send;
     struct sockaddr_in address;
-    
-    if ((socket_manager = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+  
+    if ((rcv_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
 	    printf("Problem accepting connection");
     }
   
     //inform user of socket number - used in send and receive commands
-    printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , socket_manager , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+    printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , rcv_socket, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
     // Add new connection to the list, assign rank id and send to the client (if the manager).
     if(my_rank == 0) {
-        ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), socket_manager); 
-        sprintf(id_send, "%d", LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port)));
-        send(socket_manager,id_send, 10,0);
+        ip_list = LIST_add_ip_adress(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket); 
+        id_send = LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        COMM_send_int(rcv_socket,id_send);
     }
 
     //add new socket to array of sockets
@@ -523,7 +517,7 @@ void COMM_create_new_connection() {
 	  //if position is empty
         if( client_socket[i] == 0 )
         {
-            client_socket[i] = socket_manager;
+            client_socket[i] = rcv_socket;
             printf("Adding to list of sockets as %d\n" , i);
             COMM_LIST_print_ip_list(); 
             break;
