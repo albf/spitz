@@ -133,6 +133,14 @@ void committer(int argc, char *argv[], void *handle)
                 }
                 alive = 0;
                 break;
+            case MSG_NEW_CONNECTION:
+                COMM_create_new_connection();
+                break;
+            case MSG_CLOSE_CONNECTION:  ;
+                uint64_t socket_cl;
+                _byte_array_unpack64(ba, &socket_cl);
+                COMM_close_connection((int)socket_cl);
+                break;
             default:
                 break;
         }

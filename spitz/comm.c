@@ -335,7 +335,7 @@ int COMM_setup_committer() {
         printf("bind failed\n");
         return -1;
     }
-    printf("Listener on port %d \n", PORT_MANAGER);
+    printf("Listener on port %d \n", PORT_COMMITTER);
      
     //try to specify maximum of max_pending_connections pending connections for the master socket
     if (listen(master_socket, max_pending_connections) < 0) {
