@@ -75,7 +75,9 @@ void committer(int argc, char *argv[], void *handle)
     size_t task_id;
 
     // TODO: use a better data structure (like AVL tree)
-    size_t i, len = 0, cap = 10;
+    // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
+    // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
+    size_t i, cap = 10;
     size_t *committed = malloc(sizeof(size_t) * cap);
 
     void * (*setup) (int, char **);
@@ -98,22 +100,24 @@ void committer(int argc, char *argv[], void *handle)
             case MSG_RESULT:
                 byte_array_unpack64(ba, &task_id);
                 debug("got a RESULT message for task %d", task_id);
-                already_committed = 0;
-                for (i = 0; i < len; i++)
-                    if (committed[i] == task_id)
-                        already_committed = 1;
-                if (!already_committed) {
-                    if (len == cap) {
-                        cap *= 2;
-                        committed = realloc(committed, sizeof(size_t) * cap);
-                    }
-                    committed[len++] = task_id;
+                
+                if(task_id>cap) {                       // if id higher them actual cap
+                    cap=2*task_id;
+                    committed = realloc(committed, sizeof(size_t)*cap);
 
+                    for(i=cap/2; i<cap; i++)
+                        committed[i]=-1;
+                }
+
+                if (committed[task_id] == 0) {          // if not committed yet
+                    already_committed = 0 ;
+                    committed[task_id] = 1;
                     commit_pit(user_data, ba);
                     byte_array_clear(ba);
                     byte_array_pack64(ba, task_id);
                     COMM_send_message(ba, MSG_DONE, COMM_get_socket_manager());
                 }
+
                 break;
             case MSG_KILL:
                 info("got a KILL message, committing job");
