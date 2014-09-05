@@ -44,7 +44,6 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 
 // Receive the message responsible for the communication between processes
 struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
-
     *type = (enum message_type) COMM_read_int(rcv_socket);
     if((*((int *)type)) == -1)
         return ba;
@@ -132,10 +131,13 @@ int COMM_send_int(int sock, int value) {
 // Read int using read bytes function
 int COMM_read_int(int sock) {
     struct byte_array ba;
-    int * result;
+    int * result, size;
     
     byte_array_init(&ba, 0);
-    COMM_read_bytes(sock, NULL, &ba);
+    COMM_read_bytes(sock, &size, &ba);
+
+    if(size == -1)
+        return -1; 
     
     result = (int *) ba.ptr;
     return * result;
@@ -144,8 +146,6 @@ int COMM_read_int(int sock) {
 // Establishes a connection with the job manager
 void COMM_connect_to_job_manager(char ip_adr[]) {
     struct sockaddr_in address;
-    char rcv_rank[10];
-    int valread;
     
     //Create socket
     socket_manager = socket(AF_INET , SOCK_STREAM , 0);
@@ -574,4 +574,14 @@ void COMM_close_connection(int sock) {
 // List all ips an the info of each one from the ip_list
 void COMM_LIST_print_ip_list() {
     LIST_print_all_ip(ip_list);        
+}
+
+// Disconnect from job manager node.
+void COMM_disconnect_from_job_manager(){
+    close(socket_manager);
+}
+
+// Disconnect from committer node
+void COMM_disconnect_from_committer() {
+    close(socket_committer);
 }

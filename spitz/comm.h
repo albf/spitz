@@ -63,6 +63,8 @@ int COMM_telnet_client(int argc, char *argv[]);
 int COMM_get_alive();
 int COMM_get_socket_manager();
 int COMM_get_socket_committer();
+void COMM_disconnect_from_job_manager();
+void COMM_disconnect_from_committer();
 
 // Job Manager Functions
 int COMM_setup_job_manager_network();

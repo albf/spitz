@@ -30,7 +30,6 @@
 #include "cfifo.h"
 #include "barray.h"
 #include "log.h"
-//#include "message.h"
 #include "jobmanager.h"
 #include "comm.h"
 
@@ -60,14 +59,6 @@ struct thread_data {
     int argc;
     char **argv;
 };
-
-static int get_task_manager_id(void)
-{
-    int rank;
-    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    //return rank - 2;
-    return (COMM_get_rank_id()-2); 
-}
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
@@ -301,6 +292,7 @@ void task_manager(struct thread_data *d)
 
     info("terminating task manager");
     byte_array_free(ba);
+    COMM_disconnect_from_committer();
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -330,7 +322,6 @@ void start_master_process(int argc, char *argv[], char *so)
     /* Send zero to kill other processes */
     info("terminating spitz");
     unsigned long zero = 0;
-//	MPI_Bcast(&zero, 1, MPI_UNSIGNED_LONG, JOB_MANAGER, MPI_COMM_WORLD);
 }
 
 void start_slave_processes(int argc, char *argv[])
@@ -363,7 +354,7 @@ void start_slave_processes(int argc, char *argv[])
             d.argc = argc;
             d.argv = argv;
 
-            int i, tmid = get_task_manager_id();
+            int i, tmid = COMM_get_rank_id();
             for (i = 0; i < NTHREADS; i++) {
                 d.id = NTHREADS * tmid + i;
                 pthread_create(&t[i], NULL, worker, &d);
@@ -376,7 +367,11 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         free(lib_path);
-        lib_path = COMM_get_path();
+        COMM_disconnect_from_job_manager();
+        
+        // --- ONE RUN FOR NOW
+        //lib_path = COMM_get_path();
+        break;
     }
 }
 
