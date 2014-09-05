@@ -431,14 +431,13 @@ int main(int argc, char *argv[])
     char *so = argv[3];
 
     /* Remove the first two arguments */
-    argc -= 3;
-    argv += 3;
+    argc -= 4;
+    argv += 4;
 
     if (type == JOB_MANAGER)
         start_master_process(argc, argv, so);
     else
         start_slave_processes(argc, argv);
 
-    //MPI_Finalize();
     return 0;
 }

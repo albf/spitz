@@ -45,8 +45,7 @@ const char *color_codes[] = {
 static void vmessage(FILE *f, const char *msg, const char *prefix,
 		enum color color, va_list ap)
 {
-	int rank;
-	rank=COMM_get_rank_id();
+	int rank = COMM_get_rank_id();
 	
 	const char *actor;
 	if (rank == 0)
@@ -78,8 +77,7 @@ void info(const char *msg, ...)
 	if (LOG_LEVEL < 1)
 		return;
 	
-	int rank;
-	rank = COMM_get_rank_id();	
+	int rank = COMM_get_rank_id();	
 	
 	va_list ap;
 	va_start(ap, msg);
@@ -92,8 +90,7 @@ void debug(const char *msg, ...)
 	if (LOG_LEVEL < 2)
 		return;
 	
-	int rank;
-	rank = COMM_get_rank_id();
+	int rank = COMM_get_rank_id();
 	
 	va_list ap;
 	va_start(ap, msg);
@@ -103,8 +100,7 @@ void debug(const char *msg, ...)
 
 void warning(const char *msg, ...)
 {
-	int rank;
-	rank = COMM_get_rank_id();
+	int rank = COMM_get_rank_id();
 	
 	va_list ap;
 	va_start(ap, msg);
@@ -114,10 +110,7 @@ void warning(const char *msg, ...)
 
 void error(const char *msg, ...)
 {
-	int rank;
-
-	//MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	rank = COMM_get_rank_id();
+	int rank = COMM_get_rank_id();
 	
 	va_list ap;
 	va_start(ap, msg);
