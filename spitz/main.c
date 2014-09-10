@@ -91,6 +91,9 @@ void committer(int argc, char *argv[], void *handle)
     //setup_free = dlsym("spits_setup_free_commit");
     void *user_data = setup(argc, argv);
 
+    for(i=0; i<cap; i++)                                // initialize the task array
+        committed[i]=0;
+    
     info("starting committer main loop");
     while (alive) {
         int already_committed;
@@ -107,7 +110,7 @@ void committer(int argc, char *argv[], void *handle)
                     committed = realloc(committed, sizeof(size_t)*cap);
 
                     for(i=cap/2; i<cap; i++)
-                        committed[i]=-1;
+                        committed[i]=0;
                 }
 
                 if (committed[task_id] == 0) {          // if not committed yet
