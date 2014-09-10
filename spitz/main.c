@@ -50,8 +50,9 @@ struct result_node {
 struct thread_data {
     int id;
     struct cfifo f;
-    pthread_mutex_t tlock;
+    pthread_mutex_t tlock;                      // lock responsible for the fifo of tasks
     pthread_mutex_t rlock;
+    sem_t tcount;                               // number of tasks available
     sem_t sem;
     char running;
     struct result_node *results;
@@ -142,6 +143,7 @@ void committer(int argc, char *argv[], void *handle)
     }
 
     //setup_free(user_data);
+    free(committed);
     info("terminating committer");
     byte_array_free(ba);
 }
@@ -163,12 +165,10 @@ void *worker(void *ptr)
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
     while (d->running) {
+        sem_wait (&d->tcount);                                  // wait for the task to arrive.
         pthread_mutex_lock(&d->tlock);
-        int has_task = cfifo_pop(&d->f, &task);
+        cfifo_pop(&d->f, &task);
         pthread_mutex_unlock(&d->tlock);
-
-        if (!has_task)
-            continue;
 
         sem_post(&d->sem);
 
@@ -275,6 +275,8 @@ void task_manager(struct thread_data *d)
                 pthread_mutex_lock(&d->tlock);
                 cfifo_push(&d->f, &task);
                 pthread_mutex_unlock(&d->tlock);
+                sem_post(&d->tcount);
+                
                 tasks++;
                 break;
             case MSG_KILL:
@@ -309,7 +311,7 @@ void start_master_process(int argc, char *argv[], char *so)
     }
 
     int (*spits_main) (int argc, char *argv[],
-            void (*runner)(int, char **, char *, struct byte_array *));
+        void (*runner)(int, char **, char *, struct byte_array *));
     *(void **) (&spits_main) = dlsym(ptr, "spits_main");
 
     /* If there is no spits_main, execute this shared    */
@@ -350,6 +352,7 @@ void start_slave_processes(int argc, char *argv[])
             struct thread_data d;
             cfifo_init(&d.f, sizeof(struct byte_array), FIFOSZ);
             sem_init(&d.sem, 0, FIFOSZ);
+            sem_init (&d.tcount, 0, 0);
             pthread_mutex_init(&d.tlock, NULL);
             pthread_mutex_init(&d.rlock, NULL);
             d.running = 1;

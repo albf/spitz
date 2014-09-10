@@ -583,5 +583,8 @@ void COMM_disconnect_from_job_manager(){
 
 // Disconnect from committer node
 void COMM_disconnect_from_committer() {
+    if(my_rank==0)
+        LIST_free_list(ip_list);
+    
     close(socket_committer);
 }
