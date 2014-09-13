@@ -12,11 +12,12 @@ struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char *
     int holes_counter=0;
     struct connected_ip * backup;
     
-    if(ptr->next == NULL) {     // Initialize, add the job manager
+    if(pointer == NULL) {     // Initialize, add the job manager
         ptr->id=0;
+        ptr->next = NULL;
         LIST_id_counter = 0;
         LIST_holes = 0;
-        return LIST_add_ip_address (pointer, NULL, 0, 0, NULL);
+        return LIST_add_ip_address (ptr, NULL, 0, 0, NULL);
     }
     
     else {
