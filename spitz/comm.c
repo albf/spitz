@@ -361,6 +361,7 @@ int COMM_setup_committer() {
     addrlen = sizeof(address);                                      
     lib_path = NULL;
     loop_b = 0;
+    my_rank = 1;
     
     return 0;
 }
@@ -511,7 +512,8 @@ void COMM_send_committer() {
 // Register the committer, when the committer sets it
 int COMM_register_committer() {
     getpeername(sd, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
-    addr_committer.sin_port = htons (PORT_COMMITTER); 
+    addr_committer.sin_port = htons (PORT_COMMITTER);
+    ip_list = LIST_register_committer(ip_list , inet_ntoa(addr_committer.sin_addr), ntohs(addr_committer.sin_port));
     debug("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), htons(addr_committer.sin_port));
     return 0;
 }

@@ -105,6 +105,7 @@ struct connected_ip * LIST_search_ip_address (struct connected_ip * pointer, cha
 }
 
 struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt) {
+    int committer_socket = LIST_get_socket(pointer, LIST_get_id(pointer, adr, prt));
     struct connected_ip * home = LIST_remove_ip_address(pointer, adr, prt);
     struct connected_ip * ptr;
 
@@ -119,8 +120,8 @@ struct connected_ip * LIST_register_committer(struct connected_ip * pointer, cha
 
             ptr->address == adr;
             ptr->port = prt;
+            ptr->socket = committer_socket;
             ptr = NULL;
-            
         }
         else {
             pointer = ptr;
