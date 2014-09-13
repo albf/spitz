@@ -3,7 +3,7 @@
 int LIST_id_counter;
 int LIST_holes;
 
-struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char * adr, int prt, int socket) {
+struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char * adr, int prt, int socket, int * rank) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     ptr->address = adr;
     ptr->port = prt;
@@ -24,6 +24,8 @@ struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char *
             ptr->next = pointer;
             LIST_id_counter++;
             ptr->id= LIST_id_counter;
+            if (rank != NULL)
+                * rank = LIST_id_counter;
             return ptr;
         }
         else {                  // Add worker with holes
@@ -46,10 +48,12 @@ struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char *
             pointer->next = ptr;
             ptr->id = pointer->id - 1;
             
+            if(rank != NULL)
+                * rank = LIST_id_counter;
+            
             return backup;
         }
     }
-    
 }
 
 struct connected_ip * LIST_remove_ip_address (struct connected_ip * pointer, char * adr, int prt) {
@@ -62,6 +66,7 @@ struct connected_ip * LIST_remove_ip_address (struct connected_ip * pointer, cha
     if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) { 
     	ptr = pointer->next;
         free(pointer);
+        LIST_id_counter--;
         return ptr;
     }
     
@@ -71,14 +76,12 @@ struct connected_ip * LIST_remove_ip_address (struct connected_ip * pointer, cha
             pointer->next = ptr->next;
             free(ptr);
             ptr = NULL;
-            
-            if(pointer != home)
-                LIST_holes++; 
+            LIST_holes++; 
         }
         
         else {
-                pointer = ptr;
-                ptr = pointer->next;
+            pointer = ptr;
+            ptr = pointer->next;
         }
     }
     
@@ -101,32 +104,26 @@ struct connected_ip * LIST_search_ip_address (struct connected_ip * pointer, cha
 }
 
 struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt) {
-    struct connected_ip * home = pointer;
+    struct connected_ip * home = LIST_remove_ip_address(pointer, adr, prt);
     struct connected_ip * ptr;
 
-    if(pointer == NULL)
-        return pointer;
+    if(home == NULL)
+        return home;
     
-    if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) { 
-    	ptr = pointer->next;
-        free(pointer);
-        return ptr;
-    }
-    
-    ptr = pointer->next;
+    ptr = home;
     while(ptr!=NULL) {
-        if((strcmp((const char *)adr, (const char *)ptr->address)==0) && (prt == ptr->port)) {
-            pointer->next = ptr->next;
-            free(ptr);
+        if(ptr->id == (int) COMMITTER){
+            if(ptr->address != NULL)
+                free(ptr->address);
+
+            ptr->address == adr;
+            ptr->port = ptr;
             ptr = NULL;
             
-            if(pointer != home)
-                LIST_holes++; 
         }
-        
         else {
-                pointer = ptr;
-                ptr = pointer->next;
+            pointer = ptr;
+            ptr = pointer->next;
         }
     }
     
