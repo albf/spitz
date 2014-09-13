@@ -16,7 +16,7 @@ struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char *
         ptr->id=0;
         LIST_id_counter = 0;
         LIST_holes = 0;
-        return LIST_add_ip_address (pointer, NULL, 0, 0);
+        return LIST_add_ip_address (pointer, NULL, 0, 0, NULL);
     }
     
     else {
@@ -117,7 +117,7 @@ struct connected_ip * LIST_register_committer(struct connected_ip * pointer, cha
                 free(ptr->address);
 
             ptr->address == adr;
-            ptr->port = ptr;
+            ptr->port = prt;
             ptr = NULL;
             
         }

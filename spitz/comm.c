@@ -409,7 +409,7 @@ int COMM_setup_job_manager_network() {
     
     // Start list of variables
     addrlen = sizeof(address);                                      
-    ip_list = LIST_add_ip_address(ip_list, "127.0.0.1", PORT_MANAGER, -1);
+    ip_list = LIST_add_ip_address(ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
     my_rank = 0;
     run_num = 0;
     lib_path = NULL;
@@ -530,8 +530,7 @@ void COMM_create_new_connection() {
     
     // Add new connection to the list, assign rank id and send to the client (if the manager).
     if(my_rank == 0) {
-        ip_list = LIST_add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket); 
-        id_send = LIST_get_id(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        ip_list = LIST_add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, &id_send); 
         COMM_send_int(rcv_socket,id_send);
     }
 
