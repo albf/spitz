@@ -24,7 +24,7 @@ struct connected_ip {
 struct connected_ip * LIST_add_ip_address(struct connected_ip * pointer, char * adr, int prt, int socket, int * rank);
 struct connected_ip * LIST_remove_ip_address(struct connected_ip * pointer, char * adr, int prt);
 struct connected_ip * LIST_search_ip_address(struct connected_ip * pointer, char * adr, int prt);
-struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt);
+struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt, int new_prt);
 void LIST_free_list(struct connected_ip * pointer);
 
 // Other requests
