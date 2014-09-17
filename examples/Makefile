@@ -3,7 +3,10 @@ CFLAGS = -shared -Wall -Wextra -fPIC -g3 -O0
 CXXFLAGS = $(CFLAGS)
 LDFLAGS = -L../spitz -lspitz
 
-all: pi.so picpp.so
+all: pi.so picpp.so prime.so
+
+prime.so: prime.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
 pi.so: pi.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
@@ -14,7 +17,7 @@ picpp.so: pi.cpp
 test: pi.so picpp.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 /home/alexandre/Codes/spitz/examples/pi.so 30
+			gdb --args ./spitz 0 127.0.0.1 /home/alexandre/Codes/spitz/examples/pi.so 100
 	
 			# gdb --args ./spitz 2 127.0.0.1 $$PWD/pi.so 30
 	#LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
