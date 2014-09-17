@@ -46,7 +46,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         return;
     }
 
-    struct task *iter, *prev, *aux, *sent = NULL;
+    struct task *iter, *prev; 
+    struct task *home = NULL, *mark = NULL, *head = NULL;
 
     spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");
     spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
@@ -72,17 +73,29 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
                     debug("sending generated task %d to %d", task_id, rank);
-                    node->next = sent;
-                    sent = node;
-                    aux = sent;
+                    
+                    // node has a new task
+                    if(home == NULL) {
+                        home = node;
+                        head = node;
+                        mark = node;
+                    }
+                    
+                    // update the head
+                    head->next = node;
+                    head = node;
+                    
+                    // points to nothing
+                    node->next = NULL;
+                    
                     COMM_send_message(ba, MSG_TASK, origin_socket);
                     task_id++;
-                } else if (sent != NULL) {
-                    COMM_send_message(&aux->data, MSG_TASK, origin_socket);
-                    debug("replicating task %d", aux->id);
-                    aux = aux->next;
-                    if (!aux)
-                        aux = sent;
+                } else if (mark != NULL) {
+                    COMM_send_message(&mark->data, MSG_TASK, origin_socket);
+                    debug("replicating task %d", mark->id);
+                    mark = mark ->next;
+                    if (!mark)
+                        mark = home;
                 } else {        // will pass here if ended at least once
                     debug("sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
@@ -91,24 +104,33 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
             case MSG_DONE:
                 byte_array_unpack64(ba, &tid);
-                iter = sent;
+                iter = head;
                 prev = NULL;
+
+                // search for the task that finished
                 while (iter->id != tid) {
                     prev = iter;
                     iter = iter->next;
                 }
-                if (prev)
-                    prev->next = iter->next;
-                else
-                    sent = iter->next;
 
-                if (aux == iter) {
-                    aux = aux->next;
-                    if (!aux)
-                        aux = sent;
+                // if there is a previous in the list. 
+                if (prev) {
+                    prev->next = iter->next;
                 }
 
-                debug("TASK %d is complete! sent = %p", tid, sent);
+                // if not, it's the home.
+                else {
+                    home = home->next;
+                }
+
+                // if it's the head, pick the previous one
+                if(iter == head) {
+                    head = prev;
+                }
+                
+                free(iter);
+                
+                debug("TASK %d is complete!", tid);
                 byte_array_free(&iter->data);
                 free(iter);
                 break;
