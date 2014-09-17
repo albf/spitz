@@ -423,7 +423,7 @@ int COMM_setup_job_manager_network() {
 
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
-    int i, activity; 
+    int i, activity, valid_request=0; 
 
     debug("Waiting for request \n");
      
@@ -445,45 +445,51 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         if(sd > max_sd)             //highest file descriptor number, need it for the select function
             max_sd = sd;
     }
-
-    //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
-    activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
-
-    if (activity < 0) 
-        error("select error");
-      
-    //If something happened on the master socket , then its an incoming connection
-    if (FD_ISSET(master_socket, &readfds)) {
-        *type = MSG_NEW_CONNECTION;
-        return ba;
-    }
-      
-    // I/O Operation
-    for (i = 0; i < max_clients; i++) 
-    {
-        sd = client_socket[loop_b];
-          
-        if (FD_ISSET( sd , &readfds)) 
-        {
-            ba = COMM_read_message(ba,type,sd);
-           
-            if ((*((int *)type)) == -1)      // Someone is closing
-            {
-                client_socket[i] = 0;
-                * type = MSG_CLOSE_CONNECTION;
-                byte_array_clear(ba);
-                 _byte_array_pack64(ba, (uint64_t) sd);
-                return ba;
-            }
-              
-            else                            // Other request
-            {
-                *origin_socket = sd;
-                return ba;
-            }
-        }
     
-        loop_b = (loop_b+1)%max_clients;
+    while(valid_request == 0) { 
+        //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
+        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
+
+        if (activity < 0) { 
+            error("select error, repeating select loop.");
+            continue;
+        }
+        
+        valid_request = 1;
+        
+        //If something happened on the master socket , then its an incoming connection
+        if (FD_ISSET(master_socket, &readfds)) {
+            *type = MSG_NEW_CONNECTION;
+            return ba;
+        }
+          
+        // I/O Operation
+        for (i = 0; i < max_clients; i++) 
+        {
+            sd = client_socket[loop_b];
+              
+            if (FD_ISSET( sd , &readfds)) 
+            {
+                ba = COMM_read_message(ba,type,sd);
+               
+                if ((*((int *)type)) == -1)      // Someone is closing
+                {
+                    client_socket[i] = 0;
+                    * type = MSG_CLOSE_CONNECTION;
+                    byte_array_clear(ba);
+                     _byte_array_pack64(ba, (uint64_t) sd);
+                    return ba;
+                }
+                  
+                else                            // Other request
+                {
+                    *origin_socket = sd;
+                    return ba;
+                }
+            }
+        
+            loop_b = (loop_b+1)%max_clients;
+        }
     }
       
     return ba;

@@ -41,6 +41,7 @@ void *spits_worker_new(int argc, char **argv)
 	return NULL;
 }
 
+// Check if a given number is prime.
 void spits_worker_run(void *user_data, struct byte_array *task, struct byte_array *result)
 {
         // Local Variables
@@ -56,10 +57,18 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         sqrt_value = sqrt(test_value);
         sqrt_cast = (uint64_t) sqrt_value;
 
+        // Check if it is smaller than 2.
+        if(test_value<2) {
+            byte_array_pack64(result, zero);
+            return; 
+        }
+        
+        // Get the square root value.
         if(sqrt_value > ((double)sqrt_cast))
             sqrt_cast++;
 
-        for(i=1; i<=sqrt_cast; i++) {
+        // Test all the values until the sqrt (2 or more).
+        for(i=2; i<=sqrt_cast; i++) {
             if((test_value%i)==0) {
                 byte_array_pack64(result, zero);
                 return; 
@@ -72,11 +81,14 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
 /*---------------------------------------------------------------------------*/
 /* COMMIT -------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
+
+// Linked list with the results
 struct prime_list{
     uint64_t value;
     struct prime_list * next;
 };
 
+// Pointer to the list with results
 struct prime_list * list_pointer;
 
 void *spits_setup_commit(int argc, char *argv[])
@@ -94,8 +106,10 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
    
     UNUSED(user_data);
     
-	byte_array_unpack64(result, &x);
-    
+    byte_array_unpack64(result, &x);
+   
+
+    // Checks if the value passed is different then zero and insert in the list.
     if(x != 0) {
         if(list_pointer == NULL) {
             list_pointer = (struct prime_list *) malloc (sizeof(struct prime_list));
