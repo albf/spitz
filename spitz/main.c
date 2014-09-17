@@ -70,7 +70,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
 void committer(int argc, char *argv[], void *handle)
 {
-    int alive = 1, socket_serv=0;
+    int isFinished=0, socket_serv=0;
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
     size_t task_id;
@@ -95,7 +95,7 @@ void committer(int argc, char *argv[], void *handle)
         committed[i]=0;
     
     info("starting committer main loop");
-    while (alive) {
+    while (1) {
         int already_committed;
         enum message_type type;
         ba = COMM_wait_request(&type, &socket_serv, ba);
@@ -130,7 +130,7 @@ void committer(int argc, char *argv[], void *handle)
                     commit_job(user_data, ba);
                     COMM_send_message(ba, MSG_RESULT, COMM_get_socket_manager());
                 }
-                alive = 0;
+                isFinished = 1;
                 break;
             case MSG_NEW_CONNECTION:
                 COMM_create_new_connection();
@@ -142,6 +142,11 @@ void committer(int argc, char *argv[], void *handle)
                 break;
             default:
                 break;
+        }
+
+        if ((COMM_get_alive() == 1) && (isFinished==1)) {
+            info("All workers disconnected, time to die");
+            break;
         }
     }
 
@@ -167,8 +172,8 @@ void *worker(void *ptr)
 
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
+    sem_wait (&d->tcount);                                  // wait for the first task to arrive.
     while (d->running) {
-        sem_wait (&d->tcount);                                  // wait for the task to arrive.
         pthread_mutex_lock(&d->tlock);
         cfifo_pop(&d->f, &task);
         pthread_mutex_unlock(&d->tlock);
@@ -188,6 +193,8 @@ void *worker(void *ptr)
         result->next = d->results;
         d->results = result;
         pthread_mutex_unlock(&d->rlock);
+
+        sem_wait (&d->tcount);                                  // wait for the next task to arrive.
     }
 
     void* (*worker_free) (void *);
@@ -369,19 +376,23 @@ void start_slave_processes(int argc, char *argv[])
                 d.id = NTHREADS * tmid + i;
                 pthread_create(&t[i], NULL, worker, &d);
             }
-            task_manager(&d);
-            d.running = 0;
 
-            for (i = 0; i < NTHREADS; i++)
+            task_manager(&d);
+
+            d.running = 0;                      // Finish the running threads
+            for(i=0; i< NTHREADS; i++)
+                sem_post(&d.tcount);
+
+            for (i = 0; i < NTHREADS; i++)      // Join them all
                 pthread_join(t[i], NULL);
         }
 
         free(lib_path);
-        COMM_disconnect_from_job_manager();
+        COMM_disconnect_from_job_manager();     // Disconnect from the manager
         
         // --- ONE RUN FOR NOW
         //lib_path = COMM_get_path();
-        break;
+        break;                                  // One run, so get out
     }
 }
 

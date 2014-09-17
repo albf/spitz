@@ -28,8 +28,6 @@
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
-int isFinished;
-
 struct task {
     size_t id;
     struct byte_array data;
@@ -38,7 +36,8 @@ struct task {
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    isFinished = 0;
+    int isFinished=0;
+    
     void *ptr = dlopen(so, RTLD_LAZY);
 
     if (!ptr) {
@@ -162,7 +161,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
         }
 
-        if ((COMM_get_alive() == 2) && (isFinished==1)) {
+        if ((COMM_get_alive() == 1) && (isFinished==1)) {
             info("sending KILL to committer");
             COMM_connect_to_committer();
             COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());

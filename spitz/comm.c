@@ -193,7 +193,7 @@ void COMM_send_alive(int origin_socket) {
 
 // Request and receive number of alive members.
 int COMM_get_alive() {
-    if(my_rank==0)
+    if((my_rank==(int)JOB_MANAGER)||(my_rank==(int)COMMITTER))
         return alive;
    
     COMM_send_message(NULL, MSG_GET_ALIVE, socket_manager);
@@ -361,7 +361,8 @@ int COMM_setup_committer() {
     addrlen = sizeof(address);                                      
     lib_path = NULL;
     loop_b = 0;
-    my_rank = 1;
+    my_rank = (int) COMMITTER;
+    alive = 1;
     
     return 0;
 }
@@ -411,10 +412,10 @@ int COMM_setup_job_manager_network() {
     // Start list of variables
     addrlen = sizeof(address);                                      
     ip_list = LIST_add_ip_address(ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
-    my_rank = 0;
+    my_rank = (int)JOB_MANAGER;
     run_num = 0;
     lib_path = NULL;
-    alive = 0;
+    alive = 1;
     loop_b = 0;
     
     return 0;
@@ -537,7 +538,7 @@ void COMM_create_new_connection() {
     debug("New connection , socket fd is %d , ip is : %s , port : %d \n" , rcv_socket, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
     // Add new connection to the list, assign rank id and send to the client (if the manager).
-    if(my_rank == 0) {
+    if(my_rank == (int)JOB_MANAGER) {
         ip_list = LIST_add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, &id_send); 
         COMM_send_int(rcv_socket,id_send);
     }
@@ -570,7 +571,7 @@ void COMM_close_connection(int sock) {
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&addrlen);
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
-    if(my_rank==0)
+    if(my_rank==(int)JOB_MANAGER)
         ip_list = LIST_remove_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
     
     //Close the socket 
@@ -590,7 +591,7 @@ void COMM_disconnect_from_job_manager(){
 
 // Disconnect from committer node
 void COMM_disconnect_from_committer() {
-    if(my_rank==0)
+    if(my_rank==(int)JOB_MANAGER)
         LIST_free_list(ip_list);
     
     close(socket_committer);
