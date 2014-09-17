@@ -115,17 +115,17 @@ struct connected_ip * LIST_register_committer(struct connected_ip * pointer, cha
     ptr = home;
     while(ptr!=NULL) {
         if(ptr->id == (int) COMMITTER){
-            if(ptr->address != NULL)
+            if(ptr->address != NULL) {
                 free(ptr->address);
+            }
 
-            ptr->address == adr;
+            ptr->address = adr;
             ptr->port = new_prt;
             ptr->socket = committer_socket;
             ptr = NULL;
         }
         else {
-            pointer = ptr;
-            ptr = pointer->next;
+            ptr = ptr->next;
         }
     }
     

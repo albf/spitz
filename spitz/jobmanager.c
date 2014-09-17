@@ -81,9 +81,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                         mark = node;
                     }
                     
+                    else {
                     // update the head
-                    head->next = node;
-                    head = node;
+                        head->next = node;
+                        head = node;
+                    }
                     
                     // points to nothing
                     node->next = NULL;
@@ -104,7 +106,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
             case MSG_DONE:
                 byte_array_unpack64(ba, &tid);
-                iter = head;
+                iter = home;
                 prev = NULL;
 
                 // search for the task that finished
@@ -128,11 +130,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     head = prev;
                 }
                 
-                free(iter);
-                
                 debug("TASK %d is complete!", tid);
                 byte_array_free(&iter->data);
-                free(iter);
                 break;
             case MSG_NEW_CONNECTION:
                 COMM_create_new_connection();

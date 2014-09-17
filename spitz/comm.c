@@ -519,6 +519,8 @@ int COMM_register_committer() {
     addr_committer.sin_port = htons (PORT_COMMITTER);
     ip_list = LIST_register_committer(ip_list , inet_ntoa(addr_committer.sin_addr), old_prt, ntohs(addr_committer.sin_port));
     debug("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), htons(addr_committer.sin_port));
+
+    COMM_LIST_print_ip_list();
     return 0;
 }
 
