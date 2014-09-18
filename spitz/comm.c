@@ -15,19 +15,9 @@ int loop_b;                             // Used to balance the requests
 
 /* Job Manager only */
 int master_socket, addrlen, client_socket[max_clients], sd;
-int max_sd, alive;
-fd_set readfds;                         //set of socket descriptors
-struct connected_ip * ip_list;          //list of ips connected to the manager
-
-// Get the socket_committer variable
-int COMM_get_socket_committer() {
-    return socket_committer;
-}
-
-// Get the socket manager variable
-int COMM_get_socket_manager() {
-    return socket_manager;
-}
+int alive;                              // number of connected members
+fd_set readfds;                         // set of socket descriptors
+struct connected_ip * ip_list;          // list of ips connected to the manager
 
 // Send message, used to make request between processes 
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
@@ -146,6 +136,7 @@ int COMM_read_int(int sock) {
 // Establishes a connection with the job manager
 void COMM_connect_to_job_manager(char ip_adr[]) {
     struct sockaddr_in address;
+    int isConnected = 0;
     
     //Create socket
     socket_manager = socket(AF_INET , SOCK_STREAM , 0);
@@ -159,18 +150,23 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     address.sin_port = htons( 8888 );
  
     //Connect to remote server
-    if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
-        error("Could not connect to the Job Manager.\n");
-    }
-    else {
-        debug("Connected Successfully to the Job Manager\n");
-        my_rank = COMM_read_int(socket_manager); 
+    while(isConnected == 0 ) {
+        if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
+            error("Could not connect to the Job Manager. Trying again. \n");
+            sleep(1);
+        }
+        else {
+            debug("Connected Successfully to the Job Manager\n");
+            my_rank = COMM_read_int(socket_manager);
+            isConnected = 1; 
+        }
     }
 }
 
 // Get committer with the job manager and establish a connection.
 void COMM_connect_to_committer() {
     COMM_get_committer();
+    int isConnected = 0;
     
     //Create socket
     socket_committer = socket(AF_INET , SOCK_STREAM , 0);
@@ -178,12 +174,16 @@ void COMM_connect_to_committer() {
         error("Could not create socket");
      
     //Connect to remote server
-    if (connect(socket_committer , (struct sockaddr *)&addr_committer , sizeof(addr_committer)) < 0) 
-        error("Could not connect to the Committer.\n");
-    
-    else 
-        debug("Connected Successfully to the Committer\n");
-        
+    while(isConnected == 0 ) {
+        if (connect(socket_committer , (struct sockaddr *)&addr_committer , sizeof(addr_committer)) < 0) { 
+            error("Could not connect to the Committer. Trying again.\n");
+            sleep(1); 
+        }
+        else { 
+            debug("Connected Successfully to the Committer\n");
+            isConnected = 1; 
+        }
+    }    
 }
 
 // Send number of alive members.
@@ -275,11 +275,6 @@ int COMM_request_committer() {
         }
     }
     return -1;
-}
-
-// Set rank, for setting my_rank variable
-void COMM_set_rank_id(int new_value) {
-    my_rank = new_value;
 }
 
 // Rank id is now in a variable
@@ -424,7 +419,8 @@ int COMM_setup_job_manager_network() {
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity, valid_request=0; 
-
+    int max_sd;                                                     // Auxiliar value to select.
+    
     debug("Waiting for request \n");
      
     //clear the socket set

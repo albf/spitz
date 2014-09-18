@@ -50,9 +50,9 @@ struct result_node {
 struct thread_data {
     int id;
     struct cfifo f;
-    pthread_mutex_t tlock;                      // lock responsible for the fifo of tasks
+    pthread_mutex_t tlock;                                          // lock responsible for the fifo of tasks
     pthread_mutex_t rlock;
-    sem_t tcount;                               // number of tasks available
+    sem_t tcount;                                                   // number of tasks available
     sem_t sem;
     char running;
     struct result_node *results;
@@ -63,7 +63,7 @@ struct thread_data {
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    COMM_set_path(so);				// set lib path variable
+    COMM_set_path(so);				                                // set lib path variable
     
     job_manager(argc, argv, so, final_result);
 }
@@ -71,16 +71,18 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 void committer(int argc, char *argv[], void *handle)
 {
     int isFinished=0, socket_serv=0;
+    enum message_type type;                                         // Type of received message.
+    
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
     size_t task_id;
 
-    // TODO: use a better data structure (like AVL tree)
     // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
     size_t i, cap = 10;
     size_t *committed = malloc(sizeof(size_t) * cap);
 
+    // Loads the user functions.
     void * (*setup) (int, char **);
     void (*commit_pit) (void *, struct byte_array *);
     void (*commit_job) (void *, struct byte_array *);
@@ -91,21 +93,20 @@ void committer(int argc, char *argv[], void *handle)
     //setup_free = dlsym("spits_setup_free_commit");
     void *user_data = setup(argc, argv);
 
-    for(i=0; i<cap; i++)                                // initialize the task array
+    for(i=0; i<cap; i++) {                                          // initialize the task array
         committed[i]=0;
-    
-    info("starting committer main loop");
+    }
+        
+    info("Starting committer main loop");
     while (1) {
-        int already_committed;
-        enum message_type type;
         ba = COMM_wait_request(&type, &socket_serv, ba);
         
         switch (type) {
             case MSG_RESULT:
                 byte_array_unpack64(ba, &task_id);
-                debug("got a RESULT message for task %d", task_id);
+                debug("Got a RESULT message for task %d", task_id);
                 
-                if(task_id>cap) {                       // if id higher them actual cap
+                if(task_id>cap) {                                   // if id higher them actual cap
                     cap=2*task_id;
                     committed = realloc(committed, sizeof(size_t)*cap);
 
@@ -113,18 +114,17 @@ void committer(int argc, char *argv[], void *handle)
                         committed[i]=0;
                 }
 
-                if (committed[task_id] == 0) {          // if not committed yet
-                    already_committed = 0 ;
+                if (committed[task_id] == 0) {                      // if not committed yet
                     committed[task_id] = 1;
                     commit_pit(user_data, ba);
                     byte_array_clear(ba);
                     byte_array_pack64(ba, task_id);
-                    COMM_send_message(ba, MSG_DONE, COMM_get_socket_manager());
+                    COMM_send_message(ba, MSG_DONE, socket_manager);
                 }
 
                 break;
             case MSG_KILL:
-                info("got a KILL message, committing job");
+                info("Got a KILL message, committing job");
                 byte_array_clear(ba);
                 if (commit_job) {
                     commit_job(user_data, ba);
@@ -152,7 +152,7 @@ void committer(int argc, char *argv[], void *handle)
 
     //setup_free(user_data);
     free(committed);
-    info("terminating committer");
+    info("Terminating committer");
     byte_array_free(ba);
 }
 
@@ -172,7 +172,7 @@ void *worker(void *ptr)
 
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
-    sem_wait (&d->tcount);                                  // wait for the first task to arrive.
+    sem_wait (&d->tcount);                                          // wait for the first task to arrive.
     while (d->running) {
         pthread_mutex_lock(&d->tlock);
         cfifo_pop(&d->f, &task);
@@ -227,7 +227,7 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
         n->next = NULL;
         n = aux;
         while (n) {
-            COMM_send_message(&n->ba, MSG_RESULT, COMM_get_socket_committer());
+            COMM_send_message(&n->ba, MSG_RESULT, socket_committer);
             byte_array_free(&n->ba);
             aux = n->next;
             free(n);
@@ -244,7 +244,7 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
                 len++;
         }
         while (n) {
-            COMM_send_message(&n->ba, MSG_RESULT,COMM_get_socket_committer());
+            COMM_send_message(&n->ba, MSG_RESULT,socket_committer);
             byte_array_free(&n->ba);
             aux = n->next;
             free(n);
@@ -258,22 +258,24 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
 
 void task_manager(struct thread_data *d)
 {
-    int alive = 1;
-    int tasks = 0;
-    int min_results = 10;
+    int alive = 1;                                                  // Indicate if it still alive.
+    enum message_type type;                                         // Type of received message.
+    int tasks = 0;                                                  // Tasks received and not committed.
+    int min_results = 10;                                           // Minimum of results to send at the same time. 
     enum blocking b = NONBLOCKING;
 
+    // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
 
+    struct byte_array task;                                         // Used to pass tasks to other threads
+
     info("starting task manager main loop");
     while (alive) {
-        enum message_type type;
-        struct byte_array task;
 
         debug("sending READY message to JOB_MANAGER");
-        COMM_send_message(NULL, MSG_READY, COMM_get_socket_manager());
-        ba = COMM_read_message(ba, &type, COMM_get_socket_manager());
+        COMM_send_message(NULL, MSG_READY, socket_manager);
+        ba = COMM_read_message(ba, &type, socket_manager);
 
         switch (type) {
             case MSG_TASK:
@@ -309,6 +311,7 @@ void task_manager(struct thread_data *d)
     info("terminating task manager");
     byte_array_free(ba);
     COMM_disconnect_from_committer();
+    COMM_disconnect_from_job_manager();     // Disconnect from the manager
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -388,7 +391,6 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         free(lib_path);
-        COMM_disconnect_from_job_manager();     // Disconnect from the manager
         
         // --- ONE RUN FOR NOW
         //lib_path = COMM_get_path();

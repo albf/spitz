@@ -37,13 +37,15 @@ struct task {
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    int isFinished=0;                                               // Indicates if the work is finished.
+    int isFinished=0, rank=(int)TASK_MANAGER;                       // Indicates if the work is finished.
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket.
+    int origin_socket;                                              // Socket that sent the request.
     
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
     struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
-
+    struct task *node;                                              // Pointer of new task.
+    
     void *ptr = dlopen(so, RTLD_LAZY);                              // Open the binary file.
     if (!ptr) {
         error("could not open %s", so);
@@ -60,9 +62,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     void *user_data = ctor((argc), (argv));
     size_t tid, task_id = 0;
     while (1) {
-        int rank;
-        struct task *node;
-        int origin_socket;
         ba = COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
@@ -167,28 +166,16 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         if ((COMM_get_alive() == 2) && (isFinished==1)) {
             info("Sending kill to committer");
             COMM_connect_to_committer();
-            COMM_send_message(ba, MSG_KILL, COMM_get_socket_committer());
+            COMM_send_message(ba, MSG_KILL, socket_committer);
 
             info("Fetching final result");
-            final_result = COMM_read_message(final_result, &type, COMM_get_socket_committer());
+            final_result = COMM_read_message(final_result, &type, socket_committer);
             COMM_disconnect_from_committer();
 
-            info("Waiting the request to close connection from committer."); 
-            ba = COMM_wait_request(&type, &origin_socket, ba); 
-            while(type != MSG_CLOSE_CONNECTION) {
-                ba = COMM_wait_request(&type, &origin_socket, ba); 
-            }
-            
-            // Close the connection with the committer and finishes the job manager.
-            _byte_array_unpack64(ba, &socket_cl);
-            COMM_close_connection((int)socket_cl);
-            
             break;
         }
     }
 
     byte_array_free(ba);
-
-    info("terminating job manager");
+    info("Terminating job manager");
 }
-

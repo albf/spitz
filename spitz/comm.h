@@ -1,6 +1,6 @@
 /* 
  * File:   comm.h
- * Author: alexandre
+ * Author: Alexandre
  *
  * Created on August 20, 2014, 9:39 PM
  */
@@ -29,6 +29,7 @@
 enum actor {
 	JOB_MANAGER = 0,
 	COMMITTER   = 1,
+        TASK_MANAGER = 2,
 };
 
 enum message_type {
@@ -56,13 +57,10 @@ void COMM_set_committer();
 void COMM_get_committer();
 int COMM_request_committer();
 int COMM_get_rank_id();
-void COMM_set_rank_id(int new_value);
 int COMM_get_run_num();
 char * COMM_get_path();
 int COMM_telnet_client(int argc, char *argv[]);
 int COMM_get_alive();
-int COMM_get_socket_manager();
-int COMM_get_socket_committer();
 void COMM_disconnect_from_job_manager();
 void COMM_disconnect_from_committer();
 
