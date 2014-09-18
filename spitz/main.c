@@ -70,24 +70,26 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
 void committer(int argc, char *argv[], void *handle)
 {
-    int isFinished=0, socket_serv=0;
+    int isFinished=0;                                               // Indicate if it's finished.
+    int socket_serv=0;                                              // Socket of the requester, return by COMM_wait_request.
     enum message_type type;                                         // Type of received message.
-    
+   
+    // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
-    size_t task_id;
 
     // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
-    size_t i, cap = 10;
-    size_t *committed = malloc(sizeof(size_t) * cap);
-
+    size_t i, cap = 10;                                             // Initial capacity.
+    size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 1 for committed, 0 for not yet.
+    size_t task_id;                                                 // Task id of received result.
+    
     // Loads the user functions.
     void * (*setup) (int, char **);
     void (*commit_pit) (void *, struct byte_array *);
     void (*commit_job) (void *, struct byte_array *);
 
-    *(void **)(&setup)      = dlsym(handle, "spits_setup_commit");
+    *(void **)(&setup)      = dlsym(handle, "spits_setup_commit");  // Loads the user functions.
     *(void **)(&commit_pit) = dlsym(handle, "spits_commit_pit");
     *(void **)(&commit_job) = dlsym(handle, "spits_commit_job");
     //setup_free = dlsym("spits_setup_free_commit");
@@ -144,6 +146,7 @@ void committer(int argc, char *argv[], void *handle)
                 break;
         }
 
+        // If he is the only member alive and the work is finished.
         if ((COMM_get_alive() == 1) && (isFinished==1)) {
             info("All workers disconnected, time to die");
             break;
@@ -310,8 +313,8 @@ void task_manager(struct thread_data *d)
 
     info("terminating task manager");
     byte_array_free(ba);
-    COMM_disconnect_from_committer();
-    COMM_disconnect_from_job_manager();     // Disconnect from the manager
+    COMM_disconnect_from_committer();                               // Disconnect from the committer.
+    COMM_disconnect_from_job_manager();                             // Disconnect from the manager.
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -323,7 +326,7 @@ void start_master_process(int argc, char *argv[], char *so)
         error("could not open %s: %s", so, dlerror());
     }
 
-    int (*spits_main) (int argc, char *argv[],
+    int (*spits_main) (int argc, char *argv[],                      // Loads user functions.                   
         void (*runner)(int, char **, char *, struct byte_array *));
     *(void **) (&spits_main) = dlsym(ptr, "spits_main");
 
@@ -338,14 +341,12 @@ void start_master_process(int argc, char *argv[], char *so)
     }
     //dlclose(ptr);
 
-    /* Send zero to kill other processes */
+    // Warned everyone, just closes the program. 
     info("terminating spitz");
-    unsigned long zero = 0;
 }
 
 void start_slave_processes(int argc, char *argv[])
 {
-    int rank = COMM_get_rank_id();
     lib_path = COMM_get_path();
     
     while (strncmp(lib_path, "NULL", 4) != 0) {
@@ -357,7 +358,7 @@ void start_slave_processes(int argc, char *argv[])
             return;
         }
 
-        if (rank == COMMITTER) {
+        if (my_rank == COMMITTER) {
             committer(argc, argv, handle);
         } else {
             pthread_t t[NTHREADS];
@@ -374,7 +375,7 @@ void start_slave_processes(int argc, char *argv[])
             d.argc = argc;
             d.argv = argv;
 
-            int i, tmid = COMM_get_rank_id();
+            int i, tmid = my_rank;
             for (i = 0; i < NTHREADS; i++) {
                 d.id = NTHREADS * tmid + i;
                 pthread_create(&t[i], NULL, worker, &d);
@@ -409,35 +410,40 @@ int main(int argc, char *argv[])
     else {
         COMM_connect_to_job_manager(argv[2]);
         
-        if(type==COMMITTER) 		                // The committer sets itself in the jm
+        if(type==COMMITTER) { 		                                // The committer sets itself in the jm
             COMM_setup_committer();
-        
-        else						// Task Managers get the committer 
+        }
+        else {						                                // Task Managers get the committer 
             COMM_connect_to_committer();
+        }
     }
     
     char *debug = getenv("SPITS_DEBUG_SLEEP");
     if (debug) {
         int amount = atoi(debug);
         pid_t pid = getpid();
-        printf("Rank %d at pid %d\n", COMM_get_rank_id(), pid);
+        printf("Rank %d at pid %d\n", my_rank, pid);
         sleep(amount);
     }
 
     char *loglvl = getenv("SPITS_LOG_LEVEL");
-    if (loglvl)
+    if (loglvl) {
         LOG_LEVEL = atoi(loglvl);
+    }
 
     char *nthreads = getenv("SPITS_NUM_THREADS");
-    if (nthreads)
+    if (nthreads) {
         NTHREADS = atoi(nthreads);
+    }
 
     char *fifosz = getenv("SPITS_TMCACHE_SIZE");
-    if (fifosz)
+    if (fifosz) {
         FIFOSZ = atoi(fifosz);
+    }
 
-    if (type == JOB_MANAGER && LOG_LEVEL >= 1)
+    if (type == JOB_MANAGER && LOG_LEVEL >= 1) {
         printf("Welcome to spitz " SPITZ_VERSION "\n");
+    }
 
     if (type == JOB_MANAGER && argc < 2) {
         fprintf(stderr, "Usage: SO_PATH\n");
