@@ -128,7 +128,7 @@ void committer(int argc, char *argv[], void *handle)
                 byte_array_clear(ba);
                 if (commit_job) {
                     commit_job(user_data, ba);
-                    COMM_send_message(ba, MSG_RESULT, COMM_get_socket_manager());
+                    COMM_send_message(ba, MSG_RESULT,  sd); 
                 }
                 isFinished = 1;
                 break;

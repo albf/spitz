@@ -95,5 +95,6 @@ extern char * lib_path;                                 // path of binary
 extern int run_num;
 extern socket_manager, socket_committer;
 extern int my_rank;
+extern int sd;
 
 #endif	/* COMM_H */
