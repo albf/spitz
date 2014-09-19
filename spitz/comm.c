@@ -319,7 +319,7 @@ int COMM_telnet_client(int argc, char *argv[]) {
 }
 
 // Setup committer, to receive incoming connections.
-int COMM_setup_committer() {
+int COMM_setup_committer_network() {
     int i, flags, opt = 1;
     struct sockaddr_in address;
     
@@ -545,10 +545,10 @@ void COMM_send_committer() {
 }
 
 // Register the committer, when the committer sets it
-int COMM_register_committer() {
+int COMM_register_committer(int sock) {
     int old_prt;
     
-    getpeername(sd, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
+    getpeername(sock, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
     old_prt = ntohs(addr_committer.sin_port);
     
     addr_committer.sin_port = htons (PORT_COMMITTER);
@@ -617,7 +617,7 @@ void COMM_close_connection(int sock) {
 
 // List all ips an the info of each one from the ip_list
 void COMM_LIST_print_ip_list() {
-    LIST_print_all_ip(ip_list);        
+    LIST_print_all_ip_ordered(ip_list);        
 }
 
 // Disconnect from job manager node.
@@ -627,8 +627,9 @@ void COMM_disconnect_from_job_manager(){
 
 // Disconnect from committer node
 void COMM_disconnect_from_committer() {
-    if(my_rank==(int)JOB_MANAGER)
+    if(my_rank==(int)JOB_MANAGER) {
         LIST_free_data(ip_list);
+    }
     
     close(socket_committer);
 }

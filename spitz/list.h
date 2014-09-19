@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "comm.h"
 
+// Represent a list of connected ips.
 struct connected_ip {
     struct connected_ip * next;
     char * address;
@@ -20,6 +21,7 @@ struct connected_ip {
     int socket;
 };
 
+// A list and it's data.
 struct LIST_data {
     int id_counter;
     int holes;
@@ -42,7 +44,7 @@ int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);
 void LIST_print_all_ip (struct LIST_data * data_pointer);
 int LIST_print_all_ip_ordered (struct LIST_data * data_pointer);
 
-// Auxiliar
+// Auxiliary
 void LIST_free_list (struct connected_ip * pointer);
 int LIST_get_socket_list (struct connected_ip * pointer, int rank_id);
 

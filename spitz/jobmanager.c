@@ -153,7 +153,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_send_message(ba,MSG_GET_RUNNUM,origin_socket);
                 break;
             case MSG_SET_COMMITTER:
-                COMM_register_committer();
+                COMM_register_committer(origin_socket);
                 break;
             case MSG_GET_ALIVE:
                 COMM_send_alive(origin_socket);

@@ -34,6 +34,7 @@ enum actor {
         TASK_MANAGER = 2,
 };
 
+// Enuns the types of possible messages.
 enum message_type {
 	MSG_READY,
 	MSG_TASK,
@@ -54,30 +55,34 @@ enum message_type {
 // Worker and Committer Functions
 void COMM_connect_to_job_manager(char ip_adr[]);
 void COMM_connect_to_committer();
-int COMM_setup_committer();
+int COMM_setup_committer_network();
 void COMM_set_committer();
 void COMM_get_committer();
 int COMM_get_rank_id();
-int COMM_get_run_num();
 char * COMM_get_path();
 int COMM_get_alive();
 void COMM_disconnect_from_job_manager();
 void COMM_disconnect_from_committer();
 
+// Not used yet
+int COMM_get_run_num();
+
 // Job Manager Functions
 int COMM_setup_job_manager_network();
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket,struct byte_array * ba);
-int COMM_register_committer();
+int COMM_register_committer(int sock);
 void COMM_create_new_connection();
 void COMM_close_connection(int sock);
-void COMM_increment_run_num();
 void COMM_set_path(char * file_path);
 void COMM_send_committer();
 void COMM_send_path();
-void COMM_send_alive(int origin_socket);
 void COMM_LIST_print_ip_list();
 
-// General Propose
+// Not used yet
+void COMM_send_alive(int origin_socket);
+void COMM_increment_run_num();
+
+// General Propose (sending and receiving data from sockets)
 struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
 int COMM_send_bytes(int sock, void * bytes, int size);
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket);

@@ -384,11 +384,13 @@ void start_slave_processes(int argc, char *argv[])
             task_manager(&d);
 
             d.running = 0;                      // Finish the running threads
-            for(i=0; i< NTHREADS; i++)
+            for(i=0; i< NTHREADS; i++) {
                 sem_post(&d.tcount);
+            }
 
-            for (i = 0; i < NTHREADS; i++)      // Join them all
+            for (i = 0; i < NTHREADS; i++) {    // Join them all
                 pthread_join(t[i], NULL);
+            }
         }
 
         free(lib_path);
@@ -411,7 +413,7 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(argv[2]);
         
         if(type==COMMITTER) { 		                                // The committer sets itself in the jm
-            COMM_setup_committer();
+            COMM_setup_committer_network();
         }
         else {						                                // Task Managers get the committer 
             COMM_connect_to_committer();
@@ -458,10 +460,12 @@ int main(int argc, char *argv[])
     argc -= 4;
     argv += 4;
 
-    if (type == JOB_MANAGER)
+    if (type == JOB_MANAGER) {
         start_master_process(argc, argv, so);
-    else
+    }
+    else {
         start_slave_processes(argc, argv);
+    }
 
     return 0;
 }
