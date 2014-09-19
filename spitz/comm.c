@@ -17,7 +17,7 @@ int loop_b;                             // Used to balance the requests
 int master_socket, addrlen, client_socket[max_clients], sd;
 int alive;                              // number of connected members
 fd_set readfds;                         // set of socket descriptors
-struct connected_ip * ip_list;          // list of ips connected to the manager
+struct LIST_data * ip_list;          // list of ips connected to the manager
 
 /* Functions Exclusive to this implementation */
 // Worker
@@ -628,7 +628,7 @@ void COMM_disconnect_from_job_manager(){
 // Disconnect from committer node
 void COMM_disconnect_from_committer() {
     if(my_rank==(int)JOB_MANAGER)
-        LIST_free_list(ip_list);
+        LIST_free_data(ip_list);
     
     close(socket_committer);
 }

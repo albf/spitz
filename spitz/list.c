@@ -1,10 +1,8 @@
 #include "list.h"
 
-int LIST_id_counter;
-int LIST_holes;
-
-struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char * adr, int prt, int socket, int * rank) {
+struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
+    struct connected_ip * iter;
     ptr->address = adr;
     ptr->port = prt;
     ptr->socket = socket;
@@ -12,107 +10,127 @@ struct connected_ip * LIST_add_ip_address (struct connected_ip * pointer, char *
     int holes_counter=0;
     struct connected_ip * backup;
     
-    if(pointer == NULL) {     // Initialize, add the job manager
+    if(data_pointer == NULL) {     // Initialize, add the job manager
+        data_pointer = (struct LIST_data *) malloc (sizeof(struct LIST_data));
+        
         ptr->id=0;
         ptr->next = NULL;
-        LIST_id_counter = 0;
-        LIST_holes = 0;
-        return LIST_add_ip_address (ptr, NULL, 0, 0, NULL);
+        
+        data_pointer->id_counter = 0;
+        data_pointer->holes = 0;
+        data_pointer->list_pointer = ptr;
+        
+        return LIST_add_ip_address (data_pointer, NULL, 0, 0, NULL);
     }
     
     else {
-        if(LIST_holes == 0) {   // Add worker without holes
-            ptr->next = pointer;
-            LIST_id_counter++;
-            ptr->id= LIST_id_counter;
-            if (rank != NULL)
-                * rank = LIST_id_counter;
-            return ptr;
+        if(data_pointer->holes == 0) {   // Add worker without holes
+            ptr->next = data_pointer->list_pointer;
+            data_pointer->id_counter++;
+            ptr->id= data_pointer->id_counter;
+            if (rank != NULL) {
+                * rank = ptr->id;
+            }
+            
+            data_pointer->list_pointer = ptr;
+            return data_pointer;
         }
         else {                  // Add worker with holes
-            holes_counter = LIST_holes;
-            backup = pointer;
+            holes_counter = data_pointer->holes;
+            iter = backup;
             
             while (holes_counter > 0) {
-                if(pointer->id != ((pointer->next->id)+1)) {
-                    if(holes_counter > 1)
-                        pointer = pointer->next;
+                if(iter->id != ((iter->next->id)+1)) {
+                    if(holes_counter > 1) {
+                        iter = iter ->next;
+                    }
                     
                     holes_counter--;
                 }
             
-                else 
-                    pointer = pointer->next;
+                else { 
+                    iter = iter->next;
+                }
             }
 
-            ptr->next = pointer->next;
-            pointer->next = ptr;
-            ptr->id = pointer->id - 1;
+            ptr->next = iter->next;
+            iter->next = ptr;
+            ptr->id = iter->id - 1;
             
-            if(rank != NULL)
-                * rank = LIST_id_counter;
+            if(rank != NULL) {
+                * rank = ptr->id;
+            }
             
-            return backup;
+            return data_pointer;
         }
     }
 }
 
-struct connected_ip * LIST_remove_ip_address (struct connected_ip * pointer, char * adr, int prt) {
-    struct connected_ip * home = pointer;
+struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
+    struct connected_ip * prev = data_pointer->list_pointer;
     struct connected_ip * ptr;
 
-    if(pointer == NULL)
-        return pointer;
-    
-    if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) { 
-    	ptr = pointer->next;
-        free(pointer);
-        LIST_id_counter--;
-        return ptr;
+    if(data_pointer == NULL) {
+        return data_pointer;
     }
     
-    ptr = pointer->next;
+    if((strcmp((const char *)adr, (const char *)data_pointer->list_pointer->address)==0)&&(prt == data_pointer->list_pointer->port)){ 
+    	ptr = data_pointer->list_pointer->next;
+        free(data_pointer->list_pointer);
+        data_pointer->id_counter--;
+        data_pointer->list_pointer = ptr;
+        return data_pointer;
+    }
+    
+    ptr = data_pointer->list_pointer->next;
     while(ptr!=NULL) {
         if((strcmp((const char *)adr, (const char *)ptr->address)==0) && (prt == ptr->port)) {
-            pointer->next = ptr->next;
+            prev->next = ptr->next;
             free(ptr);
             ptr = NULL;
-            LIST_holes++; 
+            data_pointer->holes++;
         }
         
         else {
-            pointer = ptr;
-            ptr = pointer->next;
+            prev = ptr;
+            ptr = ptr->next;
         }
     }
     
-    return home;    
+    return data_pointer;
 }
 
-struct connected_ip * LIST_search_ip_address (struct connected_ip * pointer, char * adr, int prt) {
-    if(pointer == NULL)
+struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
+    struct connected_ip * pointer;
+    
+    if(data_pointer == NULL) {
         return NULL;
-
-    else
+    }
+    else {
+        pointer = data_pointer->list_pointer;
+        
         while(pointer != NULL) {
             if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) {
                 return pointer;              
             }
             pointer = pointer->next;
         }
+    }
     
     return NULL;
 }
 
-struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt, int new_prt) {
-    int committer_socket = LIST_get_socket(pointer, LIST_get_id(pointer, adr, prt));
-    struct connected_ip * home = LIST_remove_ip_address(pointer, adr, prt);
+struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char * adr, int prt, int new_prt) {
+    int committer_socket = LIST_get_socket(data_pointer, LIST_get_id(data_pointer, adr, prt));
     struct connected_ip * ptr;
 
-    if(home == NULL)
-        return home;
+    data_pointer = LIST_remove_ip_address(data_pointer, adr, prt);
+
+    if(data_pointer == NULL) {
+        return data_pointer;
+    }
     
-    ptr = home;
+    ptr = data_pointer->list_pointer;
     while(ptr!=NULL) {
         if(ptr->id == (int) COMMITTER){
             if(ptr->address != NULL) {
@@ -129,15 +147,22 @@ struct connected_ip * LIST_register_committer(struct connected_ip * pointer, cha
         }
     }
     
-    return home;    
+    return data_pointer;    
 }
 
-int LIST_get_id (struct connected_ip * pointer, char * adr, int prt) {
-    return (LIST_search_ip_address(pointer, adr, prt))->id;
+int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt) {
+    return (LIST_search_ip_address(data_pointer, adr, prt))->id;
 }
 
-void LIST_print_all_ip (struct connected_ip * pointer) {
+void LIST_print_all_ip (struct LIST_data * data_pointer) {
     int total = 0;
+    struct connected_ip * pointer;
+
+    if(data_pointer == NULL) {
+        return;
+    }
+    
+    pointer = data_pointer->list_pointer;
     
     while(pointer != NULL) {
         total++;
@@ -149,27 +174,50 @@ void LIST_print_all_ip (struct connected_ip * pointer) {
     }
 }
 
-int LIST_print_all_ip_ordered (struct connected_ip * pointer) {
-    if(pointer!=NULL) {
-        int num=LIST_print_all_ip_ordered (pointer->next);
-        printf("Connection: %d\n", num);
-        printf("ip: %s\n", pointer->address);
-        printf("port: %d\n", pointer->port);
-        printf("id: %d\n\n", pointer->id);
-        return (num+1);    
+int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
+    struct connected_ip * pointer;
+    struct LIST_data next_data;
+    
+    if(data_pointer!=NULL) {
+        pointer = data_pointer->list_pointer;
+        if(pointer != NULL) {
+            next_data.list_pointer = pointer->next;
+            int num=LIST_print_all_ip_ordered (&next_data);
+            printf("Connection: %d\n", num);
+            printf("ip: %s\n", pointer->address);
+            printf("port: %d\n", pointer->port);
+            printf("id: %d\n\n", pointer->id);
+            return (num+1); 
+        }
     }
     return 1;
 }
 
-int LIST_get_total_workers (struct connected_ip * pointer) {
+int LIST_get_total_workers (struct LIST_data * data_pointer) {
     int total = 0;
+    struct connected_ip * pointer;
+    
+    if(data_pointer == NULL) {
+        return total;
+    }
 
+    pointer = data_pointer->list_pointer;
+    
     while(pointer!=NULL) {
-	pointer = pointer->next;
-	total++;
+        pointer = pointer->next;
+        total++;
     }
 
     return total;
+}
+
+void LIST_free_data (struct LIST_data * data_pointer) {
+    if(data_pointer==NULL) {
+        return;
+    }
+
+    LIST_free_list(data_pointer->list_pointer);
+    free(data_pointer);
 }
 
 void LIST_free_list (struct connected_ip * pointer) {
@@ -179,13 +227,26 @@ void LIST_free_list (struct connected_ip * pointer) {
     }    
 }
 
-int LIST_get_socket (struct connected_ip * pointer, int rank_id) {
-    if (pointer == NULL)
+int LIST_get_socket (struct LIST_data * data_pointer, int rank_id) {
+    if(data_pointer == NULL) {
         return -1;
-    
-    else if (pointer->id == rank_id)
-        return pointer->socket;
+    }
 
-    else
-        return LIST_get_socket(pointer->next, rank_id);
+    else { 
+        return LIST_get_socket_list(data_pointer->list_pointer, rank_id);       
+    }
+}
+
+int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
+    if (pointer == NULL) {
+        return -1;
+    }
+    
+    else if (pointer->id == rank_id) {
+        return pointer->socket;
+    }
+
+    else {
+        return LIST_get_socket_list(pointer->next, rank_id);
+    }
 }

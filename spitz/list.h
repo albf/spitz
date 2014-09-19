@@ -20,25 +20,31 @@ struct connected_ip {
     int socket;
 };
 
+struct LIST_data {
+    int id_counter;
+    int holes;
+    struct connected_ip * list_pointer; 
+};
+
 // List manipulation 
-struct connected_ip * LIST_add_ip_address(struct connected_ip * pointer, char * adr, int prt, int socket, int * rank);
-struct connected_ip * LIST_remove_ip_address(struct connected_ip * pointer, char * adr, int prt);
-struct connected_ip * LIST_search_ip_address(struct connected_ip * pointer, char * adr, int prt);
-struct connected_ip * LIST_register_committer(struct connected_ip * pointer, char * adr, int prt, int new_prt);
-void LIST_free_list(struct connected_ip * pointer);
+struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank);
+struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt);
+struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt);
+struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char * adr, int prt, int new_prt);
+void LIST_free_data (struct LIST_data * data_pointer);
 
 // Other requests
-int LIST_get_id(struct connected_ip * pointer, char * adr, int prt);
-int LIST_get_total_workers(struct connected_ip * pointer);
-int LIST_get_socket (struct connected_ip * pointer, int rank_id);
+int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt);
+int LIST_get_total_workers (struct LIST_data * data_pointer);
+int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);
 
 // Debug & GUI Information
-void LIST_print_all_ip(struct connected_ip * pointer);
-int LIST_print_all_ip_ordered(struct connected_ip * pointer);
-void LIST_print_ip_list();
+void LIST_print_all_ip (struct LIST_data * data_pointer);
+int LIST_print_all_ip_ordered (struct LIST_data * data_pointer);
 
-// Extern Variables
-extern int LIST_id_counter;
+// Auxiliar
+void LIST_free_list (struct connected_ip * pointer);
+int LIST_get_socket_list (struct connected_ip * pointer, int rank_id);
 
 #endif	/* LIST_H */
 
