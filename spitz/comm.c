@@ -320,13 +320,14 @@ int COMM_telnet_client(int argc, char *argv[]) {
 
 // Setup committer, to receive incoming connections.
 int COMM_setup_committer() {
-    int i, opt = 1;
+    int i, flags, opt = 1;
     struct sockaddr_in address;
     
     COMM_set_committer();
     
-    for (i = 0; i < max_clients; i++)
+    for (i = 0; i < max_clients; i++) {
         client_socket[i] = 0;
+    }
       
     //  create a master socket
     if( (master_socket= socket(AF_INET , SOCK_STREAM , 0)) == 0) {
@@ -339,6 +340,17 @@ int COMM_setup_committer() {
         error("error in setsockopt function\n");
         return -1;
     }
+
+    /* Set socket to non-blocking */ 
+    if ((flags = fcntl(master_socket, F_GETFL, 0)) < 0) 
+    { 
+        error("Error getting the flags of master socket.");
+    } 
+
+    if (fcntl(master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
+    { 
+        error("Error setting new flags to the mater socket.\n");
+    } 
   
     //type of socket created
     address.sin_family = AF_INET;
@@ -377,8 +389,9 @@ int COMM_setup_job_manager_network() {
     addr_committer.sin_addr.s_addr = 0;
     addr_committer.sin_port = 0;
       
-    for (i = 0; i < max_clients; i++) 
+    for (i = 0; i < max_clients; i++) {
         client_socket[i] = 0;
+    }
       
     //  create a master socket
     if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
@@ -392,11 +405,6 @@ int COMM_setup_job_manager_network() {
         return -1;
     }
   
-    //type of socket created
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons( PORT_MANAGER );
-     
     /* Set socket to non-blocking */ 
     if ((flags = fcntl(master_socket, F_GETFL, 0)) < 0) 
     { 
@@ -408,6 +416,10 @@ int COMM_setup_job_manager_network() {
         error("Error setting new flags to the mater socket.\n");
     } 
 
+    //type of socket created
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( PORT_MANAGER );
     
     //bind the socket to localhost port PORT_MANAGER
     if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
@@ -484,13 +496,13 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         {
             sd = client_socket[loop_b];
               
-            if (FD_ISSET( sd , &readfds)) 
+            if (FD_ISSET(sd , &readfds)) 
             {
                 ba = COMM_read_message(ba,type,sd);
                
                 if ((*((int *)type)) == -1)      // Someone is closing
                 {
-                    client_socket[i] = 0;
+                    client_socket[loop_b] = 0;
                     * type = MSG_CLOSE_CONNECTION;
                     byte_array_clear(ba);
                      _byte_array_pack64(ba, (uint64_t) sd);
@@ -553,7 +565,8 @@ void COMM_create_new_connection() {
     struct sockaddr_in address;
   
     if ((rcv_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
-	    error("Problem accepting connection");
+	    error("Problem accepting connection, ERRNO: %s\n", strerror(errno));
+        return;
     }
   
     //inform user of socket number - used in send and receive commands
@@ -593,11 +606,12 @@ void COMM_close_connection(int sock) {
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&addrlen);
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
-    if(my_rank==(int)JOB_MANAGER)
+    if(my_rank==(int)JOB_MANAGER) {
         ip_list = LIST_remove_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+    }
     
     //Close the socket 
-    close( sd );
+    close( sock );
     alive--;
 }
 
