@@ -1,5 +1,7 @@
 #include "list.h"
 
+// Add an element to a list. If it's not yet initialize, allocate memory and append the first term.
+// If there is at least one hole in the ids number, put in the same hole it could find.
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     struct connected_ip * iter;
@@ -66,6 +68,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     }
 }
 
+// Remove an element from the list using the ip and port.
 struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
     struct connected_ip * prev = data_pointer->list_pointer;
     struct connected_ip * ptr;
@@ -100,6 +103,7 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     return data_pointer;
 }
 
+// Search for a give address and port.
 struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
     struct connected_ip * pointer;
     
@@ -120,6 +124,7 @@ struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, c
     return NULL;
 }
 
+// Upgrade a member to the committer position (id = (int) COMMITTER). Removes the duplicate.
 struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char * adr, int prt, int new_prt) {
     int committer_socket = LIST_get_socket(data_pointer, LIST_get_id(data_pointer, adr, prt));
     struct connected_ip * ptr;
@@ -150,10 +155,12 @@ struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char
     return data_pointer;    
 }
 
+// Get the id of a given address and port values.
 int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt) {
     return (LIST_search_ip_address(data_pointer, adr, prt))->id;
 }
 
+// Print all ip in inversed ordered. (FILO))
 void LIST_print_all_ip (struct LIST_data * data_pointer) {
     int total = 0;
     struct connected_ip * pointer;
@@ -174,6 +181,7 @@ void LIST_print_all_ip (struct LIST_data * data_pointer) {
     }
 }
 
+// Print all ip in crescenting order. (FIFO)
 int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
     struct connected_ip * pointer;
     struct LIST_data next_data;
@@ -193,6 +201,7 @@ int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
     return 1;
 }
 
+// Get the number of total workers registered in the list.
 int LIST_get_total_workers (struct LIST_data * data_pointer) {
     int total = 0;
     struct connected_ip * pointer;
@@ -211,6 +220,7 @@ int LIST_get_total_workers (struct LIST_data * data_pointer) {
     return total;
 }
 
+// Free the data of the structure.
 void LIST_free_data (struct LIST_data * data_pointer) {
     if(data_pointer==NULL) {
         return;
@@ -220,6 +230,7 @@ void LIST_free_data (struct LIST_data * data_pointer) {
     free(data_pointer);
 }
 
+// Free the data of a given list of ips.
 void LIST_free_list (struct connected_ip * pointer) {
     if(pointer!=NULL) {
         LIST_free_list(pointer->next);
@@ -227,6 +238,7 @@ void LIST_free_list (struct connected_ip * pointer) {
     }    
 }
 
+// Get a socket for a given rank id value, base in a list data structure.
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id) {
     if(data_pointer == NULL) {
         return -1;
@@ -237,6 +249,7 @@ int LIST_get_socket (struct LIST_data * data_pointer, int rank_id) {
     }
 }
 
+// Get a socket for a given rank id value, based in list of ips.
 int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
     if (pointer == NULL) {
         return -1;

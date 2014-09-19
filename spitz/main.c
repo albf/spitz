@@ -185,7 +185,7 @@ void *worker(void *ptr)
 
         byte_array_unpack64(&task, &task_id);
 
-        debug("[worker] got a TASK %d", task_id);
+        debug("[worker] Got a TASK %d", task_id);
         struct result_node *result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);
@@ -273,10 +273,10 @@ void task_manager(struct thread_data *d)
 
     struct byte_array task;                                         // Used to pass tasks to other threads
 
-    info("starting task manager main loop");
+    info("Starting task manager main loop");
     while (alive) {
 
-        debug("sending READY message to JOB_MANAGER");
+        debug("Sending READY message to JOB_MANAGER");
         COMM_send_message(NULL, MSG_READY, socket_manager);
         ba = COMM_read_message(ba, &type, socket_manager);
 
@@ -295,7 +295,7 @@ void task_manager(struct thread_data *d)
                 tasks++;
                 break;
             case MSG_KILL:
-                info("got a KILL message");
+                info("Got a KILL message");
                 alive = 0;
                 min_results = tasks;
                 b = BLOCKING;
@@ -311,7 +311,7 @@ void task_manager(struct thread_data *d)
         }
     }
 
-    info("terminating task manager");
+    info("Terminating task manager");
     byte_array_free(ba);
     COMM_disconnect_from_committer();                               // Disconnect from the committer.
     COMM_disconnect_from_job_manager();                             // Disconnect from the manager.

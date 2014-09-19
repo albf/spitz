@@ -14,10 +14,14 @@ int my_rank, run_num;                   // Rank and run_num variables
 int loop_b;                             // Used to balance the requests
 
 /* Job Manager only */
-int master_socket, addrlen, client_socket[max_clients], sd;
+int master_socket;                      // socket used to accept connections
+int addrlen;
+int client_socket[max_clients];         // used to stock the sockets.
+int sd;                                 // last socket used
+int committer_index;                    // committer index in the structure.
 int alive;                              // number of connected members
 fd_set readfds;                         // set of socket descriptors
-struct LIST_data * ip_list;          // list of ips connected to the manager
+struct LIST_data * ip_list;             // list of ips connected to the manager
 
 /* Functions Exclusive to this implementation */
 // Worker
@@ -376,6 +380,7 @@ int COMM_setup_committer_network() {
     loop_b = 0;
     my_rank = (int) COMMITTER;
     alive = 1;
+    committer_index = -1;
     
     return 0;
 }
@@ -442,6 +447,7 @@ int COMM_setup_job_manager_network() {
     lib_path = NULL;
     alive = 1;
     loop_b = 0;
+    committer_index = -1;
     
     return 0;
 }
@@ -450,6 +456,7 @@ int COMM_setup_job_manager_network() {
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity, valid_request=0; 
     int max_sd;                                                     // Auxiliar value to select.
+    int socket_found;
     
     debug("Waiting for request \n");
      
@@ -477,47 +484,57 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
             
         //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
-
+        
+        // wait until get an activity without EINTR error.
         if ((activity < 0)&&(errno == EINTR)) { 
             error("Select error (EINTR), repeating select loop.");
             continue;
         }
         
+        // after getting a valid select, go on.
         valid_request = 1;
+    }
         
-        //If something happened on the master socket , then its an incoming connection
-        if (FD_ISSET(master_socket, &readfds)) {
-            *type = MSG_NEW_CONNECTION;
-            return ba;
+    //If something happened on the master socket , then its an incoming connection
+    if (FD_ISSET(master_socket, &readfds)) {
+        *type = MSG_NEW_CONNECTION;
+        return ba;
+    }
+
+    // Check the committer first, for performance reasons.
+    if (committer_index > 0) {
+        sd = client_socket [committer_index];
+        socket_found = 0;
+        
+        if(FD_ISSET(sd, &readfds)) {
+            socket_found = 1;
         }
-          
-        // I/O Operation
-        for (i = 0; i < max_clients; i++) 
+    }
+    
+    // I/O Operation
+    while (socket_found == 0) {             // Find the socket responsible.
+        loop_b = (loop_b+1)%max_clients;    // use loop_b to be fair with workers.
+        sd = client_socket[loop_b];
+      
+        if (FD_ISSET(sd , &readfds))        // Test the socket. 
         {
-            sd = client_socket[loop_b];
-              
-            if (FD_ISSET(sd , &readfds)) 
-            {
-                ba = COMM_read_message(ba,type,sd);
-               
-                if ((*((int *)type)) == -1)      // Someone is closing
-                {
-                    client_socket[loop_b] = 0;
-                    * type = MSG_CLOSE_CONNECTION;
-                    byte_array_clear(ba);
-                     _byte_array_pack64(ba, (uint64_t) sd);
-                    return ba;
-                }
-                  
-                else                            // Other request
-                {
-                    *origin_socket = sd;
-                    return ba;
-                }
-            }
-        
-            loop_b = (loop_b+1)%max_clients;
+            socket_found=1;
         }
+    }
+    
+    ba = COMM_read_message(ba,type,sd);     // Receive the request.
+   
+    if ((*((int *)type)) == -1)             // Someone is closing
+    {
+        client_socket[loop_b] = 0;
+        * type = MSG_CLOSE_CONNECTION;
+        byte_array_clear(ba);
+         _byte_array_pack64(ba, (uint64_t) sd);
+    }
+      
+    else                                    // Other request
+    {
+        *origin_socket = sd;
     }
       
     return ba;
@@ -546,7 +563,14 @@ void COMM_send_committer() {
 
 // Register the committer, when the committer sets it
 int COMM_register_committer(int sock) {
-    int old_prt;
+    int old_prt, i;
+    
+    for (i = 0; i < max_clients; i++) {
+        if(client_socket[i] == sock) {
+            committer_index = i;
+            break;
+        }
+    }
     
     getpeername(sock, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
     old_prt = ntohs(addr_committer.sin_port);

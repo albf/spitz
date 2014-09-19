@@ -48,7 +48,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     
     void *ptr = dlopen(so, RTLD_LAZY);                              // Open the binary file.
     if (!ptr) {
-        error("could not open %s", so);
+        error("Could not open %s", so);
         return;
     }
     
@@ -61,6 +61,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     
     void *user_data = ctor((argc), (argv));
     size_t tid, task_id = 0;
+
     while (1) {
         ba = COMM_wait_request(&type, &origin_socket, ba); 
         
@@ -73,7 +74,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     node->id = task_id;
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
-                    debug("sending generated task %d to %d", task_id, rank);
+                    debug("Sending generated task %d to %d", task_id, rank);
                     
                     // node has a new task
                     if(home == NULL) {
@@ -95,12 +96,12 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     task_id++;
                 } else if (mark != NULL) {
                     COMM_send_message(&mark->data, MSG_TASK, origin_socket);
-                    debug("replicating task %d", mark->id);
+                    debug("Replicating task %d", mark->id);
                     mark = mark ->next;
                     if (!mark)
                         mark = home;
                 } else {        // will pass here if ended at least once
-                    debug("sending KILL to rank %d", rank);
+                    debug("Sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
                     isFinished=1;
                 }
