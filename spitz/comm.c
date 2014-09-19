@@ -19,6 +19,11 @@ int alive;                              // number of connected members
 fd_set readfds;                         // set of socket descriptors
 struct connected_ip * ip_list;          // list of ips connected to the manager
 
+/* Functions Exclusive to this implementation */
+// Worker
+int COMM_telnet_client(int argc, char *argv[]);
+int COMM_request_committer();
+
 // Send message, used to make request between processes 
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
     struct byte_array _ba;
@@ -126,8 +131,9 @@ int COMM_read_int(int sock) {
     byte_array_init(&ba, 0);
     COMM_read_bytes(sock, &size, &ba);
 
-    if(size == -1)
+    if(size == -1) {
         return -1; 
+    }
     
     result = (int *) ba.ptr;
     return * result;
@@ -364,7 +370,7 @@ int COMM_setup_committer() {
 
 // Setup the job_manager network, to accept connections and other variables
 int COMM_setup_job_manager_network() {
-    int i, opt = 1;
+    int i,flags, opt = 1;
     struct sockaddr_in address;
     
     ip_list = NULL;
@@ -390,11 +396,23 @@ int COMM_setup_job_manager_network() {
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons( PORT_MANAGER );
-      
+     
+    /* Set socket to non-blocking */ 
+    if ((flags = fcntl(master_socket, F_GETFL, 0)) < 0) 
+    { 
+        error("Error getting the flags of master socket.");
+    } 
+
+    if (fcntl(master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
+    { 
+        error("Error setting new flags to the mater socket.\n");
+    } 
+
+    
     //bind the socket to localhost port PORT_MANAGER
     if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
-        error("bind in setup_job_manager failed\n");
+        error("Bind in setup_job_manager failed\n");
         return -1;
     }
     debug("Listener on port %d \n", PORT_MANAGER);
@@ -423,31 +441,33 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     
     debug("Waiting for request \n");
      
-    //clear the socket set
-    FD_ZERO(&readfds);
+    while(valid_request == 0) {
+        //clear the socket set
+        FD_ZERO(&readfds);
 
-    //add master socket to set
-    FD_SET(master_socket, &readfds);
-    max_sd = master_socket;
-     
-    //add child sockets to set
-    for ( i = 0 ; i < max_clients ; i++) 
-    {
-        sd = client_socket[i];      //socket descriptor
-                 
-        if(sd > 0)                  //if valid socket descriptor then add to read list
-            FD_SET( sd , &readfds);
+        //add master socket to set
+        FD_SET(master_socket, &readfds);
+        max_sd = master_socket;
          
-        if(sd > max_sd)             //highest file descriptor number, need it for the select function
-            max_sd = sd;
-    }
-    
-    while(valid_request == 0) { 
+        //add child sockets to set
+        for ( i = 0 ; i < max_clients ; i++) 
+        {
+            sd = client_socket[i];          //socket descriptor
+                     
+            if(sd > 0) {                    //if valid socket descriptor then add to read list
+                FD_SET( sd , &readfds);
+            }
+             
+            if(sd > max_sd) {               //highest file descriptor number, need it for the select function
+                max_sd = sd;
+            }
+        }
+            
         //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
 
-        if (activity < 0) { 
-            error("select error, repeating select loop.");
+        if ((activity < 0)&&(errno == EINTR)) { 
+            error("Select error (EINTR), repeating select loop.");
             continue;
         }
         

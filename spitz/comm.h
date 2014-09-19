@@ -19,6 +19,8 @@
 #include <sys/time.h>
 #include "list.h"
 #include <barray.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #define PORT_MANAGER 8888
 #define PORT_COMMITTER 9999
@@ -55,11 +57,9 @@ void COMM_connect_to_committer();
 int COMM_setup_committer();
 void COMM_set_committer();
 void COMM_get_committer();
-int COMM_request_committer();
 int COMM_get_rank_id();
 int COMM_get_run_num();
 char * COMM_get_path();
-int COMM_telnet_client(int argc, char *argv[]);
 int COMM_get_alive();
 void COMM_disconnect_from_job_manager();
 void COMM_disconnect_from_committer();
