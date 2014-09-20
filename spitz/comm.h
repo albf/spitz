@@ -95,8 +95,7 @@ int COMM_read_int(int sock);
 // Extern Variables
 extern struct sockaddr_in addr_committer;               // address of committer node
 extern char * lib_path;                                 // path of binary
-extern int run_num;
-extern socket_manager, socket_committer;
-extern int my_rank;
+extern int run_num;                                     // run number (future use).
+extern socket_manager, socket_committer;                // socket of servers (job manager and committer)
 
 #endif	/* COMM_H */

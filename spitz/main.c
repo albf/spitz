@@ -357,7 +357,7 @@ void start_slave_processes(int argc, char *argv[])
             return;
         }
 
-        if (my_rank == COMMITTER) {
+        if (COMM_get_rank_id() == (int) COMMITTER) {
             committer(argc, argv, handle);
         } 
         else {                                  // Else : Task Manager
@@ -375,7 +375,7 @@ void start_slave_processes(int argc, char *argv[])
             d.argc = argc;
             d.argv = argv;
 
-            int i, tmid = my_rank;
+            int i, tmid = COMM_get_rank_id();
             for (i = 0; i < NTHREADS; i++) {
                 d.id = NTHREADS * tmid + i;
                 pthread_create(&t[i], NULL, worker, &d);
@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
     if (debug) {
         int amount = atoi(debug);
         pid_t pid = getpid();
-        printf("Rank %d at pid %d\n", my_rank, pid);
+        printf("Rank %d at pid %d\n", COMM_get_rank_id(), pid);
         sleep(amount);
     }
 
