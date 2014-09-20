@@ -1,6 +1,4 @@
 /**
-Based on Silver Moon (m00n.silv3r@gmail.com) example and being modeled to SPITZ.
-
 Alexandre L. B. F.      
 */
 
@@ -8,25 +6,34 @@ Alexandre L. B. F.
 
 /* Global Variables */
 char buffer[1025], * lib_path;      	// data buffer of 1K
-struct sockaddr_in addr_committer;      // address of committer node
+struct sockaddr_in COMM_addr_committer; // address of committer node
 int socket_manager, socket_committer;   // Important socket values
-int my_rank, run_num;                   // Rank and run_num variables
-int loop_b;                             // Used to balance the requests
+int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
+int COMM_loop_b;                        // Used to balance the requests
 
-/* Job Manager only */
-int master_socket;                      // socket used to accept connections
-int addrlen;
-int client_socket[max_clients];         // used to stock the sockets.
-int sd;                                 // last socket used
-int committer_index;                    // committer index in the structure.
-int alive;                              // number of connected members
-fd_set readfds;                         // set of socket descriptors
-struct LIST_data * ip_list;             // list of ips connected to the manager
+/* Job Manager/Committer (servers) only */
+int COMM_master_socket;                      // socket used to accept connections
+int COMM_addrlen;
+int COMM_client_socket[max_clients];    // used to stock the sockets.
+int COMM_committer_index;               // committer index in the structure.
+int COMM_alive;                         // number of connected members
+struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 
-/* Functions Exclusive to this implementation */
+
+/* Functions Exclusive to this implementation, not used by upper level */
+
 // Worker
 int COMM_telnet_client(int argc, char *argv[]);
 int COMM_request_committer();
+
+// Communication
+void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
+int COMM_send_bytes(int sock, void * bytes, int size);
+char * COMM_read_char_array(int sock);                          // with unknown size
+int COMM_send_char_array(int sock, char * array);               // with unknown size
+int COMM_send_int(int sock, int value);
+int COMM_read_int(int sock);
+
 
 // Send message, used to make request between processes 
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
@@ -167,7 +174,7 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
         }
         else {
             debug("Connected Successfully to the Job Manager\n");
-            my_rank = COMM_read_int(socket_manager);
+            COMM_my_rank = COMM_read_int(socket_manager);
             isConnected = 1; 
         }
     }
@@ -185,7 +192,7 @@ void COMM_connect_to_committer() {
      
     //Connect to remote server
     while(isConnected == 0 ) {
-        if (connect(socket_committer , (struct sockaddr *)&addr_committer , sizeof(addr_committer)) < 0) { 
+        if (connect(socket_committer , (struct sockaddr *)&COMM_addr_committer , sizeof(COMM_addr_committer)) < 0) { 
             error("Could not connect to the Committer. Trying again.\n");
             sleep(1); 
         }
@@ -198,13 +205,14 @@ void COMM_connect_to_committer() {
 
 // Send number of alive members.
 void COMM_send_alive(int origin_socket) {
-    COMM_send_int(origin_socket, alive);
+    COMM_send_int(origin_socket, COMM_alive);
 }
 
 // Request and receive number of alive members.
 int COMM_get_alive() {
-    if((my_rank==(int)JOB_MANAGER)||(my_rank==(int)COMMITTER))
-        return alive;
+    if((COMM_my_rank==(int)JOB_MANAGER)||(COMM_my_rank==(int)COMMITTER)) {
+        return COMM_alive;
+    }
    
     COMM_send_message(NULL, MSG_GET_ALIVE, socket_manager);
     return COMM_read_int(socket_manager);
@@ -222,23 +230,27 @@ char * COMM_get_path() {
 } 
 
 // Send the path due a request
-void COMM_send_path() {
-    if(lib_path != NULL)
-	    COMM_send_char_array(sd, lib_path);
-	else
-	    COMM_send_char_array(sd, "NULL\n");
+void COMM_send_path(int sock) {
+    if(lib_path != NULL) {
+	    COMM_send_char_array(sock, lib_path);
+    }
+	else {
+	    COMM_send_char_array(sock, "NULL\n");
+    }
 }
 
 // Increment the run_num variable
 void COMM_increment_run_num() {
-    if(my_rank==0)
-        run_num++;
+    if(COMM_my_rank==0) {
+        COMM_run_num++;
+    }
 }
 
 // Request and return the run_num variable from the job_manager
 int COMM_get_run_num() {
-     if(my_rank==0)
-        return run_num;
+     if(COMM_my_rank==(int)JOB_MANAGER) {
+        return COMM_run_num;
+     }
 
     COMM_send_message(NULL, MSG_GET_RUNNUM, socket_manager);
     return COMM_read_int(socket_manager); 
@@ -252,7 +264,7 @@ void COMM_set_committer() {
 
 // Request and return the committer from the job_manager
 void COMM_get_committer() {
-    if(my_rank==0)
+    if(COMM_my_rank==0)
         return;
     
     while(COMM_request_committer() != 1) {
@@ -274,13 +286,13 @@ int COMM_request_committer() {
         } else {
             // otherwise, get the ip and port values.
             token = strtok(rcv_msg, "|\0");
-            addr_committer.sin_addr.s_addr = inet_addr(token);
-            addr_committer.sin_family = AF_INET;
+            COMM_addr_committer.sin_addr.s_addr = inet_addr(token);
+            COMM_addr_committer.sin_family = AF_INET;
             
             token = strtok(NULL, "|\0");
             c_port = atoi(token);
             //c_port = atoi(strtok(token, "|"));
-            addr_committer.sin_port = htons(c_port);
+            COMM_addr_committer.sin_port = htons(c_port);
             return 1;
         }
     }
@@ -289,7 +301,7 @@ int COMM_request_committer() {
 
 // Rank id is now in a variable
 int COMM_get_rank_id() {
-    return my_rank;
+    return COMM_my_rank;
 }
 
 // Simple telnet client, for debug reasons
@@ -330,28 +342,28 @@ int COMM_setup_committer_network() {
     COMM_set_committer();
     
     for (i = 0; i < max_clients; i++) {
-        client_socket[i] = 0;
+        COMM_client_socket[i] = 0;
     }
       
     //  create a master socket
-    if( (master_socket= socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+    if( (COMM_master_socket= socket(AF_INET , SOCK_STREAM , 0)) == 0) {
         error("socket failed\n");
         return -1;
     }
   
     //set master socket to allow multiple connections
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+    if( setsockopt(COMM_master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
         error("error in setsockopt function\n");
         return -1;
     }
 
     /* Set socket to non-blocking */ 
-    if ((flags = fcntl(master_socket, F_GETFL, 0)) < 0) 
+    if ((flags = fcntl(COMM_master_socket, F_GETFL, 0)) < 0) 
     { 
         error("Error getting the flags of master socket.");
     } 
 
-    if (fcntl(master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
+    if (fcntl(COMM_master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
     { 
         error("Error setting new flags to the mater socket.\n");
     } 
@@ -362,7 +374,7 @@ int COMM_setup_committer_network() {
     address.sin_port = htons( PORT_COMMITTER );
       
     //bind the socket to localhost port PORT_COMMITTER
-    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+    if (bind(COMM_master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
         error("bind in setup_committer failed\n");
         return -1;
@@ -370,17 +382,17 @@ int COMM_setup_committer_network() {
     debug("Listener on port %d \n", PORT_COMMITTER);
      
     //try to specify maximum of max_pending_connections pending connections for the master socket
-    if (listen(master_socket, max_pending_connections) < 0) {
+    if (listen(COMM_master_socket, max_pending_connections) < 0) {
         return -1;
     }
     
     // Start list of variables
-    addrlen = sizeof(address);                                      
-    lib_path = NULL;
-    loop_b = 0;
-    my_rank = (int) COMMITTER;
-    alive = 1;
-    committer_index = -1;
+    COMM_addrlen = sizeof(address);   
+    lib_path = NULL;                        // Does't have a path yet.
+    COMM_loop_b = 0;
+    COMM_my_rank = (int) COMMITTER;
+    COMM_alive = 1;                         // The committer is the only alive for now.
+    COMM_committer_index = -1;              // Don't check for committer in wait_request.
     
     return 0;
 }
@@ -390,33 +402,33 @@ int COMM_setup_job_manager_network() {
     int i,flags, opt = 1;
     struct sockaddr_in address;
     
-    ip_list = NULL;
-    addr_committer.sin_addr.s_addr = 0;
-    addr_committer.sin_port = 0;
+    COMM_ip_list = NULL;
+    COMM_addr_committer.sin_addr.s_addr = 0;
+    COMM_addr_committer.sin_port = 0;
       
     for (i = 0; i < max_clients; i++) {
-        client_socket[i] = 0;
+        COMM_client_socket[i] = 0;
     }
       
     //  create a master socket
-    if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+    if( (COMM_master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
         error("socket creation in setup_job_manager failed\n");
         return -1;
     }
   
     //set master socket to allow multiple connections
-    if( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+    if( setsockopt(COMM_master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
         error("error in setsockopt function\n");
         return -1;
     }
   
     /* Set socket to non-blocking */ 
-    if ((flags = fcntl(master_socket, F_GETFL, 0)) < 0) 
+    if ((flags = fcntl(COMM_master_socket, F_GETFL, 0)) < 0) 
     { 
         error("Error getting the flags of master socket.");
     } 
 
-    if (fcntl(master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
+    if (fcntl(COMM_master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
     { 
         error("Error setting new flags to the mater socket.\n");
     } 
@@ -427,7 +439,7 @@ int COMM_setup_job_manager_network() {
     address.sin_port = htons( PORT_MANAGER );
     
     //bind the socket to localhost port PORT_MANAGER
-    if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+    if (bind(COMM_master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
         error("Bind in setup_job_manager failed\n");
         return -1;
@@ -435,28 +447,30 @@ int COMM_setup_job_manager_network() {
     debug("Listener on port %d \n", PORT_MANAGER);
      
     //try to specify maximum of 3 pending connections for the master socket
-    if (listen(master_socket, max_pending_connections) < 0) {
+    if (listen(COMM_master_socket, max_pending_connections) < 0) {
         return -1;
     }
     
     // Start list of variables
-    addrlen = sizeof(address);                                      
-    ip_list = LIST_add_ip_address(ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
-    my_rank = (int)JOB_MANAGER;
-    run_num = 0;
+    COMM_addrlen = sizeof(address);                                      
+    COMM_ip_list = LIST_add_ip_address(COMM_ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
+    COMM_my_rank = (int)JOB_MANAGER;
+    COMM_run_num = 0;
     lib_path = NULL;
-    alive = 1;
-    loop_b = 0;
-    committer_index = -1;
+    COMM_alive = 1;
+    COMM_loop_b = 0;
+    COMM_committer_index = -1;
     
     return 0;
 }
 
 // Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
-    int i, activity, valid_request=0; 
-    int max_sd;                                                     // Auxiliar value to select.
-    int socket_found;
+    int i, activity, valid_request=0;               // Indicates if a valid request was made. 
+    int max_sd;                                     // Auxiliary value to select.
+    int socket_found=0;                             // Indicates if the socket was found.
+    int sd;                                         // last socket used
+    fd_set readfds;                                 // set of socket descriptors
     
     debug("Waiting for request \n");
      
@@ -465,19 +479,19 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         FD_ZERO(&readfds);
 
         //add master socket to set
-        FD_SET(master_socket, &readfds);
-        max_sd = master_socket;
+        FD_SET(COMM_master_socket, &readfds);
+        max_sd = COMM_master_socket;
          
         //add child sockets to set
         for ( i = 0 ; i < max_clients ; i++) 
         {
-            sd = client_socket[i];          //socket descriptor
+            sd = COMM_client_socket[i];             //socket descriptor
                      
-            if(sd > 0) {                    //if valid socket descriptor then add to read list
+            if(sd > 0) {                            //if valid socket descriptor then add to read list
                 FD_SET( sd , &readfds);
             }
              
-            if(sd > max_sd) {               //highest file descriptor number, need it for the select function
+            if(sd > max_sd) {                       //highest file descriptor number, need it for the select function
                 max_sd = sd;
             }
         }
@@ -496,14 +510,14 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     }
         
     //If something happened on the master socket , then its an incoming connection
-    if (FD_ISSET(master_socket, &readfds)) {
+    if (FD_ISSET(COMM_master_socket, &readfds)) {
         *type = MSG_NEW_CONNECTION;
         return ba;
     }
 
     // Check the committer first, for performance reasons.
-    if (committer_index > 0) {
-        sd = client_socket [committer_index];
+    if (COMM_committer_index > 0) {
+        sd = COMM_client_socket [COMM_committer_index];
         socket_found = 0;
         
         if(FD_ISSET(sd, &readfds)) {
@@ -512,27 +526,27 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     }
     
     // I/O Operation
-    while (socket_found == 0) {             // Find the socket responsible.
-        loop_b = (loop_b+1)%max_clients;    // use loop_b to be fair with workers.
-        sd = client_socket[loop_b];
+    while (socket_found == 0) {                     // Find the socket responsible.
+        COMM_loop_b = (COMM_loop_b+1)%max_clients;  // update loop_b to be fair with workers.
+        sd = COMM_client_socket[COMM_loop_b];
       
-        if (FD_ISSET(sd , &readfds))        // Test the socket. 
+        if (FD_ISSET(sd , &readfds))                // Test the socket. 
         {
             socket_found=1;
         }
     }
     
-    ba = COMM_read_message(ba,type,sd);     // Receive the request.
+    ba = COMM_read_message(ba,type,sd);             // Receive the request.
    
-    if ((*((int *)type)) == -1)             // Someone is closing
+    if ((*((int *)type)) == -1)                     // Someone is closing
     {
-        client_socket[loop_b] = 0;
+        COMM_client_socket[COMM_loop_b] = 0;
         * type = MSG_CLOSE_CONNECTION;
         byte_array_clear(ba);
          _byte_array_pack64(ba, (uint64_t) sd);
     }
       
-    else                                    // Other request
+    else                                            // Other request
     {
         *origin_socket = sd;
     }
@@ -541,23 +555,23 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
 }
 
 // Send the committer due a request
-void COMM_send_committer() {
+void COMM_send_committer(int sock) {
     char no_answer[2] = "\0\n";
     
-    if ((strcmp((const char *) inet_ntoa(addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(addr_committer.sin_port) == 0))
-        COMM_send_char_array(sd, no_answer);
+    if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0))
+        COMM_send_char_array(sock, no_answer);
     else {
         char committer_send[25] = "";
-        strcat(committer_send, inet_ntoa(addr_committer.sin_addr));
+        strcat(committer_send, inet_ntoa(COMM_addr_committer.sin_addr));
 
         char port_str[6]; // used to represent a short int 
-        sprintf(port_str, "%d", (int) ntohs(addr_committer.sin_port));
+        sprintf(port_str, "%d", (int) ntohs(COMM_addr_committer.sin_port));
 
         strcat(committer_send, "|");
         strcat(committer_send, port_str);
 
         // message format: ip|porta
-        COMM_send_char_array(sd, committer_send);
+        COMM_send_char_array(sock, committer_send);
     }
 }
 
@@ -566,18 +580,18 @@ int COMM_register_committer(int sock) {
     int old_prt, i;
     
     for (i = 0; i < max_clients; i++) {
-        if(client_socket[i] == sock) {
-            committer_index = i;
+        if(COMM_client_socket[i] == sock) {
+            COMM_committer_index = i;
             break;
         }
     }
     
-    getpeername(sock, (struct sockaddr*) &addr_committer, (socklen_t*) & addrlen);
-    old_prt = ntohs(addr_committer.sin_port);
+    getpeername(sock, (struct sockaddr*) &COMM_addr_committer, (socklen_t*) & COMM_addrlen);
+    old_prt = ntohs(COMM_addr_committer.sin_port);
     
-    addr_committer.sin_port = htons (PORT_COMMITTER);
-    ip_list = LIST_register_committer(ip_list , inet_ntoa(addr_committer.sin_addr), old_prt, ntohs(addr_committer.sin_port));
-    debug("Set committer, ip %s, port %d", inet_ntoa(addr_committer.sin_addr), htons(addr_committer.sin_port));
+    COMM_addr_committer.sin_port = htons (PORT_COMMITTER);
+    COMM_ip_list = LIST_register_committer(COMM_ip_list , inet_ntoa(COMM_addr_committer.sin_addr), old_prt, ntohs(COMM_addr_committer.sin_port));
+    debug("Set committer, ip %s, port %d", inet_ntoa(COMM_addr_committer.sin_addr), htons(COMM_addr_committer.sin_port));
 
     COMM_LIST_print_ip_list();
     return 0;
@@ -588,7 +602,7 @@ void COMM_create_new_connection() {
     int i, rcv_socket, id_send;
     struct sockaddr_in address;
   
-    if ((rcv_socket = accept(master_socket, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
+    if ((rcv_socket = accept(COMM_master_socket, (struct sockaddr *)&address, (socklen_t*)&COMM_addrlen))<0) {
 	    error("Problem accepting connection, ERRNO: %s\n", strerror(errno));
         return;
     }
@@ -597,8 +611,8 @@ void COMM_create_new_connection() {
     debug("New connection , socket fd is %d , ip is : %s , port : %d \n" , rcv_socket, inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
     
     // Add new connection to the list, assign rank id and send to the client (if the manager).
-    if(my_rank == (int)JOB_MANAGER) {
-        ip_list = LIST_add_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, &id_send); 
+    if(COMM_my_rank == (int)JOB_MANAGER) {
+        COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, &id_send); 
         COMM_send_int(rcv_socket,id_send);
     }
 
@@ -606,11 +620,11 @@ void COMM_create_new_connection() {
     for (i = 0; i < max_clients; i++) 
     {
 	  //if position is empty
-        if( client_socket[i] == 0 )
+        if( COMM_client_socket[i] == 0 )
         {
-            client_socket[i] = rcv_socket;
+            COMM_client_socket[i] = rcv_socket;
             
-            if(my_rank==0) {
+            if(COMM_my_rank==0) {
                 info("Adding to list of sockets as %d\n" , i);
                 COMM_LIST_print_ip_list(); 
             }
@@ -619,7 +633,7 @@ void COMM_create_new_connection() {
         }
     }
 
-    alive++;
+    COMM_alive++;
 }
 
 // Close the connection for committer and job manager.
@@ -627,21 +641,21 @@ void COMM_close_connection(int sock) {
     struct sockaddr_in address;
     
     //Somebody disconnected , get his details and print
-    getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&addrlen);
+    getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&COMM_addrlen);
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
-    if(my_rank==(int)JOB_MANAGER) {
-        ip_list = LIST_remove_ip_address(ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+    if(COMM_my_rank==(int)JOB_MANAGER) {
+        COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
     }
     
     //Close the socket 
     close( sock );
-    alive--;
+    COMM_alive--;
 }
 
 // List all ips an the info of each one from the ip_list
 void COMM_LIST_print_ip_list() {
-    LIST_print_all_ip_ordered(ip_list);        
+    LIST_print_all_ip_ordered(COMM_ip_list);        
 }
 
 // Disconnect from job manager node.
@@ -651,8 +665,8 @@ void COMM_disconnect_from_job_manager(){
 
 // Disconnect from committer node
 void COMM_disconnect_from_committer() {
-    if(my_rank==(int)JOB_MANAGER) {
-        LIST_free_data(ip_list);
+    if(COMM_my_rank==(int)JOB_MANAGER) {
+        LIST_free_data(COMM_ip_list);
     }
     
     close(socket_committer);

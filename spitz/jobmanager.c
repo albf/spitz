@@ -41,6 +41,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket.
     int origin_socket;                                              // Socket that sent the request.
+    int run_num;                                                    // Actual run number. 
     
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
     struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
@@ -100,7 +101,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     mark = mark ->next;
                     if (!mark)
                         mark = home;
-                } else {        // will pass here if ended at least once
+                } 
+                // will enter here if ended at least once
+                else {        
                     debug("Sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
                     isFinished=1;
@@ -143,13 +146,14 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_close_connection((int)socket_cl);
                 break;
             case MSG_GET_COMMITTER:
-                COMM_send_committer();
+                COMM_send_committer(origin_socket);
                 break;
             case MSG_GET_PATH:
-                COMM_send_path();
+                COMM_send_path(origin_socket);
                 break;
             case MSG_GET_RUNNUM:
                 byte_array_clear(ba);
+                run_num = COMM_get_run_num();
                 byte_array_pack64(ba, run_num);
                 COMM_send_message(ba,MSG_GET_RUNNUM,origin_socket);
                 break;
