@@ -37,7 +37,6 @@
 
 int LOG_LEVEL = 0;
 extern __thread int workerid;
-extern int nworkers;
 
 static int NTHREADS = 1;
 static int FIFOSZ = 10;
@@ -71,8 +70,9 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 void committer(int argc, char *argv[], void *handle)
 {
     int isFinished=0;                                               // Indicate if it's finished.
-    int socket_serv=0;                                              // Socket of the requester, return by COMM_wait_request.
+    int origin_socket=0;                                            // Socket of the requester, return by COMM_wait_request.
     enum message_type type;                                         // Type of received message.
+    uint64_t socket_cl;                                             // Closing socket, packed by the COMM_wait_request.
    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -101,14 +101,14 @@ void committer(int argc, char *argv[], void *handle)
         
     info("Starting committer main loop");
     while (1) {
-        ba = COMM_wait_request(&type, &socket_serv, ba);
+        ba = COMM_wait_request(&type, &origin_socket, ba);
         
         switch (type) {
             case MSG_RESULT:
                 byte_array_unpack64(ba, &task_id);
                 debug("Got a RESULT message for task %d", task_id);
                 
-                if(task_id>cap) {                                   // if id higher them actual cap
+                if(task_id>cap) {                                   // If id higher them actual cap
                     cap=2*task_id;
                     committed = realloc(committed, sizeof(size_t)*cap);
 
@@ -116,7 +116,7 @@ void committer(int argc, char *argv[], void *handle)
                         committed[i]=0;
                 }
 
-                if (committed[task_id] == 0) {                      // if not committed yet
+                if (committed[task_id] == 0) {                      // If not committed yet
                     committed[task_id] = 1;
                     commit_pit(user_data, ba);
                     byte_array_clear(ba);
@@ -125,12 +125,12 @@ void committer(int argc, char *argv[], void *handle)
                 }
 
                 break;
-            case MSG_KILL:
+            case MSG_KILL:                                          // Received kill from Job Manager.
                 info("Got a KILL message, committing job");
                 byte_array_clear(ba);
                 if (commit_job) {
                     commit_job(user_data, ba);
-                    COMM_send_message(ba, MSG_RESULT,  sd); 
+                    COMM_send_message(ba, MSG_RESULT, origin_socket); 
                 }
                 isFinished = 1;
                 break;
@@ -138,7 +138,6 @@ void committer(int argc, char *argv[], void *handle)
                 COMM_create_new_connection();
                 break;
             case MSG_CLOSE_CONNECTION:  ;
-                uint64_t socket_cl;
                 _byte_array_unpack64(ba, &socket_cl);
                 COMM_close_connection((int)socket_cl);
                 break;
@@ -360,7 +359,8 @@ void start_slave_processes(int argc, char *argv[])
 
         if (my_rank == COMMITTER) {
             committer(argc, argv, handle);
-        } else {
+        } 
+        else {                                  // Else : Task Manager
             pthread_t t[NTHREADS];
 
             struct thread_data d;
@@ -403,8 +403,7 @@ void start_slave_processes(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    int size;
-    enum actor type=atoi(argv[1]);
+    enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.  
 
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
@@ -420,7 +419,7 @@ int main(int argc, char *argv[])
         }
     }
     
-    char *debug = getenv("SPITS_DEBUG_SLEEP");
+    char *debug = getenv("SPITS_DEBUG_SLEEP");                      // Get environment variables and check usage.
     if (debug) {
         int amount = atoi(debug);
         pid_t pid = getpid();
@@ -452,11 +451,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    nworkers = (size - 2) * NTHREADS;
-
     char *so = argv[3];
 
-    /* Remove the first two arguments */
+    /* Remove the first four arguments */
     argc -= 4;
     argv += 4;
 
