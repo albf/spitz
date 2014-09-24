@@ -58,7 +58,6 @@ void COMM_connect_to_job_manager(char ip_adr[]);
 void COMM_disconnect_from_committer();
 void COMM_disconnect_from_job_manager();
 void COMM_get_committer();
-char * COMM_get_path();
 void COMM_set_committer();
 
 // Both, check by id what's the case.
@@ -73,7 +72,6 @@ void COMM_increment_run_num();
 int COMM_register_committer(int sock);
 void COMM_send_alive(int origin_socket);
 void COMM_send_committer(int sock);
-void COMM_send_path(int sock);
 void COMM_set_path(char * file_path);
 int COMM_setup_job_manager_network();
 int COMM_setup_committer_network();

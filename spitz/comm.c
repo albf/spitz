@@ -73,8 +73,9 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     sprintf(size_c, "%d", size);
     strcat(size_c, "|\n");
     return_value = (int) send(sock, size_c, (strlen(size_c)-1), 0); // don't send '\n'
-    if(size>0)
+    if(size>0) {
     	return_value = (int) send(sock, bytes, size, 0);
+    }
 
     return 0;    
 }
@@ -117,7 +118,6 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 
 // Send char array using send bytes function
 int COMM_send_char_array(int sock, char * v) {
-    //return COMM_send_bytes(sock, (void *) array, strlen(array)+1);      // send the \n
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     size_t n = (size_t) (strlen(v)+1); 
     byte_array_init(ba, n);
@@ -231,22 +231,6 @@ void COMM_set_path(char * file_path) {
     lib_path = strcpy(malloc(sizeof(char)*strlen(file_path)), file_path);
 }
 
-// Request and receive the path from the manager
-char * COMM_get_path() {
-    COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
-    return COMM_read_char_array(socket_manager);
-} 
-
-// Send the path due a request
-void COMM_send_path(int sock) {
-    if(lib_path != NULL) {
-	    COMM_send_char_array(sock, lib_path);
-    }
-	else {
-	    COMM_send_char_array(sock, "NULL\n");
-    }
-}
-
 // Increment the run_num variable
 void COMM_increment_run_num() {
     if(COMM_my_rank==0) {
@@ -285,7 +269,8 @@ void COMM_get_committer() {
 int COMM_request_committer() {
     int c_port;
     char * token, * rcv_msg;
-
+    enum message_type type;                                         // Type of received message.
+    
     COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
     
     if ((rcv_msg = COMM_read_char_array(socket_manager)) != NULL) {     //receive a reply from the server
@@ -564,13 +549,24 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
 
 // Send the committer due a request
 void COMM_send_committer(int sock) {
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    size_t n;
     char no_answer[2] = "\0\n";
+    char * v; 
+    
+    COMM_send_message(ba, MSG_STRING, sock);
     
     if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
-        COMM_send_char_array(sock, no_answer);
+        v = no_answer;
+        n = (size_t) (strlen(no_answer)+1);
+        byte_array_init(ba, n);
+        
+        byte_array_pack8v(ba, v, n);
+        COMM_send_message(ba, MSG_STRING, sock);
+        //COMM_send_char_array(sock, no_answer);
     }
     else {
-        char committer_send[25] = "";
+        char committer_send[26] = "";
         strcat(committer_send, inet_ntoa(COMM_addr_committer.sin_addr));
 
         char port_str[6]; // used to represent a short int 
@@ -578,10 +574,17 @@ void COMM_send_committer(int sock) {
 
         strcat(committer_send, "|");
         strcat(committer_send, port_str);
+        strcat(committer_send, "\n");
+        
+        n = (size_t) (strlen(committer_send)+1);
 
         // message format: ip|porta
-        COMM_send_char_array(sock, committer_send);
+        COMM_send_message(ba, MSG_STRING, sock);
+        
+        //COMM_send_char_array(sock, committer_send);
     }
+
+    byte_array_free(ba);
 }
 
 // Register the committer, when the committer sets it
