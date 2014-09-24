@@ -346,14 +346,20 @@ void start_master_process(int argc, char *argv[], char *so)
 
 void start_slave_processes(int argc, char *argv[])
 {
-    lib_path = COMM_get_path();
+    // Request and get the path from the job manager..
+    COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
+    struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
+    enum message_type type;
     
-    while (strncmp(lib_path, "NULL", 4) != 0) {
-        info("received a module to run %s", lib_path);
+    byte_array_init(lib_path, 0);
+    COMM_read_message(lib_path, &type, socket_manager);
 
-        void *handle = dlopen(lib_path, RTLD_LAZY);
+    while (strncmp((char *) lib_path->ptr, "NULL", 4) != 0) {
+        info("received a module to run %s", lib_path->ptr);
+
+        void *handle = dlopen((char *) lib_path->ptr, RTLD_LAZY);
         if (!handle) {
-            error("could not open %s", lib_path);
+            error("could not open %s", (char *) lib_path->ptr);
             return;
         }
 

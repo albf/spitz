@@ -18,6 +18,8 @@ Alexandre L. B. F.
 #include <barray.h>
 #include <errno.h>
 #include <fcntl.h>
+#include "spitz.h"
+#include "barray.h"
 
 #define PORT_MANAGER 8888
 #define PORT_COMMITTER 9998
@@ -44,7 +46,8 @@ enum message_type {
         MSG_GET_ALIVE,          // Worker to JobManager
 	MSG_SET_COMMITTER,	// Committer to Job Manager
         MSG_NEW_CONNECTION,     // Worker/Committer to Job Manager/Commiter
-        MSG_CLOSE_CONNECTION    // Worker/Committer to Job Manager/Commiter
+        MSG_CLOSE_CONNECTION,   // Worker/Committer to Job Manager/Commiter
+        MSG_STRING
 };
 
 /* Functions based in Client/Server architecture */
@@ -84,7 +87,6 @@ struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *
 void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
 
 // Extern Variables
-extern char * lib_path;                                 // path of binary
 extern socket_manager, socket_committer;                // socket of servers (job manager and committer)
 
 #endif	/* COMM_H */

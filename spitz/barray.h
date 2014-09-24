@@ -53,10 +53,10 @@ void _byte_array_pack32v(struct byte_array *ba, uint32_t *v, size_t n);
 void _byte_array_pack16v(struct byte_array *ba, uint16_t *v, size_t n);
 void _byte_array_pack8v(struct byte_array *ba, uint8_t *v, size_t n);
 
-#define byte_array_pack64v(ba, v, n) _byte_array_pack64v(ba, ((uint64_t*)((char*)(v))), n)
-#define byte_array_pack32v(ba, v, n) _byte_array_pack32v(ba, ((uint32_t*)((char*)(v))), n)
-#define byte_array_pack16v(ba, v, n) _byte_array_pack16v(ba, ((uint16_t*)((char*)(v))), n)
-#define byte_array_pack8v(ba, v, n)  _byte_array_pack8v(ba, ((uint8_t*)((char*)(v))), n)
+#define byte_array_pack64v(ba, v, n) _byte_array_pack64v(ba, ((uint64_t*)((char*)(v))), (size_t) n)
+#define byte_array_pack32v(ba, v, n) _byte_array_pack32v(ba, ((uint32_t*)((char*)(v))), (size_t) n)
+#define byte_array_pack16v(ba, v, n) _byte_array_pack16v(ba, ((uint16_t*)((char*)(v))), (size_t) n)
+#define byte_array_pack8v(ba, v, n)  _byte_array_pack8v(ba, ((uint8_t*)((char*)(v))), (size_t) n)
 
 int _byte_array_unpack64(struct byte_array *ba, uint64_t *v);
 int _byte_array_unpack32(struct byte_array *ba, uint32_t *v);
@@ -73,10 +73,10 @@ int _byte_array_unpack32v(struct byte_array *ba, uint32_t *v, size_t n);
 int _byte_array_unpack16v(struct byte_array *ba, uint16_t *v, size_t n);
 int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n);
 
-#define byte_array_unpack64v(ba, v, n) _byte_array_unpack64v(ba, ((uint64_t*)((char*)(v))), n)
-#define byte_array_unpack32v(ba, v, n) _byte_array_unpack32v(ba, ((uint32_t*)((char*)(v))), n)
-#define byte_array_unpack16v(ba, v, n) _byte_array_unpack16v(ba, ((uint16_t*)((char*)(v))), n)
-#define byte_array_unpack8v(ba, v, n)  _byte_array_unpack8v(ba, ((uint8_t*)((char*)(v))), n)
+#define byte_array_unpack64v(ba, v, n) _byte_array_unpack64v(ba, ((uint64_t*)((char*)(v))), (size_t) n)
+#define byte_array_unpack32v(ba, v, n) _byte_array_unpack32v(ba, ((uint32_t*)((char*)(v))), (size_t) n)
+#define byte_array_unpack16v(ba, v, n) _byte_array_unpack16v(ba, ((uint16_t*)((char*)(v))), (size_t) n)
+#define byte_array_unpack8v(ba, v, n)  _byte_array_unpack8v(ba, ((uint8_t*)((char*)(v))), (size_t) n)
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,6 @@
 #include "spitz.h"
 
+char * lib_path;
 __thread int workerid = -1;
 int nworkers;
 

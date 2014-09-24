@@ -5,7 +5,7 @@ Alexandre L. B. F.
 #include "comm.h"
 
 /* Global Variables */
-char buffer[1025], * lib_path;      	// data buffer of 1K
+char buffer[1025];                   	// data buffer of 1K
 struct sockaddr_in COMM_addr_committer; // address of committer node
 int socket_manager, socket_committer;   // Important socket values
 int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
@@ -29,8 +29,8 @@ int COMM_request_committer();
 // Communication
 void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
 int COMM_send_bytes(int sock, void * bytes, int size);
-char * COMM_read_char_array(int sock);                          // with unknown size
-int COMM_send_char_array(int sock, char * array);               // with unknown size
+//char * COMM_read_char_array(int sock);                          // with unknown size
+//int COMM_send_char_array(int sock, char * array);               // with unknown size
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
 
@@ -58,12 +58,11 @@ struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         ba->ptr = NULL;
         ba->len = 0;
-    } else {
+    } 
     
     COMM_read_bytes(rcv_socket, NULL, ba);
     
     return ba;
-    }
 }
 
 // Send N bytes pointer by bytes pointer.
@@ -117,17 +116,26 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 }
 
 // Send char array using send bytes function
-int COMM_send_char_array(int sock, char * array) {
-    return COMM_send_bytes(sock, (void *) array, strlen(array)+1);      // send the \n
+int COMM_send_char_array(int sock, char * v) {
+    //return COMM_send_bytes(sock, (void *) array, strlen(array)+1);      // send the \n
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    size_t n = (size_t) (strlen(v)+1); 
+    byte_array_init(ba, n);
+    byte_array_pack8v(ba, v, n);
+    
+    COMM_send_message(ba, MSG_STRING, sock);
 }
 
 // Read char array using read bytes function
 char * COMM_read_char_array(int sock) {
-    struct byte_array ba;
-    byte_array_init(&ba, 0);
-    COMM_read_bytes(sock, NULL, &ba);
-    return (char *) ba.ptr; 
-}
+    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+    enum message_type * type;
+    
+    byte_array_init(ba, 0);
+    COMM_read_message(ba, type, sock);
+    
+    return (char *) ba->ptr; 
+} 
 
 // Send int using send bytes function
 int COMM_send_int(int sock, int value) {
@@ -558,8 +566,9 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
 void COMM_send_committer(int sock) {
     char no_answer[2] = "\0\n";
     
-    if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0))
+    if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
         COMM_send_char_array(sock, no_answer);
+    }
     else {
         char committer_send[25] = "";
         strcat(committer_send, inet_ntoa(COMM_addr_committer.sin_addr));

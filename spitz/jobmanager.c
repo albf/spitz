@@ -148,8 +148,14 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_GET_COMMITTER:
                 COMM_send_committer(origin_socket);
                 break;
-            case MSG_GET_PATH:
-                COMM_send_path(origin_socket);
+            case MSG_GET_PATH:;
+                //COMM_send_path(origin_socket);
+                char * v = lib_path;
+                size_t n = (size_t) (strlen(v)+1); 
+                byte_array_init(ba, n);
+                byte_array_pack8v(ba, v, n);
+                COMM_send_message(ba, MSG_STRING, origin_socket);
+                
                 break;
             case MSG_GET_RUNNUM:
                 byte_array_clear(ba);

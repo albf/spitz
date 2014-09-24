@@ -16,6 +16,8 @@ int spitz_get_worker_id(void);
  */
 int spitz_get_num_workers(void);
 
+extern char * lib_path;                                 // path of binary
+
 #ifdef __cplusplus
 }
 #endif
