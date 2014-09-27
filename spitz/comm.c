@@ -268,26 +268,29 @@ void COMM_get_committer() {
 // Do the request for the committer value. May receive a failed message.
 int COMM_request_committer() {
     int c_port;
-    char * token, * rcv_msg;
-    enum message_type type;                                         // Type of received message.
+    char * token;
+
+    enum message_type type;                                             // Type of received message.
+    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+    byte_array_init(ba, 0);
     
     COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
+    COMM_read_message(ba, &type, socket_manager);
     
-    if ((rcv_msg = COMM_read_char_array(socket_manager)) != NULL) {     //receive a reply from the server
-        if (strlen(rcv_msg) <= 1) {                                     // Job manager doesn't know yet
-            return -1;
-        } else {
-            // otherwise, get the ip and port values.
-            token = strtok(rcv_msg, "|\0");
-            COMM_addr_committer.sin_addr.s_addr = inet_addr(token);
-            COMM_addr_committer.sin_family = AF_INET;
-            
-            token = strtok(NULL, "|\0");
-            c_port = atoi(token);
-            //c_port = atoi(strtok(token, "|"));
-            COMM_addr_committer.sin_port = htons(c_port);
-            return 1;
-        }
+    if (strlen((char *) ba->ptr) <= 1) {                                     // Job manager doesn't know yet
+        return -1;
+    } 
+    else {
+        // otherwise, get the ip and port values.
+        token = strtok((char *) ba->ptr, "|\0");
+        COMM_addr_committer.sin_addr.s_addr = inet_addr(token);
+        COMM_addr_committer.sin_family = AF_INET;
+        
+        token = strtok(NULL, "|\0");
+        c_port = atoi(token);
+        //c_port = atoi(strtok(token, "|"));
+        COMM_addr_committer.sin_port = htons(c_port);
+        return 1;
     }
     return -1;
 }
@@ -554,7 +557,7 @@ void COMM_send_committer(int sock) {
     char no_answer[2] = "\0\n";
     char * v; 
     
-    COMM_send_message(ba, MSG_STRING, sock);
+    //COMM_send_message(ba, MSG_STRING, sock);
     
     if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
         v = no_answer;
