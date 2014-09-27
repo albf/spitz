@@ -12,8 +12,8 @@ int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
 int COMM_loop_b;                        // Used to balance the requests
 
 /* Job Manager/Committer (servers) only */
-int COMM_master_socket;                      // socket used to accept connections
-int COMM_addrlen;
+int COMM_master_socket;                 // socket used to accept connections
+int COMM_addrlen;                       // len of socket addresses
 int COMM_client_socket[max_clients];    // used to stock the sockets.
 int COMM_committer_index;               // committer index in the structure.
 int COMM_alive;                         // number of connected members
@@ -29,8 +29,6 @@ int COMM_request_committer();
 // Communication
 void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
 int COMM_send_bytes(int sock, void * bytes, int size);
-//char * COMM_read_char_array(int sock);                          // with unknown size
-//int COMM_send_char_array(int sock, char * array);               // with unknown size
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
 
@@ -115,27 +113,6 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
         offset+=total_rcv;
     }
 }
-
-// Send char array using send bytes function
-int COMM_send_char_array(int sock, char * v) {
-    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
-    size_t n = (size_t) (strlen(v)+1); 
-    byte_array_init(ba, n);
-    byte_array_pack8v(ba, v, n);
-    
-    COMM_send_message(ba, MSG_STRING, sock);
-}
-
-// Read char array using read bytes function
-char * COMM_read_char_array(int sock) {
-    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
-    enum message_type * type;
-    
-    byte_array_init(ba, 0);
-    COMM_read_message(ba, type, sock);
-    
-    return (char *) ba->ptr; 
-} 
 
 // Send int using send bytes function
 int COMM_send_int(int sock, int value) {
@@ -556,17 +533,16 @@ void COMM_send_committer(int sock) {
     size_t n;
     char no_answer[2] = "\0\n";
     char * v; 
+    byte_array_init(ba, n);
     
     //COMM_send_message(ba, MSG_STRING, sock);
     
     if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
         v = no_answer;
         n = (size_t) (strlen(no_answer)+1);
-        byte_array_init(ba, n);
         
         byte_array_pack8v(ba, v, n);
         COMM_send_message(ba, MSG_STRING, sock);
-        //COMM_send_char_array(sock, no_answer);
     }
     else {
         char committer_send[26] = "";
@@ -578,13 +554,13 @@ void COMM_send_committer(int sock) {
         strcat(committer_send, "|");
         strcat(committer_send, port_str);
         strcat(committer_send, "\n");
-        
+       
+        v = committer_send;
         n = (size_t) (strlen(committer_send)+1);
-
+        byte_array_pack8v(ba, v, n);
+        
         // message format: ip|porta
         COMM_send_message(ba, MSG_STRING, sock);
-        
-        //COMM_send_char_array(sock, committer_send);
     }
 
     byte_array_free(ba);
