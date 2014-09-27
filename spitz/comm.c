@@ -23,8 +23,10 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 /* Functions Exclusive to this implementation, not used by upper level */
 
 // Worker
-int COMM_telnet_client(int argc, char *argv[]);
+void COMM_get_committer();
 int COMM_request_committer();
+void COMM_set_committer();
+int COMM_telnet_client(int argc, char *argv[]);
 
 // Communication
 void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
@@ -59,7 +61,6 @@ struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *
     } 
     
     COMM_read_bytes(rcv_socket, NULL, ba);
-    
     return ba;
 }
 
@@ -188,11 +189,6 @@ void COMM_connect_to_committer() {
     }    
 }
 
-// Send number of alive members.
-void COMM_send_alive(int origin_socket) {
-    COMM_send_int(origin_socket, COMM_alive);
-}
-
 // Request and receive number of alive members.
 int COMM_get_alive() {
     if((COMM_my_rank==(int)JOB_MANAGER)||(COMM_my_rank==(int)COMMITTER)) {
@@ -201,11 +197,6 @@ int COMM_get_alive() {
    
     COMM_send_message(NULL, MSG_GET_ALIVE, socket_manager);
     return COMM_read_int(socket_manager);
-}
-
-// Set the path variable
-void COMM_set_path(char * file_path) {
-    lib_path = strcpy(malloc(sizeof(char)*strlen(file_path)), file_path);
 }
 
 // Increment the run_num variable

@@ -167,7 +167,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_register_committer(origin_socket);
                 break;
             case MSG_GET_ALIVE:
-                COMM_send_alive(origin_socket);
+                COMM_send_int(origin_socket, COMM_alive);
                 break;
             default:
                 break;

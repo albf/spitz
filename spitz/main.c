@@ -62,8 +62,8 @@ struct thread_data {
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    COMM_set_path(so);				                                // set lib path variable
-    
+    lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
+
     job_manager(argc, argv, so, final_result);
 }
 
@@ -221,8 +221,9 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
         len++;
     }
 
-    if (len <= min_results && b == NONBLOCKING)
+    if (len <= min_results && b == NONBLOCKING) {
         return 0;
+    }
 
     if (len > min_results && b == NONBLOCKING) {
         aux = n->next;
@@ -242,8 +243,9 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
         while (len < min_results) {
             len = 0;
             n = d->results;
-            for (aux = n; aux; aux = aux->next)
+            for (aux = n; aux; aux = aux->next) {
                 len++;
+            }
         }
         while (n) {
             COMM_send_message(&n->ba, MSG_RESULT,socket_committer);
@@ -420,7 +422,8 @@ int main(int argc, char *argv[])
         if(type==COMMITTER) { 		                                // The committer sets itself in the jm
             COMM_setup_committer_network();
         }
-        else {						                                // Task Managers get the committer 
+        else {						                                // Task Managers get the committer
+                                                                    // And connect to it.
             COMM_connect_to_committer();
         }
     }

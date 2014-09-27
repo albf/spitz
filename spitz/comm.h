@@ -8,7 +8,6 @@ Alexandre L. B. F.
 #include <stdio.h>
 #include <string.h>   
 #include <stdlib.h>
-#include <unistd.h>   
 #include <arpa/inet.h>    
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -57,25 +56,23 @@ void COMM_connect_to_committer();
 void COMM_connect_to_job_manager(char ip_adr[]);
 void COMM_disconnect_from_committer();
 void COMM_disconnect_from_job_manager();
-void COMM_get_committer();
-void COMM_set_committer();
 
 // Both, check by id what's the case.
 int COMM_get_alive();
 int COMM_get_rank_id();
 int COMM_get_run_num();
 
-// Server functions.
+// 1. Server functions : connection oriented.
 void COMM_close_connection(int sock);
 void COMM_create_new_connection();
-void COMM_increment_run_num();
-int COMM_register_committer(int sock);
-void COMM_send_alive(int origin_socket);
-void COMM_send_committer(int sock);
-void COMM_set_path(char * file_path);
 int COMM_setup_job_manager_network();
 int COMM_setup_committer_network();
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket,struct byte_array * ba);
+
+// 2. Server functions : variable oriented.
+void COMM_increment_run_num();
+int COMM_register_committer(int sock);
+void COMM_send_committer(int sock);
 
 // Debug
 void COMM_LIST_print_ip_list();
@@ -86,5 +83,6 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
 
 // Extern Variables
 extern socket_manager, socket_committer;                // socket of servers (job manager and committer)
+extern COMM_alive;
 
 #endif	/* COMM_H */
