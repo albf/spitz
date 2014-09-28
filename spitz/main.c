@@ -280,7 +280,7 @@ void task_manager(struct thread_data *d)
 
         debug("Sending READY message to JOB_MANAGER");
         COMM_send_message(NULL, MSG_READY, socket_manager);
-        ba = COMM_read_message(ba, &type, socket_manager);
+        COMM_read_message(ba, &type, socket_manager);
 
         switch (type) {
             case MSG_TASK:

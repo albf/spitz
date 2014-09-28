@@ -181,7 +181,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             COMM_send_message(ba, MSG_KILL, socket_committer);
 
             info("Fetching final result");
-            final_result = COMM_read_message(final_result, &type, socket_committer);
+            COMM_read_message(final_result, &type, socket_committer);
             COMM_disconnect_from_committer();
 
             break;

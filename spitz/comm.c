@@ -26,7 +26,6 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 void COMM_get_committer();
 int COMM_request_committer();
 void COMM_set_committer();
-int COMM_telnet_client(int argc, char *argv[]);
 
 // Communication
 void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
@@ -270,36 +269,6 @@ int COMM_get_rank_id() {
     return COMM_my_rank;
 }
 
-// Simple telnet client, for debug reasons
-int COMM_telnet_client(int argc, char *argv[]) {
-    COMM_connect_to_job_manager("127.0.0.1");
-     
-    //keep communicating with server
-    while(1)
-    {
-        printf("Enter message : ");
-        scanf("%s" , buffer);
-        //Send some data
-        if( send(socket_manager , buffer , strlen(buffer) , 0) < 0)
-        {
-            error("Send failed");
-            return 1;
-        }
-        //Receive a reply from the server
-        if( recv(socket_manager , buffer , 1024 , 0) < 0)
-        {
-            error("recv failed");
-            break;
-        }
-         
-        printf("Server reply :");
-        puts(buffer);
-    }
-     
-    close(socket_manager);
-    return 0;
-}
-
 // Setup committer, to receive incoming connections.
 int COMM_setup_committer_network() {
     int i, flags, opt = 1;
@@ -500,7 +469,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         }
     }
     
-    ba = COMM_read_message(ba,type,sd);             // Receive the request.
+    COMM_read_message(ba,type,sd);             // Receive the request.
    
     if ((*((int *)type)) == -1)                     // Someone is closing
     {
