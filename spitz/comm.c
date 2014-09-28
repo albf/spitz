@@ -35,15 +35,26 @@ int COMM_read_int(int sock);
 // Send message, used to make request between processes 
 int COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
     struct byte_array _ba;
+    int return_value;
+    
     if (!ba) {
       _ba.ptr = NULL;
       _ba.len = 0;
       ba = &_ba;
     }
 
-    COMM_send_int(dest_socket, type);   
-    COMM_send_bytes(dest_socket, ba->ptr, (int)ba->len);
-
+    return_value = COMM_send_int(dest_socket, type);
+    if(return_value < 0) {
+        error("Problem sending message type");
+        return -1;
+    }
+    
+    return_value = COMM_send_bytes(dest_socket, ba->ptr, (int)ba->len);
+    if(return_value <0) {
+        error("Problem sending message content");
+        return -1;
+    }
+    
     return 0;
 }
 
@@ -84,8 +95,16 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     sprintf(size_c, "%d", size);
     strcat(size_c, "|\n");
     return_value = (int) send(sock, size_c, (strlen(size_c)-1), 0); // don't send '\n'
+
+    if(return_value <= 0) {
+        return -1;
+    }
+    
     if(size>0) {
     	return_value = (int) send(sock, bytes, size, 0);
+        if(return_value <=0) {
+            return -1;
+        }
     }
 
     return 0;    
@@ -142,7 +161,8 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 
 // Send int using send bytes function
 int COMM_send_int(int sock, int value) {
-    return COMM_send_bytes(sock, (void *) &value, sizeof(int));
+    uint32_t send_value = (uint32_t) value;
+    return COMM_send_bytes(sock, (void *) &send_value, sizeof(uint32_t));
 }
 
 // Read int using read bytes function
@@ -164,7 +184,7 @@ int COMM_read_int(int sock) {
 // Establishes a connection with the job manager
 void COMM_connect_to_job_manager(char ip_adr[]) {
     struct sockaddr_in address;
-    int isConnected = 0;
+    int is_connected = 0;
     
     //Create socket
     socket_manager = socket(AF_INET , SOCK_STREAM , 0);
@@ -178,7 +198,7 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     address.sin_port = htons( 8888 );
  
     //Connect to remote server
-    while(isConnected == 0 ) {
+    while(is_connected == 0 ) {
         if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
             error("Could not connect to the Job Manager. Trying again. \n");
             sleep(1);
@@ -186,7 +206,7 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
         else {
             debug("Connected Successfully to the Job Manager\n");
             COMM_my_rank = COMM_read_int(socket_manager);
-            isConnected = 1; 
+            is_connected = 1; 
         }
     }
 }
@@ -488,7 +508,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         }
     }
     
-    COMM_read_message(ba,type,sd);             // Receive the request.
+    COMM_read_message(ba,type,sd);                  // Receive the request.
    
     if ((*((int *)type)) == -1)                     // Someone is closing
     {
@@ -640,4 +660,19 @@ void COMM_disconnect_from_committer() {
     }
     
     close(socket_committer);
+}
+
+void COMM_close_all_clients() {
+    int i, d;
+
+    for(i=0, i<max_clients; i++) {
+        sd = COMM_client_socket[i];             //socket descriptor
+        if(sd > 0) {
+            close(sd);
+        }
+    }
+
+    if(COMM_master_socket > 0 ) {
+        close(COMM_master_socket);
+    }
 }
