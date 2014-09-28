@@ -24,6 +24,7 @@
 #include "comm.h"
 #include "log.h"
 #include "barray.h"
+#include "spitz.h"
 
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);

@@ -352,7 +352,6 @@ int COMM_setup_committer_network() {
     
     // Start list of variables
     COMM_addrlen = sizeof(address);   
-    lib_path = NULL;                        // Does't have a path yet.
     COMM_loop_b = 0;
     COMM_my_rank = (int) COMMITTER;
     COMM_alive = 1;                         // The committer is the only alive for now.
@@ -420,7 +419,6 @@ int COMM_setup_job_manager_network() {
     COMM_ip_list = LIST_add_ip_address(COMM_ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
     COMM_my_rank = (int)JOB_MANAGER;
     COMM_run_num = 0;
-    lib_path = NULL;
     COMM_alive = 1;
     COMM_loop_b = 0;
     COMM_committer_index = -1;

@@ -32,6 +32,7 @@
 #include "log.h"
 #include "jobmanager.h"
 #include "comm.h"
+#include "spitz.h"
 
 #define SPITZ_VERSION "0.1.0"
 
@@ -418,6 +419,7 @@ int main(int argc, char *argv[])
     } 
     else {
         COMM_connect_to_job_manager(argv[2]);
+        lib_path = NULL;                                            // Will get the lib_path later.
         
         if(type==COMMITTER) { 		                                // The committer sets itself in the jm
             COMM_setup_committer_network();

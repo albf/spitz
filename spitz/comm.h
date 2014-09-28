@@ -8,16 +8,16 @@ Alexandre L. B. F.
 #include <stdio.h>
 #include <string.h>   
 #include <stdlib.h>
+#include <unistd.h>   
 #include <arpa/inet.h>    
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>
-#include "list.h"
+#include "list.h"               // List of ips connected.
 #include <barray.h>
 #include <errno.h>
-#include <fcntl.h>
-#include "spitz.h"
+#include <fcntl.h>              // Used to set block/non-block sockets.
 #include "barray.h"
 
 #define PORT_MANAGER 8888
