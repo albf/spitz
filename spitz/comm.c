@@ -51,8 +51,10 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 // Receive the message responsible for the communication between processes
 struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
     *type = (enum message_type) COMM_read_int(rcv_socket);
-    if((*((int *)type)) == -1)
+    
+    if((*((int *)type)) == -1) {
         return ba;
+    }
 
     if (ba==NULL) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
