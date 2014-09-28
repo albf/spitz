@@ -81,7 +81,8 @@ void committer(int argc, char *argv[], void *handle)
 
     // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
-    size_t i, cap = 10;                                             // Initial capacity.
+    size_t cap = 10;                                                // Initial capacity.
+    size_t i, old_cap;                                              // Auxiliary to capacity
     size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 1 for committed, 0 for not yet.
     size_t task_id;                                                 // Task id of received result.
     
@@ -109,12 +110,14 @@ void committer(int argc, char *argv[], void *handle)
                 byte_array_unpack64(ba, &task_id);
                 debug("Got a RESULT message for task %d", task_id);
                 
-                if(task_id>cap) {                                   // If id higher them actual cap
+                if(task_id>=cap) {                                   // If id higher them actual cap
+                    old_cap = cap;
                     cap=2*task_id;
                     committed = realloc(committed, sizeof(size_t)*cap);
 
-                    for(i=cap/2; i<cap; i++)
+                    for(i=old_cap; i<cap; i++) {
                         committed[i]=0;
+                    }
                 }
 
                 if (committed[task_id] == 0) {                      // If not committed yet
@@ -122,6 +125,7 @@ void committer(int argc, char *argv[], void *handle)
                     commit_pit(user_data, ba);
                     byte_array_clear(ba);
                     byte_array_pack64(ba, task_id);
+                    info("Sending task %d to Job Manager.", task_id);
                     COMM_send_message(ba, MSG_DONE, socket_manager);
                 }
 
