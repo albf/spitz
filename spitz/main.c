@@ -267,7 +267,8 @@ void task_manager(struct thread_data *d)
     enum message_type type;                                         // Type of received message.
     int tasks = 0;                                                  // Tasks received and not committed.
     int min_results = 10;                                           // Minimum of results to send at the same time. 
-    enum blocking b = NONBLOCKING;
+    enum blocking b = NONBLOCKING;                                  // Indicate if should block or not in flush_results.
+    int comm_return=0;                                              // Return values from send and read. 
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -279,8 +280,17 @@ void task_manager(struct thread_data *d)
     while (alive) {
 
         debug("Sending READY message to JOB_MANAGER");
-        COMM_send_message(NULL, MSG_READY, socket_manager);
-        COMM_read_message(ba, &type, socket_manager);
+        comm_return = COMM_send_message(NULL, MSG_READY, socket_manager);
+        if(comm_return < 0) {
+            error("Problem found to send message to Job Manager");
+            type = MSG_EMPTY;
+        }
+        else {
+            comm_return = COMM_read_message(ba, &type, socket_manager);
+            if(comm_return < 0) {
+                error("Problem found to read message from Job Manager");
+            } 
+        }
 
         switch (type) {
             case MSG_TASK:

@@ -170,6 +170,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_GET_ALIVE:
                 COMM_send_int(origin_socket, COMM_alive);
                 break;
+            case MSG_EMPTY:
+                info("Message received incomplete or a problem occurred.");
             default:
                 break;
         }

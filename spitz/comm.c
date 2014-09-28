@@ -26,7 +26,7 @@ void COMM_get_committer();
 int COMM_request_committer();
 
 // Communication
-void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
+int COMM_read_bytes(int sock, int * size, struct byte_array * ba);;
 int COMM_send_bytes(int sock, void * bytes, int size);
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
@@ -61,7 +61,7 @@ int COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 // Receive the message responsible for the communication between processes
 // Returns 0 for sucess -1 if found any issue. In that case, message type is MSG_EMPTY.
 int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
-    int readReturn;
+    int read_return;
     
     *type = (enum message_type) COMM_read_int(rcv_socket);
     
@@ -78,13 +78,13 @@ int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_so
         return -2;
     }
     
-    readReturn = COMM_read_bytes(rcv_socket, NULL, ba);
-    if(readReturn < 0) {
+    read_return = COMM_read_bytes(rcv_socket, NULL, ba);
+    if(read_return < 0) {
         error("Problem reading message content.");
         *type = MSG_EMPTY;
     }
 
-    return readReturn;
+    return read_return;
 }
 
 // Send N bytes pointer by bytes pointer.
@@ -118,7 +118,7 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
 
-        if(total_rcv <= 0) {
+        if(total_rcv <= 0) {        // check if received zero bytes or an error.
             if(size != NULL) {
                 *size = -1;
             }
@@ -147,7 +147,7 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
     while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
 
-        if(total_rcv <= 0) {
+        if(total_rcv <= 0) {        // check if received zero bytes or an error.
             if(size != NULL) {
                 *size = -1;
             }
@@ -168,7 +168,7 @@ int COMM_send_int(int sock, int value) {
 // Read int using read bytes function
 int COMM_read_int(int sock) {
     struct byte_array ba;
-    int * result, size;
+    int result, size;
     
     byte_array_init(&ba, 0);
     COMM_read_bytes(sock, &size, &ba);
@@ -177,8 +177,9 @@ int COMM_read_int(int sock) {
         return -1; 
     }
     
-    result = (int *) ba.ptr;
-    return * result;
+    result = *((int *)((uint32_t *) ba.ptr));
+    byte_array_free(&ba);
+    return result;
 }
 
 // Establishes a connection with the job manager
@@ -436,7 +437,8 @@ int COMM_setup_job_manager_network() {
     return 0;
 }
 
-// Job Manager function, returns the socket that have a request to do, or -1 if doesn't have I/O
+// Job Manager function, returns _ in origin socket variable _ the socket that have a request to do, or -1 if doesn't have I/O
+// Returns the message received as a request.
 struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity, valid_request=0;               // Indicates if a valid request was made. 
     int max_sd;                                     // Auxiliary value to select.
@@ -510,7 +512,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     
     COMM_read_message(ba,type,sd);                  // Receive the request.
    
-    if ((*((int *)type)) == -1)                     // Someone is closing
+    if ((*(type)) == MSG_EMPTY)                     // Someone is closing
     {
         COMM_client_socket[COMM_loop_b] = 0;
         * type = MSG_CLOSE_CONNECTION;
@@ -663,9 +665,9 @@ void COMM_disconnect_from_committer() {
 }
 
 void COMM_close_all_clients() {
-    int i, d;
+    int i, sd;
 
-    for(i=0, i<max_clients; i++) {
+    for(i=0; i<max_clients; i++) {
         sd = COMM_client_socket[i];             //socket descriptor
         if(sd > 0) {
             close(sd);
