@@ -35,19 +35,20 @@ enum actor {
 
 // Enuns the types of possible messages.
 enum message_type {
-	MSG_READY,
+	MSG_READY,              // Task Manager to Job Manager
 	MSG_TASK,
 	MSG_RESULT,	
 	MSG_KILL,	
 	MSG_DONE,	
-	MSG_GET_COMMITTER,	// Worker to Job Manager 
-	MSG_GET_PATH,		// Worker to Job Manager
-	MSG_GET_RUNNUM,		// Worker/Committer to Job Manager
-        MSG_GET_ALIVE,          // Worker to JobManager
+	MSG_GET_COMMITTER,	// Task Manager to Job Manager 
+	MSG_GET_PATH,		// Task Manager to Job Manager
+	MSG_GET_RUNNUM,		// Task Manager/Committer to Job Manager
+        MSG_GET_ALIVE,          // Task Manager to JobManager
 	MSG_SET_COMMITTER,	// Committer to Job Manager
-        MSG_NEW_CONNECTION,     // Worker/Committer to Job Manager/Commiter
-        MSG_CLOSE_CONNECTION,   // Worker/Committer to Job Manager/Commiter
-        MSG_STRING
+        MSG_NEW_CONNECTION,     // Task Manager/Committer to Job Manager/Commiter
+        MSG_CLOSE_CONNECTION,   // Task Manager/Committer to Job Manager/Commiter
+        MSG_STRING,
+        MSG_EMPTY
 };
 
 /* Functions based in Client/Server architecture */
@@ -79,8 +80,8 @@ void COMM_send_committer(int sock);
 void COMM_LIST_print_ip_list();
 
 // General Propose (sending and receiving data from sockets)
-struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
-void COMM_send_message(struct byte_array *ba, int type, int dest_socket);
+int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
+int COMM_send_message(struct byte_array *ba, int type, int dest_socket);
 
 // Extern Variables
 extern socket_manager, socket_committer;                // socket of servers (job manager and committer)

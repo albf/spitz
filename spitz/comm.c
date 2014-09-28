@@ -5,7 +5,6 @@ Alexandre L. B. F.
 #include "comm.h"
 
 /* Global Variables */
-char buffer[1025];                   	// data buffer of 1K
 struct sockaddr_in COMM_addr_committer; // address of committer node
 int socket_manager, socket_committer;   // Important socket values
 int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
@@ -34,7 +33,7 @@ int COMM_read_int(int sock);
 
 
 // Send message, used to make request between processes 
-void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
+int COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
     struct byte_array _ba;
     if (!ba) {
       _ba.ptr = NULL;
@@ -44,24 +43,37 @@ void COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 
     COMM_send_int(dest_socket, type);   
     COMM_send_bytes(dest_socket, ba->ptr, (int)ba->len);
+
+    return 0;
 }
 
 // Receive the message responsible for the communication between processes
-struct byte_array * COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
+// Returns 0 for sucess -1 if found any issue. In that case, message type is MSG_EMPTY.
+int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
+    int readReturn;
+    
     *type = (enum message_type) COMM_read_int(rcv_socket);
     
+    // Received wrong type.
     if((*((int *)type)) == -1) {
-        return ba;
+        error("Problem reading message type.");
+        *type = MSG_EMPTY;
+        return -1;
     }
 
     if (ba==NULL) {
-        ba = (struct byte_array *) malloc (sizeof(struct byte_array));
-        ba->ptr = NULL;
-        ba->len = 0;
-    } 
+        error("Null byte array passed to read_message function.");
+        *type = MSG_EMPTY;
+        return -2;
+    }
     
-    COMM_read_bytes(rcv_socket, NULL, ba);
-    return ba;
+    readReturn = COMM_read_bytes(rcv_socket, NULL, ba);
+    if(readReturn < 0) {
+        error("Problem reading message content.");
+        *type = MSG_EMPTY;
+    }
+
+    return readReturn;
 }
 
 // Send N bytes pointer by bytes pointer.
@@ -80,22 +92,26 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
 }
 
 // Read unknown type and size from socket.
-void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
+int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
     char message_size[20], received_char='0';
     int total_rcv, offset=0, msg_size;
 
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
 
-        if(total_rcv == 0) {
-            *size = -1;
-            return;
+        if(total_rcv <= 0) {
+            if(size != NULL) {
+                *size = -1;
+            }
+            return -1;
         }
         
-        if(received_char!='|')
+        if(received_char!='|') {
             message_size[offset]=received_char;
-        else
+        }
+        else {
             message_size[offset]='\n';
+        }
 
         offset++;
     }
@@ -111,8 +127,17 @@ void COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
         
     while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
+
+        if(total_rcv <= 0) {
+            if(size != NULL) {
+                *size = -1;
+            }
+            return -1;
+        }
+        
         offset+=total_rcv;
     }
+    return 0;
 }
 
 // Send int using send bytes function
