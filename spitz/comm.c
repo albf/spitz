@@ -25,7 +25,6 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 // Worker
 void COMM_get_committer();
 int COMM_request_committer();
-void COMM_set_committer();
 
 // Communication
 void COMM_read_bytes(int sock, int * size, struct byte_array * ba);
@@ -217,12 +216,6 @@ int COMM_get_run_num() {
     return COMM_read_int(socket_manager); 
 }
 
-// Send request to be committer to the job_manager
-void COMM_set_committer() {
-    COMM_send_message(NULL, MSG_SET_COMMITTER, socket_manager);      // set as a committer with manager
-    debug("Set committer successfully\n");
-}
-
 // Request and return the committer from the job_manager
 void COMM_get_committer() {
     if(COMM_my_rank==0)
@@ -274,7 +267,8 @@ int COMM_setup_committer_network() {
     int i, flags, opt = 1;
     struct sockaddr_in address;
     
-    COMM_set_committer();
+    COMM_send_message(NULL, MSG_SET_COMMITTER, socket_manager);      // set as a committer with manager
+    debug("Set committer successfully\n");
     
     for (i = 0; i < max_clients; i++) {
         COMM_client_socket[i] = 0;
