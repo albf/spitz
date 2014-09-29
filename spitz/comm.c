@@ -215,22 +215,23 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
 // Get committer with the job manager and establish a connection.
 void COMM_connect_to_committer() {
     COMM_get_committer();
-    int isConnected = 0;
+    int is_connected = 0;
     
     //Create socket
     socket_committer = socket(AF_INET , SOCK_STREAM , 0);
-    if (socket_committer == -1)
+    if (socket_committer == -1) {
         error("Could not create socket");
+    }
      
     //Connect to remote server
-    while(isConnected == 0 ) {
+    while(is_connected == 0 ) {
         if (connect(socket_committer , (struct sockaddr *)&COMM_addr_committer , sizeof(COMM_addr_committer)) < 0) { 
             error("Could not connect to the Committer. Trying again.\n");
             sleep(1); 
         }
         else { 
             debug("Connected Successfully to the Committer\n");
-            isConnected = 1; 
+            is_connected = 1; 
         }
     }    
 }
@@ -438,13 +439,19 @@ int COMM_setup_job_manager_network() {
 }
 
 // Job Manager function, returns _ in origin socket variable _ the socket that have a request to do, or -1 if doesn't have I/O
-// Returns the message received as a request.
-struct byte_array * COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
+// Returns 0 if ok, -1 if got out the select for no reason and -2 if ba is null. 
+int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
     int i, activity, valid_request=0;               // Indicates if a valid request was made. 
     int max_sd;                                     // Auxiliary value to select.
     int socket_found=0;                             // Indicates if the socket was found.
     int sd;                                         // last socket used
     fd_set readfds;                                 // set of socket descriptors
+   
+    if (ba==NULL) {
+        error("Null byte array passed to wait_request function.");
+        *type = MSG_EMPTY;
+        return -2;
+    }
     
     debug("Waiting for request \n");
      
@@ -486,7 +493,7 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
     //If something happened on the master socket , then its an incoming connection
     if (FD_ISSET(COMM_master_socket, &readfds)) {
         *type = MSG_NEW_CONNECTION;
-        return ba;
+        return 0;
     }
 
     // Check the committer first, for performance reasons.
@@ -518,14 +525,16 @@ struct byte_array * COMM_wait_request(enum message_type * type, int * origin_soc
         * type = MSG_CLOSE_CONNECTION;
         byte_array_clear(ba);
          _byte_array_pack64(ba, (uint64_t) sd);
+         return 0;
     }
       
     else                                            // Other request
     {
         *origin_socket = sd;
+        return 0;
     }
       
-    return ba;
+    return -1;
 }
 
 // Send the committer due a request
@@ -664,17 +673,28 @@ void COMM_disconnect_from_committer() {
     close(socket_committer);
 }
 
+// Responsible for closing all the sockets. To be used just before exiting.
 void COMM_close_all_clients() {
     int i, sd;
 
-    for(i=0; i<max_clients; i++) {
-        sd = COMM_client_socket[i];             //socket descriptor
-        if(sd > 0) {
-            close(sd);
+    if(COMM_my_rank < 2) {
+        for(i=0; i<max_clients; i++) {
+                sd = COMM_client_socket[i];             //socket descriptor
+            if(sd > 0) {
+                close(sd);
+            }
         }
     }
 
     if(COMM_master_socket > 0 ) {
         close(COMM_master_socket);
+    }
+
+    if(socket_manager > 0) {
+        close (socket_manager);
+    }
+
+    if(socket_committer > 0) {
+        close (socket_committer);
     }
 }

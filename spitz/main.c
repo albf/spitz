@@ -70,7 +70,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
 void committer(int argc, char *argv[], void *handle)
 {
-    int isFinished=0;                                               // Indicate if it's finished.
+    int is_finished=0;                                              // Indicate if it's finished.
     int origin_socket=0;                                            // Socket of the requester, return by COMM_wait_request.
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket, packed by the COMM_wait_request.
@@ -103,7 +103,7 @@ void committer(int argc, char *argv[], void *handle)
         
     info("Starting committer main loop");
     while (1) {
-        ba = COMM_wait_request(&type, &origin_socket, ba);
+        COMM_wait_request(&type, &origin_socket, ba);
         
         switch (type) {
             case MSG_RESULT:
@@ -137,7 +137,7 @@ void committer(int argc, char *argv[], void *handle)
                     commit_job(user_data, ba);
                     COMM_send_message(ba, MSG_RESULT, origin_socket); 
                 }
-                isFinished = 1;
+                is_finished = 1;
                 break;
             case MSG_NEW_CONNECTION:
                 COMM_create_new_connection();
@@ -151,7 +151,7 @@ void committer(int argc, char *argv[], void *handle)
         }
 
         // If he is the only member alive and the work is finished.
-        if ((COMM_get_alive() == 1) && (isFinished==1)) {
+        if ((COMM_get_alive() == 1) && (is_finished==1)) {
             info("All workers disconnected, time to die");
             break;
         }

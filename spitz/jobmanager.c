@@ -65,7 +65,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     size_t tid, task_id = 0;
 
     while (1) {
-        ba = COMM_wait_request(&type, &origin_socket, ba); 
+        COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
             case MSG_READY:
