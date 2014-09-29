@@ -22,8 +22,9 @@ void *spits_job_manager_new(int argc, char *argv[])
 int spits_job_manager_next_task(void *user_data, struct byte_array *ba)
 {
 	struct prime_jm *self = user_data;
-	if (self->numpoints == 0)
+	if (self->numpoints == 0) {
 		return 0;
+        }
 
 	byte_array_pack64(ba, self->numpoints);
 	self->numpoints--;
@@ -64,8 +65,9 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         }
         
         // Get the square root value.
-        if(sqrt_value > ((double)sqrt_cast))
+        if(sqrt_value > ((double)sqrt_cast)) {
             sqrt_cast++;
+        }
 
         // Test all the values until the sqrt (2 or more).
         for(i=2; i<=sqrt_cast; i++) {
@@ -137,6 +139,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     while(iter != NULL) {
         printf("%d", (int) iter->value);
         iter = iter->next;
+        printf("\n");
     }
     printf("\n");       
 }

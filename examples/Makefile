@@ -6,7 +6,7 @@ LDFLAGS = -L../spitz -lspitz
 all: pi.so picpp.so prime.so
 
 prime.so: prime.c
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS) -lm
 
 pi.so: pi.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
@@ -17,7 +17,7 @@ picpp.so: pi.cpp
 test: pi.so picpp.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 /home/alexandre/Codes/spitz/examples/pi.so 50
+			gdb --args ./spitz 2 127.0.0.1 /home/alexandre/Codes/spitz/examples/prime.so 50
 	
 			# gdb --args ./spitz 2 127.0.0.1 $$PWD/pi.so 30
 	#LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
@@ -35,7 +35,7 @@ debug: pi.so picpp.so
 
 
 clean:
-	-rm -f pi.so picpp.so
+	-rm -f pi.so picpp.so prime.so
 
 prefix = /usr/local
 datadir = $(prefix)/share/spitz
