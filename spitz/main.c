@@ -1,7 +1,8 @@
 /*
  * Copyright 2014 Ian Liu Rodrigues <ian.liu@ggaunicamp.com>
  * Copyright 2014 Alber Tabone Novo <alber.tabone@ggaunicamp.com>
- *
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
+ * 
  * This file is part of spitz.
  *
  * spitz is free software: you can redistribute it and/or modify
@@ -39,8 +40,9 @@
 int LOG_LEVEL = 0;
 extern __thread int workerid;
 
-static int NTHREADS = 1;
-static int FIFOSZ = 10;
+int NTHREADS = 1;
+int FIFOSZ = 10;
+int CON_RETRIES = 3;
 
 struct result_node {
     struct byte_array ba;
@@ -83,7 +85,8 @@ void committer(int argc, char *argv[], void *handle)
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
     size_t cap = 10;                                                // Initial capacity.
     size_t i, old_cap;                                              // Auxiliary to capacity
-    size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 1 for committed, 0 for not yet.
+    size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 
+                                                                    // 1 for committed, 0 for not yet.
     size_t task_id;                                                 // Task id of received result.
     
     // Loads the user functions.
@@ -151,8 +154,9 @@ void committer(int argc, char *argv[], void *handle)
         }
 
         // If he is the only member alive and the work is finished.
-        if ((COMM_get_alive() == 1) && (is_finished==1)) {
-            info("All workers disconnected, time to die");
+        if (is_finished==1){
+            info("Work is done, time to die");
+            COMM_close_all_connections(); 
             break;
         }
     }
@@ -235,7 +239,10 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
         n->next = NULL;
         n = aux;
         while (n) {
-            COMM_send_message(&n->ba, MSG_RESULT, socket_committer);
+            if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                error("Problem to send result to committer. Aborting flush_results.");
+                return -1;
+            }
             byte_array_free(&n->ba);
             aux = n->next;
             free(n);
@@ -253,7 +260,10 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
             }
         }
         while (n) {
-            COMM_send_message(&n->ba, MSG_RESULT,socket_committer);
+            if(COMM_send_message(&n->ba, MSG_RESULT,socket_committer)<0) {
+                error("Problem to send result to committer. Aborting flush_results.");
+                return -1;
+            }
             byte_array_free(&n->ba);
             aux = n->next;
             free(n);
@@ -271,8 +281,9 @@ void task_manager(struct thread_data *d)
     enum message_type type;                                         // Type of received message.
     int tasks = 0;                                                  // Tasks received and not committed.
     int min_results = 10;                                           // Minimum of results to send at the same time. 
-    enum blocking b = NONBLOCKING;                                  // Indicate if should block or not in flush_results.
-    int comm_return=0;                                              // Return values from send and read. 
+    enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
+    int comm_return=0;                                              // Return values from send and read.
+    int flushed_tasks;                                              // Return value from flush_results.
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -293,6 +304,7 @@ void task_manager(struct thread_data *d)
             comm_return = COMM_read_message(ba, &type, socket_manager);
             if(comm_return < 0) {
                 error("Problem found to read message from Job Manager");
+                type = MSG_EMPTY;
             } 
         }
 
@@ -316,21 +328,44 @@ void task_manager(struct thread_data *d)
                 min_results = tasks;
                 b = BLOCKING;
                 break;
+            case MSG_EMPTY:
+                COMM_close_connection(socket_manager);
+                if(COMM_connect_to_job_manager(COMM_addr_manager, &CON_RETRIES)!=0) {
+                    info("Couldn't reconnect to the Job Manager. Closing Task Manager.");
+                    alive = 0;
+                }
+                else {
+                    info("Reconnected to the Job Manager.");
+                }
+                break;
             default:
                 break;
         }
 
         if (alive) {
             debug("Trying to flush %d %s...", min_results, b == BLOCKING ? "blocking":"non blocking");
-            tasks -= flush_results(d, min_results, b);
-            debug("I have sent %d tasks\n", tasks);
+            flushed_tasks = flush_results(d, min_results, b);
+            if(flushed_tasks < 0) {
+                info("Couldn't flush results. Is committer still alive?");
+                if(COMM_connect_to_committer(&CON_RETRIES)<0) {
+                    info("If it is, I just couldn't find it. Closing.");
+                    alive = 0;
+                }
+                else {
+                    info("Reconnected to the committer.");
+                }
+            }
+            else {
+                tasks -= flush_results(d, min_results, b);
+                debug("I have sent %d tasks\n", tasks);
+            }
+            
         }
     }
 
     info("Terminating task manager");
     byte_array_free(ba);
-    COMM_disconnect_from_committer();                               // Disconnect from the committer.
-    COMM_disconnect_from_job_manager();                             // Disconnect from the manager.
+    COMM_close_all_connections();
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -432,13 +467,14 @@ int main(int argc, char *argv[])
         COMM_setup_job_manager_network(argc , argv);
     } 
     else {
-        COMM_connect_to_job_manager(argv[2], NULL);
+        COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
+        COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
-        if(type==COMMITTER) { 		                                // The committer sets itself in the jm
+        if(type==COMMITTER) { 		                            // The committer sets itself in the jm
             COMM_setup_committer_network();
         }
-        else {						                                // Task Managers get the committer
+        else {						            // Task Managers get the committer
                                                                     // And connect to it.
             COMM_connect_to_committer(NULL);
         }
@@ -489,5 +525,6 @@ int main(int argc, char *argv[])
         start_slave_processes(argc, argv);
     }
 
+    free(COMM_addr_manager);
     return 0;
 }

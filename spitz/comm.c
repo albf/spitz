@@ -9,6 +9,7 @@ struct sockaddr_in COMM_addr_committer; // address of committer node
 int socket_manager, socket_committer;   // Important socket values
 int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
 int COMM_loop_b;                        // Used to balance the requests
+char * COMM_addr_manager;               // String of JM ip.
 
 /* Job Manager/Committer (servers) only */
 int COMM_master_socket;                 // socket used to accept connections
@@ -712,23 +713,14 @@ void COMM_LIST_print_ip_list() {
     LIST_print_all_ip_ordered(COMM_ip_list);        
 }
 
-// Disconnect from job manager node.
-void COMM_disconnect_from_job_manager(){
-    close(socket_manager);
-}
+// Responsible for closing all the sockets. To be used just before exiting.
+// Also free the ip_list memory if the job manager.
+void COMM_close_all_connections() {
+    int i, sd;
 
-// Disconnect from committer node
-void COMM_disconnect_from_committer() {
     if(COMM_my_rank==(int)JOB_MANAGER) {
         LIST_free_data(COMM_ip_list);
     }
-    
-    close(socket_committer);
-}
-
-// Responsible for closing all the sockets. To be used just before exiting.
-void COMM_close_all_clients() {
-    int i, sd;
 
     if(COMM_my_rank < 2) {
         for(i=0; i<max_clients; i++) {

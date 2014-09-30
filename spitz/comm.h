@@ -56,11 +56,10 @@ enum message_type {
 // Client functions.
 int COMM_connect_to_committer(int * retries);
 int COMM_connect_to_job_manager(char ip_adr[], int * retries);
-void COMM_disconnect_from_committer();
-void COMM_disconnect_from_job_manager();
 
 // Both, check by id what's the case.
 int COMM_get_alive();
+void COMM_close_all_connections();
 int COMM_get_rank_id();
 int COMM_get_run_num();
 
@@ -84,7 +83,8 @@ int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_so
 int COMM_send_message(struct byte_array *ba, int type, int dest_socket);
 
 // Extern Variables
-extern socket_manager, socket_committer;                // socket of servers (job manager and committer)
-extern COMM_alive;
+extern int socket_manager, socket_committer;                // socket of servers (job manager and committer)
+extern int COMM_alive;
+extern char * COMM_addr_manager;
 
 #endif	/* COMM_H */

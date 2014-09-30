@@ -38,7 +38,7 @@ struct task {
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    int isFinished=0, rank=(int)TASK_MANAGER;                       // Indicates if the work is finished.
+    int is_finished=0, rank=(int)TASK_MANAGER;                      // Indicates if the work is finished.
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket.
     int origin_socket;                                              // Socket that sent the request.
@@ -100,14 +100,15 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     COMM_send_message(&mark->data, MSG_TASK, origin_socket);
                     debug("Replicating task %d", mark->id);
                     mark = mark ->next;
-                    if (!mark)
+                    if (!mark) {
                         mark = home;
+                    }
                 } 
                 // will enter here if ended at least once
                 else {        
                     debug("Sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
-                    isFinished=1;
+                    is_finished=1;
                 }
                 break;
             case MSG_DONE:
@@ -177,15 +178,16 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         }
         
         // If there is only the JobManager and the Committer
-        if ((COMM_get_alive() == 2) && (isFinished==1)) {
+        if (is_finished==1){
             info("Sending kill to committer");
             COMM_connect_to_committer(NULL);
             COMM_send_message(ba, MSG_KILL, socket_committer);
 
             info("Fetching final result");
             COMM_read_message(final_result, &type, socket_committer);
-            COMM_disconnect_from_committer();
-
+            //COMM_disconnect_from_committer();
+            COMM_close_all_connections(); 
+            
             break;
         }
     }
