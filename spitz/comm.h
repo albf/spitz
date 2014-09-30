@@ -1,6 +1,6 @@
-/**
-Alexandre L. B. F.      
-*/
+/*
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
+ */
 
 #ifndef COMM_H
 #define	COMM_H

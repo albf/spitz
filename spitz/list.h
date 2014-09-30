@@ -1,6 +1,6 @@
-/* 
- * File:   list.h
- * Author: alexandre
+/*
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
+ *
  * Simple linked list used to store the ip and port from works and committers.
  */
 

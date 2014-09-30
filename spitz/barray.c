@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/stat.h> 
 
 #define RETURN_FALSE_IF_NOT_ENOUGHT_SIZE(ba, sz) do { \
 	if ((ba)->ptr + (ba)->len < (ba)->iptr + (sz))\
@@ -77,8 +78,9 @@ void byte_array_resize(struct byte_array *ba, size_t cap)
 	ba->cap = cap;
 	ba->ptr = realloc(ba->ptr, cap);
 	ba->iptr = ba->ptr;
-	if (ba->len > cap)
+	if (ba->len > cap) {
 		ba->len = cap;
+    }
 }
 
 void byte_array_clear(struct byte_array *ba)
@@ -90,8 +92,9 @@ void byte_array_clear(struct byte_array *ba)
 void byte_array_print(struct byte_array *ba)
 {
 	size_t i;
-	for (i=0; i < ba->len; i++)
+	for (i=0; i < ba->len; i++) {
 		printf("%02X ", ba->ptr[i]);
+    }
 	printf("\n");
 }
 
@@ -173,8 +176,9 @@ void _byte_array_pack64v(struct byte_array *ba, uint64_t *v, size_t n)
 {
 	ensure_size(ba, n * sizeof(v[0]));
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_pack64(ba, v[i]);
+    }
 }
 
 /**
@@ -338,3 +342,48 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n)
 	return 1;
 }
 
+int pack_binary(struct byte_array *ba, char * path) {
+    struct stat f_status;
+    FILE *fp;
+
+    if(ba == NULL) {
+        error("Null pointer passed to _pack binary.");
+        return -1;
+    }
+
+    if(stat(path, &f_status) != 0) {
+        error("Problem getting info from binary. Does it really exists?");
+        return -2;
+    }
+
+    fp = fopen(path, "rb");
+    byte_array_resize(ba, f_status.st_size);
+    if(!fread(ba->ptr, f_status.st_size, 1, fp)) {
+        error("Error loading file.");
+        return -3;
+    }
+
+    fclose(fp);
+}
+
+int unpack_binary(struct byte_array *ba, char *path) {
+    FILE *fp;
+
+    if(ba == NULL) {
+        error("Null pointer passed to _pack binary.");
+        return -1;
+    }
+    
+    fp = fopen(path, "wb");
+    if(!fp) {
+       error("Couldn't open file to open.");
+       return -2;
+    }
+
+    if( fwrite(ba->ptr, 1, ba->cap, fp) != ba->cap ) {
+        error("Error ocurred in fwrite of unpack binary.");
+        return -3;
+    }
+
+    fclose(fp); 
+}

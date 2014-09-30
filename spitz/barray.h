@@ -26,6 +26,7 @@ extern "C" {
 
 #include <inttypes.h>
 #include <stdlib.h>
+#include "log.h"
 
 struct byte_array {
 	uint8_t *ptr, *iptr;
@@ -78,6 +79,9 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n);
 #define byte_array_unpack16v(ba, v, n) _byte_array_unpack16v(ba, ((uint16_t*)((char*)(v))), (size_t) n)
 #define byte_array_unpack8v(ba, v, n)  _byte_array_unpack8v(ba, ((uint8_t*)((char*)(v))), (size_t) n)
 
+int pack_binary(struct byte_array *ba, char * path);
+int unpack_binary(struct byte_array *ba, char *path);
+    
 #ifdef __cplusplus
 }
 #endif

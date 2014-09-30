@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Ian Liu Rodrigues <ian.liu@ggaunicamp.com>
  * Copyright 2014 Alber Tabone Novo <alber.tabone@ggaunicamp.com>
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
  *
  * This file is part of spitz.
  *
