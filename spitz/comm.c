@@ -95,14 +95,14 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     
     sprintf(size_c, "%d", size);
     strcat(size_c, "|\n");
-    return_value = (int) send(sock, size_c, (strlen(size_c)-1), 0); // don't send '\n'
+    return_value = (int) send(sock, size_c, (strlen(size_c)-1), MSG_NOSIGNAL); // don't send '\n'
 
     if(return_value <= 0) {
         return -1;
     }
     
     if(size>0) {
-    	return_value = (int) send(sock, bytes, size, 0);
+    	return_value = (int) send(sock, bytes, size, MSG_NOSIGNAL);
         if(return_value <=0) {
             return -1;
         }

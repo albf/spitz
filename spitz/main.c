@@ -27,7 +27,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
-
+#include <signal.h>
 #include "cfifo.h"
 #include "barray.h"
 #include "log.h"
@@ -461,8 +461,17 @@ void start_slave_processes(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.  
-
+    enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
+    struct sigaction sa;
+    
+    sa.sa_handler = SIG_IGN;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGPIPE, &sa, 0) == -1) {
+        error("Couldn't ignore SIGPIPE.");
+        return -1;
+    }
+    
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
     } 
@@ -471,10 +480,10 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
-        if(type==COMMITTER) { 		                            // The committer sets itself in the jm
+        if(type==COMMITTER) { 		                                // The committer sets itself in the jm
             COMM_setup_committer_network();
         }
-        else {						            // Task Managers get the committer
+        else {						                                // Task Managers get the committer
                                                                     // And connect to it.
             COMM_connect_to_committer(NULL);
         }
