@@ -432,7 +432,7 @@ int main(int argc, char *argv[])
         COMM_setup_job_manager_network(argc , argv);
     } 
     else {
-        COMM_connect_to_job_manager(argv[2]);
+        COMM_connect_to_job_manager(argv[2], NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
         if(type==COMMITTER) { 		                                // The committer sets itself in the jm
@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
         }
         else {						                                // Task Managers get the committer
                                                                     // And connect to it.
-            COMM_connect_to_committer();
+            COMM_connect_to_committer(NULL);
         }
     }
     

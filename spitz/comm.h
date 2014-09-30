@@ -54,8 +54,8 @@ enum message_type {
 /* Functions based in Client/Server architecture */
 
 // Client functions.
-void COMM_connect_to_committer();
-void COMM_connect_to_job_manager(char ip_adr[]);
+int COMM_connect_to_committer(int * retries);
+int COMM_connect_to_job_manager(char ip_adr[], int * retries);
 void COMM_disconnect_from_committer();
 void COMM_disconnect_from_job_manager();
 

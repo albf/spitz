@@ -174,6 +174,7 @@ int COMM_read_int(int sock) {
     COMM_read_bytes(sock, &size, &ba);
 
     if(size == -1) {
+        byte_array_free(&ba);
         return -1; 
     }
     
@@ -182,16 +183,29 @@ int COMM_read_int(int sock) {
     return result;
 }
 
-// Establishes a connection with the job manager
-void COMM_connect_to_job_manager(char ip_adr[]) {
+// Establishes a connection with the job manager. 
+// If retries == NULL -> Retries indefinitely. If retries > 0, try "retries" times. Else, don't try.
+int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
     struct sockaddr_in address;
     int is_connected = 0;
+    int retries_left;
+        
+    // Verify if retries is valid.
+    if(retries != NULL) {
+        if(*retries <= 0) {
+            error("Retries value not valid in connect_to_job_manager function.");
+            return -1;
+        }
+         
+        retries_left = *retries;
+    }
     
     //Create socket
     socket_manager = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_manager == -1)
     {
         error("Could not create socket");
+        return -2;
     }
      
     address.sin_addr.s_addr = inet_addr(ip_adr);
@@ -199,7 +213,15 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
     address.sin_port = htons( 8888 );
  
     //Connect to remote server
-    while(is_connected == 0 ) {
+    while(is_connected == 0) {
+        if(retries != NULL) {
+            if(retries_left == 0) {
+                error("Failed to connect to Job Manager, no retries left.");
+                return -3;
+            }
+            retries_left --;
+        }
+        
         if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
             error("Could not connect to the Job Manager. Trying again. \n");
             sleep(1);
@@ -207,24 +229,54 @@ void COMM_connect_to_job_manager(char ip_adr[]) {
         else {
             debug("Connected Successfully to the Job Manager\n");
             COMM_my_rank = COMM_read_int(socket_manager);
-            is_connected = 1; 
+            if(COMM_my_rank == -1) {
+                error("Problem getting the rank id. Disconnected from Job Manager.");
+                close(socket_manager);
+                sleep(1);
+            }
+            else { 
+                is_connected = 1;
+                debug("Successfully received a rank id from Job Manager.");
+            }
         }
     }
+
+    return 0;
 }
 
 // Get committer with the job manager and establish a connection.
-void COMM_connect_to_committer() {
+int COMM_connect_to_committer(int * retries) {
     COMM_get_committer();
     int is_connected = 0;
+    int retries_left;
+
+    // Verify if retries is valid.
+    if(retries != NULL) {
+        if(*retries <= 0) {
+            error("Retries value not valid in connect_to_committer function.");
+            return -1;
+        }
+         
+        retries_left = *retries;
+    }
     
     //Create socket
     socket_committer = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_committer == -1) {
         error("Could not create socket");
+        return -2;
     }
-     
+
     //Connect to remote server
     while(is_connected == 0 ) {
+        if(retries != NULL) {
+            if(retries_left == 0) {
+                error("Failed to connect to Committer, no retries left.");
+                return -3;
+            }
+            retries_left --;
+        }
+        
         if (connect(socket_committer , (struct sockaddr *)&COMM_addr_committer , sizeof(COMM_addr_committer)) < 0) { 
             error("Could not connect to the Committer. Trying again.\n");
             sleep(1); 
@@ -265,8 +317,9 @@ int COMM_get_run_num() {
 
 // Request and return the committer from the job_manager
 void COMM_get_committer() {
-    if(COMM_my_rank==0)
+    if(COMM_my_rank==0) {
         return;
+    }
     
     while(COMM_request_committer() != 1) {
         info("Committer not found yet! \n");

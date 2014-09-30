@@ -179,7 +179,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         // If there is only the JobManager and the Committer
         if ((COMM_get_alive() == 2) && (isFinished==1)) {
             info("Sending kill to committer");
-            COMM_connect_to_committer();
+            COMM_connect_to_committer(NULL);
             COMM_send_message(ba, MSG_KILL, socket_committer);
 
             info("Fetching final result");
