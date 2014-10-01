@@ -342,7 +342,7 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n)
 	return 1;
 }
 
-int pack_binary(struct byte_array *ba, char * path) {
+int byte_array_pack_binary(struct byte_array *ba, char * path) {
     struct stat f_status;
     FILE *fp;
 
@@ -366,7 +366,7 @@ int pack_binary(struct byte_array *ba, char * path) {
     fclose(fp);
 }
 
-int unpack_binary(struct byte_array *ba, char *path) {
+int byte_array_unpack_binary(struct byte_array *ba, char *path) {
     FILE *fp;
 
     if(ba == NULL) {

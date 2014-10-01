@@ -61,6 +61,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba, 10);
+
+    // Binary Array used to store the binary, the .so. 
+    struct byte_array * ba_binary = (struct byte_array *) malloc (sizeof(struct byte_array));
+    byte_array_init(ba_binary, 0);
+    byte_array_pack_binary(ba_binary, so);
     
     void *user_data = ctor((argc), (argv));
     size_t tid, task_id = 0;
@@ -172,6 +177,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_GET_ALIVE:
                 COMM_send_int(origin_socket, COMM_alive);
                 break;
+            case MSG_GET_BINARY:
+                COMM_send_message(ba_binary, MSG_GET_BINARY, origin_socket);
+                break;
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
             default:
@@ -194,5 +202,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     }
 
     byte_array_free(ba);
+    byte_array_free(ba_binary);
     info("Terminating job manager");
 }

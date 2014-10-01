@@ -398,13 +398,28 @@ void start_master_process(int argc, char *argv[], char *so)
 
 void start_slave_processes(int argc, char *argv[])
 {
+    struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
+    struct byte_array * ba_binary = (struct byte_array *) malloc(sizeof(struct byte_array));
+    enum message_type type;
+ 
+
     // Request and get the path from the job manager..
     COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
-    struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
-    enum message_type type;
-    
     byte_array_init(lib_path, 0);
     COMM_read_message(lib_path, &type, socket_manager);
+
+    // Request and get the binary file. After that, unpack and saves it.
+    COMM_send_message(NULL, MSG_GET_BINARY, socket_manager);
+    byte_array_init(ba_binary, 0);
+    COMM_read_message(ba_binary, &type, socket_manager);
+    
+    // DEBUG START //
+    char * path_debug;
+    path_debug = (char *) lib_path;
+    path_debug[strlen(path_debug)-4]='X';
+    // DEBUG END //
+    
+    byte_array_unpack_binary(ba_binary, lib_path->ptr);
 
     while (strncmp((char *) lib_path->ptr, "NULL", 4) != 0) {
         info("received a module to run %s", lib_path->ptr);
@@ -522,7 +537,7 @@ int main(int argc, char *argv[])
     }
 
     char *so = argv[3];
-
+    
     /* Remove the first four arguments */
     argc -= 4;
     argv += 4;
