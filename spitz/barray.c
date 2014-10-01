@@ -342,6 +342,7 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n)
 	return 1;
 }
 
+// Packs binary from path in message format, used to send to other users.
 int byte_array_pack_binary(struct byte_array *ba, char * path) {
     struct stat f_status;
     FILE *fp;
@@ -367,6 +368,7 @@ int byte_array_pack_binary(struct byte_array *ba, char * path) {
     fclose(fp);
 }
 
+// Unpack binary present in ba->ptr of size ba->len received from Job Manager.
 int byte_array_unpack_binary(struct byte_array *ba, char *path) {
     FILE *fp;
 
@@ -381,7 +383,7 @@ int byte_array_unpack_binary(struct byte_array *ba, char *path) {
        return -2;
     }
 
-    if( fwrite(ba->ptr, 1, ba->cap, fp) != ba->cap ) {
+    if( fwrite(ba->ptr, 1, ba->len, fp) != ba->len ) {
         error("Error ocurred in fwrite of unpack binary.");
         return -3;
     }

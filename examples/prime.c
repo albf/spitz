@@ -1,8 +1,11 @@
 #include <spitz/barray.h>
 #include <stdio.h>
 #include <math.h>
+#include <unistd.h>
 
 #define UNUSED(x) (void)(x);
+
+int num_for_task= 1000;
 
 /*---------------------------------------------------------------------------*/
 /* JOB MANAGER --------------------------------------------------------------*/
@@ -45,23 +48,35 @@ void *spits_worker_new(int argc, char **argv)
 // Check if a given number is prime.
 void spits_worker_run(void *user_data, struct byte_array *task, struct byte_array *result)
 {
-        // Local Variables
-	uint64_t test_value;
-        uint64_t i; 
-        double sqrt_value;
-        uint64_t sqrt_cast;
-        uint64_t zero=0;
-        
-	UNUSED(user_data);
-        byte_array_unpack64(task, &test_value);
+    // Local Variables
+    uint64_t test_value;
+    uint64_t number;
+    uint64_t i; 
+    double sqrt_value;
+    uint64_t sqrt_cast;
+    uint64_t zero=0;
+    int is_prime;
+    uint64_t total_prime=0;
+    size_t len_b;
+    
+    UNUSED(user_data);
+    byte_array_unpack64(task, &test_value);
 
-        sqrt_value = sqrt(test_value);
+    if(num_for_task > 2) {
+        byte_array_resize(result, (size_t)(num_for_task*8));
+    }
+
+    byte_array_pack64(result, zero);
+
+    for(number = (test_value-1)*num_for_task; number < ((test_value)*num_for_task); number++) {
+        printf("PRIME.C => Testing : %" PRIu64 "\n", number);
+        sleep(1);
+        sqrt_value = sqrt(number);
         sqrt_cast = (uint64_t) sqrt_value;
 
         // Check if it is smaller than 2.
-        if(test_value<2) {
-            byte_array_pack64(result, zero);
-            return; 
+        if(number<2) {
+            continue;
         }
         
         // Get the square root value.
@@ -70,14 +85,23 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         }
 
         // Test all the values until the sqrt (2 or more).
+        is_prime=1;
         for(i=2; i<=sqrt_cast; i++) {
-            if((test_value%i)==0) {
-                byte_array_pack64(result, zero);
-                return; 
+            if((number%i)==0) {
+                is_prime = 0;
+                break;
             }
         }
-        
-    byte_array_pack64(result, test_value);
+        if(is_prime == 1) { 
+            byte_array_pack64(result, number);
+            total_prime++;
+        }
+    }
+
+    len_b = result->len;
+    result->len=8;
+    byte_array_pack64(result, total_prime);
+    result->len=len_b;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -103,7 +127,9 @@ void *spits_setup_commit(int argc, char *argv[])
 
 void spits_commit_pit(void *user_data, struct byte_array *result)
 {
-    uint64_t x; 
+    uint64_t x;
+    uint64_t i;
+    uint64_t value;
     struct prime_list * insertion;   
    
     UNUSED(user_data);
@@ -113,17 +139,21 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 
     // Checks if the value passed is different then zero and insert in the list.
     if(x != 0) {
-        if(list_pointer == NULL) {
-            list_pointer = (struct prime_list *) malloc (sizeof(struct prime_list));
-            list_pointer->value = x;
-            list_pointer->next = NULL;
-        }
-        else {
-            insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
-            insertion->value = x;
-            insertion->next = list_pointer;
-            list_pointer = insertion;
-        }
+       for(i=0; i<x; i++) { 
+           byte_array_unpack64(result, &value); 
+           
+            if(list_pointer == NULL) {
+                list_pointer = (struct prime_list *) malloc (sizeof(struct prime_list));
+                list_pointer->value = value;
+                list_pointer->next = NULL;
+            }
+            else {
+                insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
+                insertion->value = value;
+                insertion->next = list_pointer;
+                list_pointer = insertion;
+            }
+       }
     }
 }
 
