@@ -401,17 +401,58 @@ void start_slave_processes(int argc, char *argv[])
     struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
     struct byte_array * ba_binary = (struct byte_array *) malloc(sizeof(struct byte_array));
     enum message_type type;
+    int msg_return;
  
+    do {
+        // Request and get the path from the job manager. If get disconnected, retry.
+        msg_return = COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
+        if(msg_return < 0) {
+            error("Problem sending GET_PATH to Job Manager.");
+        }
+        else {
+            byte_array_init(lib_path, 0);
+            msg_return = COMM_read_message(lib_path, &type, socket_manager);
 
-    // Request and get the path from the job manager..
-    COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
-    byte_array_init(lib_path, 0);
-    COMM_read_message(lib_path, &type, socket_manager);
+            if(msg_return < 0) {
+                error("Problem reading GET_PATH from Job Manager.");
+            }
+            else {
+                info("Successfully received path from Job Manager.");
+            }
+        }
 
-    // Request and get the binary file. After that, unpack and saves it.
-    COMM_send_message(NULL, MSG_GET_BINARY, socket_manager);
-    byte_array_init(ba_binary, 0);
-    COMM_read_message(ba_binary, &type, socket_manager);
+        if(msg_return < 0) {
+            COMM_close_connection(socket_manager); 
+            COMM_connect_to_job_manager(COMM_addr_manager,NULL);
+        }    
+    } while (msg_return < 0);
+    
+
+    do {
+        // Request and get the binary from the job manager. If get disconnected, retry.
+        // After that, unpacks it.
+        msg_return = COMM_send_message(NULL, MSG_GET_BINARY, socket_manager);
+        if(msg_return < 0) {
+            error("Problem sending GET_BINARY to Job Manager.");
+        }
+        else {
+            byte_array_init(ba_binary, 0);
+            msg_return = COMM_read_message(ba_binary, &type, socket_manager);
+
+            if(msg_return < 0) {
+                error("Problem reading GET_BINARY from Job Manager.");
+            }
+            else {
+                info("Successfully received binary from Job Manager.");
+            }
+        }
+
+        if(msg_return < 0) {
+            COMM_close_connection(socket_manager); 
+            COMM_connect_to_job_manager(COMM_addr_manager,NULL);
+        }    
+    } while (msg_return < 0);
+    
     
     // DEBUG START //
     char * path_debug;
@@ -434,6 +475,7 @@ void start_slave_processes(int argc, char *argv[])
             break;
     }
     // DEBUG END //
+
     
     byte_array_unpack_binary(ba_binary, lib_path->ptr);
 
