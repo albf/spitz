@@ -415,8 +415,24 @@ void start_slave_processes(int argc, char *argv[])
     
     // DEBUG START //
     char * path_debug;
-    path_debug = (char *) lib_path;
-    path_debug[strlen(path_debug)-4]='X';
+    path_debug = (char *) (lib_path->ptr);
+    switch(COMM_get_rank_id()) {
+        case 1:
+            path_debug[strlen(path_debug)-4] = '1';
+            break;
+        case 2:
+            path_debug[strlen(path_debug)-4] = '2';
+            break;
+        case 3:
+            path_debug[strlen(path_debug)-4] = '3';
+            break;
+        case 4:
+            path_debug[strlen(path_debug)-4] = '4';
+            break;
+        case 5:
+            path_debug[strlen(path_debug)-4] = '5';
+            break;
+    }
     // DEBUG END //
     
     byte_array_unpack_binary(ba_binary, lib_path->ptr);

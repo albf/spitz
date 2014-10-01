@@ -357,6 +357,7 @@ int byte_array_pack_binary(struct byte_array *ba, char * path) {
     }
 
     fp = fopen(path, "rb");
+    ba->len = f_status.st_size;
     byte_array_resize(ba, f_status.st_size);
     if(!fread(ba->ptr, f_status.st_size, 1, fp)) {
         error("Error loading file.");
