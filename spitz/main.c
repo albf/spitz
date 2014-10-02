@@ -19,6 +19,15 @@
  * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef _WIN32
+#include <windows.h>
+#elif MACOS
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#else
+#include <unistd.h>
+#endif                
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +35,6 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <unistd.h>
 #include <signal.h>
 #include "cfifo.h"
 #include "barray.h"
@@ -62,6 +70,30 @@ struct thread_data {
     int argc;
     char **argv;
 };
+
+int getNumberOfCores() {
+#ifdef WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return sysinfo.dwNumberOfProcessors;
+#elif MACOS
+    int nm[2];
+    size_t len = 4;
+    uint32_t count;
+ 
+    nm[0] = CTL_HW; nm[1] = HW_AVAILCPU;
+    sysctl(nm, 2, &count, &len, NULL, 0);
+ 
+    if(count < 1) {
+    nm[1] = HW_NCPU;
+    sysctl(nm, 2, &count, &len, NULL, 0);
+    if(count < 1) { count = 1; }
+    }
+    return count;
+#else
+    return sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+}
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
@@ -393,7 +425,7 @@ void start_master_process(int argc, char *argv[], char *so)
     //dlclose(ptr);
 
     // Warned everyone, just closes the program. 
-    info("terminating spitz");
+    info("Terminating SPITZ");
 }
 
 void start_slave_processes(int argc, char *argv[])
@@ -465,13 +497,20 @@ void start_slave_processes(int argc, char *argv[])
                         else {
                             byte_array_init(ba_hash, 0);
                             byte_array_compute_hash(ba_hash, ba_binary);
-                            
-                            // if the hashes are equal, finish it. If not, do it again.
-                            if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
-                                is_binary_correct = 1; 
+
+                            // Check if hash is actually valid (may received NULL files in a manager's mistake).
+                            if(ba_hash->ptr == NULL) {
+                                msg_return = -1;
                             }
                             else {
-                                error("Difference in MD5 hash of binary, will request binary again.");
+                                
+                                // if the hashes are equal, finish it. If not, do it again.
+                                if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
+                                    is_binary_correct = 1; 
+                                }
+                                else {
+                                    error("Difference in MD5 hash of binary, will request binary again.");
+                                }
                             }
                         }
                     }
@@ -481,6 +520,7 @@ void start_slave_processes(int argc, char *argv[])
             }
         }
 
+        // If failed in some point, restart the connection with job manager.
         if(msg_return < 0) {
             COMM_close_connection(socket_manager); 
             COMM_connect_to_job_manager(COMM_addr_manager,NULL);
@@ -526,8 +566,11 @@ void start_slave_processes(int argc, char *argv[])
             committer(argc, argv, handle);
         } 
         else {                                  // Else : Task Manager
-            pthread_t t[NTHREADS];
+            //pthread_t t[NTHREADS];
+            NTHREADS = getNumberOfCores();
+            pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
 
+            
             struct thread_data d;
             cfifo_init(&d.f, sizeof(struct byte_array), FIFOSZ);
             sem_init(&d.sem, 0, FIFOSZ);
@@ -556,6 +599,8 @@ void start_slave_processes(int argc, char *argv[])
             for (i = 0; i < NTHREADS; i++) {    // Join them all
                 pthread_join(t[i], NULL);
             }
+
+            free(t);
         }
         
         // --- ONE RUN FOR NOW

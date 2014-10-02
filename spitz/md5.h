@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "log.h"
 
 
 char * md5( const void *msg_e, int mlen);

@@ -88,6 +88,12 @@ char * md5( const void *msg_e, int mlen)
     char duo[3];
     int fm=0;
     /* End of Format Variables */
+
+    /* Verify for valid entries */
+    if((msg_e == NULL) || (mlen<=0)) {
+        error("Wrong arguments passed to MD5 hash function. Is this a null byte array?");
+        return NULL;
+    }
  
     if (k==NULL) k= calcKs(kspace);
  

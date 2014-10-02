@@ -211,7 +211,7 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
      
     address.sin_addr.s_addr = inet_addr(ip_adr);
     address.sin_family = AF_INET;
-    address.sin_port = htons( 8888 );
+    address.sin_port = htons( PORT_MANAGER );
  
     //Connect to remote server
     while(is_connected == 0) {

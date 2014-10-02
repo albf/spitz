@@ -21,8 +21,8 @@
 #include "barray.h"
 #include "log.h"
 
-#define PORT_MANAGER 8888
-#define PORT_COMMITTER 9998
+#define PORT_MANAGER 8889
+#define PORT_COMMITTER 9997
 #define max_clients 30
 #define max_pending_connections 3
 
