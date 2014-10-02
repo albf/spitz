@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Ian Liu Rodrigues <ian.liu@ggaunicamp.com>
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
  *
  * This file is part of spitz.
  *
@@ -189,8 +190,9 @@ void _byte_array_pack32v(struct byte_array *ba, uint32_t *v, size_t n)
 {
 	ensure_size(ba, n * sizeof(v[0]));
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_pack32(ba, v[i]);
+    }
 }
 
 /**
@@ -201,8 +203,9 @@ void _byte_array_pack16v(struct byte_array *ba, uint16_t *v, size_t n)
 {
 	ensure_size(ba, n * sizeof(v[0]));
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_pack16(ba, v[i]);
+    }
 }
 
 /**
@@ -293,8 +296,9 @@ int _byte_array_unpack64v(struct byte_array *ba, uint64_t *v, size_t n)
 {
 	RETURN_FALSE_IF_NOT_ENOUGHT_SIZE(ba, sizeof(v[0]) * n);
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_unpack64(ba, v + i);
+    }
 	return 1;
 }
 
@@ -308,8 +312,9 @@ int _byte_array_unpack32v(struct byte_array *ba, uint32_t *v, size_t n)
 {
 	RETURN_FALSE_IF_NOT_ENOUGHT_SIZE(ba, sizeof(v[0]) * n);
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_unpack32(ba, v + i);
+    }
 	return 1;
 }
 
@@ -323,8 +328,9 @@ int _byte_array_unpack16v(struct byte_array *ba, uint16_t *v, size_t n)
 {
 	RETURN_FALSE_IF_NOT_ENOUGHT_SIZE(ba, sizeof(v[0]) * n);
 	size_t i;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++) {
 		_byte_array_unpack16(ba, v + i);
+    }
 	return 1;
 }
 
@@ -342,7 +348,8 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n)
 	return 1;
 }
 
-// Packs binary from path in message format, used to send to other users.
+/* Packs binary from path in message format, used to send to other users.
+ * Returns <0 for errors and 0 if everything went well */
 int byte_array_pack_binary(struct byte_array *ba, char * path) {
     struct stat f_status;
     FILE *fp;
@@ -366,9 +373,11 @@ int byte_array_pack_binary(struct byte_array *ba, char * path) {
     }
 
     fclose(fp);
+    return 0;
 }
 
-// Unpack binary present in ba->ptr of size ba->len received from Job Manager.
+/* Unpack binary present in ba->ptr of size ba->len received from Job Manager.
+ * Returns <0 for errors and 0 if everything went well */
 int byte_array_unpack_binary(struct byte_array *ba, char *path) {
     FILE *fp;
 
@@ -388,5 +397,21 @@ int byte_array_unpack_binary(struct byte_array *ba, char *path) {
         return -3;
     }
 
-    fclose(fp); 
+    fclose(fp);
+    return 0;
+}
+
+/* Calculates the hash of a binary (or any byte array) and stock it in ba.
+ * returns <0 if found any problem or 0 otherwise */
+int byte_array_compute_hash(struct byte_array *ba, struct byte_array * binary) {
+    if((ba == NULL)||(binary ==NULL)) {
+        error("Null pointer passed to _compute hash.");
+        return -1;
+    }
+
+    ba->ptr = md5(binary->ptr, binary->len);
+    ba->len = strlen((char *)ba->ptr); 
+    byte_array_resize(ba, ba->len);
+    
+    return 0;
 }

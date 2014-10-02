@@ -1,3 +1,5 @@
+ /* Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com> */
+
 #include <spitz/barray.h>
 #include <stdio.h>
 #include <math.h>
@@ -5,7 +7,8 @@
 
 #define UNUSED(x) (void)(x);
 
-int num_for_task= 1000;
+// Granularity factor.
+int num_for_task= 100;
 
 /*---------------------------------------------------------------------------*/
 /* JOB MANAGER --------------------------------------------------------------*/
@@ -62,12 +65,15 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     UNUSED(user_data);
     byte_array_unpack64(task, &test_value);
 
+    // Resize the byte array to fit all prime numbers.
     if(num_for_task > 2) {
         byte_array_resize(result, (size_t)(num_for_task*8));
     }
 
+    // Pack zero to keep a place for the total primes found, added in the end.
     byte_array_pack64(result, zero);
 
+    // Search for all the numbers is the granularity range.
     for(number = (test_value-1)*num_for_task; number < ((test_value)*num_for_task); number++) {
         printf("PRIME.C => Testing : %" PRIu64 "\n", number);
         sleep(1);
@@ -92,12 +98,14 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
                 break;
             }
         }
+        // If it's a prime, pack it.
         if(is_prime == 1) { 
             byte_array_pack64(result, number);
             total_prime++;
         }
     }
-
+        
+    // Pack the number of primes found in total in this range.
     len_b = result->len;
     result->len=8;
     byte_array_pack64(result, total_prime);
@@ -134,12 +142,11 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
    
     UNUSED(user_data);
     
+   // Get the total values found.
     byte_array_unpack64(result, &x);
-   
 
     // Checks if the value passed is different then zero and insert in the list.
-    if(x != 0) {
-       for(i=0; i<x; i++) { 
+       for(i=0; i<x; i++) {
            byte_array_unpack64(result, &value); 
            
             if(list_pointer == NULL) {
@@ -154,7 +161,6 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
                 list_pointer = insertion;
             }
        }
-    }
 }
 
 void spits_commit_job(void *user_data, struct byte_array *final_result)
@@ -165,6 +171,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     UNUSED(final_result);
     iter = list_pointer;
 
+    // Just print everyone.
     printf("Prime Numbers : ");
     while(iter != NULL) {
         printf("%d", (int) iter->value);

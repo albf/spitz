@@ -1,5 +1,6 @@
 /*
  * Copyright 2014 Ian Liu Rodrigues <ian.liu@ggaunicamp.com>
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
  *
  * This file is part of spitz.
  *
@@ -27,6 +28,7 @@ extern "C" {
 #include <inttypes.h>
 #include <stdlib.h>
 #include "log.h"
+#include "md5.h"
 
 struct byte_array {
 	uint8_t *ptr, *iptr;
@@ -81,6 +83,7 @@ int _byte_array_unpack8v(struct byte_array *ba, uint8_t *v, size_t n);
 
 int byte_array_pack_binary(struct byte_array *ba, char * path);
 int byte_array_unpack_binary(struct byte_array *ba, char *path);
+int byte_array_compute_hash(struct byte_array *ba, struct byte_array * binary);
     
 #ifdef __cplusplus
 }

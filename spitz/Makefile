@@ -1,8 +1,8 @@
-SRC = cfifo.c log.c comm.c main.c jobmanager.c list.c
+SRC = cfifo.c log.c comm.c main.c jobmanager.c list.c md5.c
 
 CPPFLAGS = -I.
 CFLAGS = -g
-LDFLAGS = -L. -lspitz -ldl -lrt -lpthread
+LDFLAGS = -L. -lspitz -ldl -lrt -lpthread -lm
 
 all: spitz
 
