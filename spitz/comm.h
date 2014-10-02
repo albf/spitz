@@ -30,16 +30,16 @@
 enum actor {
 	JOB_MANAGER = 0,
 	COMMITTER   = 1,
-        TASK_MANAGER = 2,
+    TASK_MANAGER = 2
 };
 
 // Enuns the types of possible messages.
 enum message_type {
 	MSG_READY,              // Task Manager to Job Manager
-	MSG_TASK,
-	MSG_RESULT,	
-	MSG_KILL,	
-	MSG_DONE,	
+	MSG_TASK,               // A task, Job Manager to Task Manager.
+	MSG_RESULT,             // A result, Task Manager to Committer.	
+	MSG_KILL,	            // Kill message, when there is nothing to send.
+	MSG_DONE,
 	MSG_GET_COMMITTER,	    // Task Manager to Job Manager 
 	MSG_GET_PATH,		    // Task Manager to Job Manager
 	MSG_GET_RUNNUM,		    // Task Manager/Committer to Job Manager
@@ -49,7 +49,8 @@ enum message_type {
     MSG_CLOSE_CONNECTION,   // Task Manager/Committer to Job Manager/Commiter
     MSG_STRING,             // Send a string, char *, from one node to another.
     MSG_EMPTY,              // When nothing was received, used for error proposes.
-    MSG_GET_BINARY          // Used to request and get the binary
+    MSG_GET_BINARY,         // Used to request and get the binary
+    MSG_GET_HASH            // Used to request the md5 hash of the binary.
 };
 
 /* Functions based in Client/Server architecture */

@@ -183,7 +183,7 @@ void *worker(void *ptr)
 
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
-    sem_wait (&d->tcount);                                          // wait for the first task to arrive.
+    sem_wait (&d->tcount);                                      // wait for the first task to arrive.
     while (d->running) {
         pthread_mutex_lock(&d->tlock);
         cfifo_pop(&d->f, &task);
@@ -400,11 +400,14 @@ void start_slave_processes(int argc, char *argv[])
 {
     struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
     struct byte_array * ba_binary = (struct byte_array *) malloc(sizeof(struct byte_array));
+    struct byte_array * ba_hash = (struct byte_array *) malloc(sizeof(struct byte_array));
+    struct byte_array * ba_hash_jm = (struct byte_array *) malloc(sizeof(struct byte_array));
     enum message_type type;
     int msg_return;
- 
+    int is_binary_correct=0;
+
+    // Request and get the path from the job manager. If get disconnected, retry.
     do {
-        // Request and get the path from the job manager. If get disconnected, retry.
         msg_return = COMM_send_message(NULL, MSG_GET_PATH, socket_manager);
         if(msg_return < 0) {
             error("Problem sending GET_PATH to Job Manager.");
@@ -428,9 +431,9 @@ void start_slave_processes(int argc, char *argv[])
     } while (msg_return < 0);
     
 
+    /* Request and get the binary and hash from the job manager.  
+     * If get disconnected or hash doesn't match, retry. After that, unpacks it. */
     do {
-        // Request and get the binary from the job manager. If get disconnected, retry.
-        // After that, unpacks it.
         msg_return = COMM_send_message(NULL, MSG_GET_BINARY, socket_manager);
         if(msg_return < 0) {
             error("Problem sending GET_BINARY to Job Manager.");
@@ -444,6 +447,37 @@ void start_slave_processes(int argc, char *argv[])
             }
             else {
                 info("Successfully received binary from Job Manager.");
+                
+                byte_array_init(ba_hash_jm, 0);
+
+
+                do {
+                    msg_return = COMM_send_message(NULL, MSG_GET_HASH, socket_manager);
+                    if(msg_return < 0) {
+                        error("Problem sending GET_HASH to Job Manager.");
+                    }
+                    else {
+                        byte_array_init(ba_hash_jm, 0);
+                        msg_return = COMM_read_message(ba_hash_jm, &type, socket_manager);
+                        if(msg_return < 0) {
+                            error("Problem reading GET_HASH from Job Manager.");
+                        }
+                        else {
+                            byte_array_init(ba_hash, 0);
+                            byte_array_compute_hash(ba_hash, ba_binary);
+                            
+                            // if the hashes are equal, finish it. If not, do it again.
+                            if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
+                                is_binary_correct = 1; 
+                            }
+                            else {
+                                error("Difference in MD5 hash of binary, will request binary again.");
+                            }
+                        }
+                    }
+
+                } while (msg_return <0);
+                
             }
         }
 
@@ -451,7 +485,7 @@ void start_slave_processes(int argc, char *argv[])
             COMM_close_connection(socket_manager); 
             COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         }    
-    } while (msg_return < 0);
+    } while (is_binary_correct == 0);
     
     
     // DEBUG START //
@@ -523,13 +557,21 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_join(t[i], NULL);
             }
         }
-
-        free(lib_path);
         
         // --- ONE RUN FOR NOW
         //lib_path = COMM_get_path();
         break;                                  // One run, so get out
     }
+
+    // Clean memory used in byte arrays.
+    byte_array_free(lib_path);
+    byte_array_free(ba_binary);
+    byte_array_free(ba_hash);
+    byte_array_free(ba_hash_jm);
+    free(lib_path);
+    free(ba_binary);
+    free(ba_hash);
+    free(ba_hash_jm);
 }
 
 int main(int argc, char *argv[])

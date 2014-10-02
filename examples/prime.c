@@ -75,8 +75,8 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
 
     // Search for all the numbers is the granularity range.
     for(number = (test_value-1)*num_for_task; number < ((test_value)*num_for_task); number++) {
-        printf("PRIME.C => Testing : %" PRIu64 "\n", number);
-        sleep(1);
+        //printf("PRIME.C => Testing : %" PRIu64 "\n", number);
+        //sleep(1);
         sqrt_value = sqrt(number);
         sqrt_cast = (uint64_t) sqrt_value;
 
