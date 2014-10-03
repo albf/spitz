@@ -60,15 +60,18 @@ struct result_node {
 struct thread_data {
     int id;
     struct cfifo f;
-    pthread_mutex_t tlock;                                          // lock responsible for the fifo of tasks
+    pthread_mutex_t tlock;              // lock responsible for the fifo of tasks
     pthread_mutex_t rlock;
-    sem_t tcount;                                                   // number of tasks available
+    sem_t tcount;                       // number of tasks available
     sem_t sem;
     char running;
     struct result_node *results;
     void *handle;
     int argc;
     char **argv;
+    int is_blocking_flush;              // 1 if in blocking flush, 0 if not. 
+    pthread_mutex_t bf_mutex;           // semaphore to unlock the blocking flush.
+    int bf_remaining_tasks;             // remaining tasks in blocking flush.
 };
 
 int getNumberOfCores() {
@@ -217,10 +220,11 @@ void *worker(void *ptr)
 
     sem_wait (&d->tcount);                                      // wait for the first task to arrive.
     while (d->running) {
-        pthread_mutex_lock(&d->tlock);
+        pthread_mutex_lock(&d->tlock);                          // Get a new task.
         cfifo_pop(&d->f, &task);
         pthread_mutex_unlock(&d->tlock);
 
+        // Warn the Task Manager about the new space available.
         sem_post(&d->sem);
 
         byte_array_unpack64(&task, &task_id);
@@ -228,13 +232,21 @@ void *worker(void *ptr)
         debug("[worker] Got a TASK %d", task_id);
         struct result_node *result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
-        byte_array_pack64(&result->ba, task_id);
-        execute_pit(user_data, &task, &result->ba);
+        byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
+        execute_pit(user_data, &task, &result->ba);             // Do the computation.
         byte_array_free(&task);
 
-        pthread_mutex_lock(&d->rlock);
+        pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
         result->next = d->results;
         d->results = result;
+        
+        if(d->is_blocking_flush==1) {
+            d->bf_remaining_tasks--;
+            if(d->bf_remaining_tasks==0) {
+                pthread_mutex_unlock(&d->bf_mutex);
+            }
+        }
+            
         pthread_mutex_unlock(&d->rlock);
 
         sem_wait (&d->tcount);                                  // wait for the next task to arrive.
@@ -253,6 +265,8 @@ enum blocking {
     NONBLOCKING
 };
 
+/* Send results to the committer, blocking or not.
+ * Returns the number of tasks sent or -1 if found a connection problem. */
 int flush_results(struct thread_data *d, int min_results, enum blocking b)
 {
     int len = 0;
@@ -284,13 +298,23 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
     }
 
     if (b == BLOCKING) {
-        while (len < min_results) {
+        
+        if(len<min_results) {
+            // If it's blocking and not yet complete.
             len = 0;
             n = d->results;
+
+            pthread_mutex_lock(&d->rlock); 
             for (aux = n; aux; aux = aux->next) {
                 len++;
             }
+            d->is_blocking_flush=1;
+            d->bf_remaining_tasks = min_results - len;
+            pthread_mutex_unlock(&d->rlock);
+
+            pthread_mutex_lock(&d->bf_mutex);
         }
+        
         while (n) {
             if(COMM_send_message(&n->ba, MSG_RESULT,socket_committer)<0) {
                 error("Problem to send result to committer. Aborting flush_results.");
@@ -608,11 +632,14 @@ void start_slave_processes(int argc, char *argv[])
             sem_init (&d.tcount, 0, 0);
             pthread_mutex_init(&d.tlock, NULL);
             pthread_mutex_init(&d.rlock, NULL);
+            pthread_mutex_init(&d.bf_mutex, NULL);
+            pthread_mutex_lock(&d.bf_mutex);
             d.running = 1;
             d.results = NULL;
             d.handle = handle;
             d.argc = argc;
             d.argv = argv;
+            d.is_blocking_flush = 0;            // Notify that is not in a blocking flush.
 
             int i, tmid = COMM_get_rank_id();
             for (i = 0; i < NTHREADS; i++) {
