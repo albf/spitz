@@ -437,6 +437,7 @@ void start_slave_processes(int argc, char *argv[])
     enum message_type type;
     int msg_return;
     int is_binary_correct=0;
+    struct stat buffer;   
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -461,11 +462,59 @@ void start_slave_processes(int argc, char *argv[])
             COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         }    
     } while (msg_return < 0);
-    
 
+    
+    // Request and get the hash from the job manager. If get disconnected, retry.
+    do {
+        msg_return = COMM_send_message(NULL, MSG_GET_HASH, socket_manager);
+        if(msg_return < 0) {
+            error("Problem sending GET_HASH to Job Manager.");
+        }
+        else {
+            byte_array_init(ba_hash_jm, 0);
+            msg_return = COMM_read_message(ba_hash_jm, &type, socket_manager);
+
+            if(msg_return < 0) {
+                error("Problem reading GET_HASH from Job Manager.");
+            }
+            else {
+                info("Successfully received hash from Job Manager.");
+            }
+        }
+
+        if(msg_return < 0) {
+            COMM_close_connection(socket_manager); 
+            COMM_connect_to_job_manager(COMM_addr_manager,NULL);
+        }    
+    } while (msg_return < 0);
+
+   
+    // If the file exists, check if it has the same hash.
+    if (stat ((char *) (lib_path->ptr), &buffer) == 0) {
+        byte_array_init(ba_binary,0);      
+        byte_array_pack_binary(ba_binary, (char *) (lib_path->ptr));
+        
+        byte_array_init(ba_hash,0);
+        byte_array_compute_hash(ba_hash, ba_binary);
+
+        // If file with same name is actually the same.
+        if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
+            is_binary_correct = 1;
+            info("File already exist and has the right hash.");
+        }
+        // If it's not, remove it, and request the correct from the server.
+        else {
+            info("Wrong hash in the file, request a new binary.");
+            remove((char *) (lib_path->ptr));
+            
+            byte_array_free(ba_binary);
+            byte_array_free(ba_hash);
+        }
+    }
+    
     /* Request and get the binary and hash from the job manager.  
      * If get disconnected or hash doesn't match, retry. After that, unpacks it. */
-    do {
+    while (is_binary_correct == 0){
         msg_return = COMM_send_message(NULL, MSG_GET_BINARY, socket_manager);
         if(msg_return < 0) {
             error("Problem sending GET_BINARY to Job Manager.");
@@ -480,43 +529,22 @@ void start_slave_processes(int argc, char *argv[])
             else {
                 info("Successfully received binary from Job Manager.");
                 
-                byte_array_init(ba_hash_jm, 0);
+                byte_array_init(ba_hash, 0);
+                byte_array_compute_hash(ba_hash, ba_binary);
 
-
-                do {
-                    msg_return = COMM_send_message(NULL, MSG_GET_HASH, socket_manager);
-                    if(msg_return < 0) {
-                        error("Problem sending GET_HASH to Job Manager.");
+                // Check if hash is actually valid (may received NULL files in a manager's mistake).
+                if(ba_hash->ptr == NULL) {
+                    msg_return = -1;
+                }
+                else {
+                    // if the hashes are equal, finish it. If not, do it again.
+                    if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
+                        is_binary_correct = 1; 
                     }
                     else {
-                        byte_array_init(ba_hash_jm, 0);
-                        msg_return = COMM_read_message(ba_hash_jm, &type, socket_manager);
-                        if(msg_return < 0) {
-                            error("Problem reading GET_HASH from Job Manager.");
-                        }
-                        else {
-                            byte_array_init(ba_hash, 0);
-                            byte_array_compute_hash(ba_hash, ba_binary);
-
-                            // Check if hash is actually valid (may received NULL files in a manager's mistake).
-                            if(ba_hash->ptr == NULL) {
-                                msg_return = -1;
-                            }
-                            else {
-                                
-                                // if the hashes are equal, finish it. If not, do it again.
-                                if(strcmp((char *)ba_hash->ptr, (char *)ba_hash_jm->ptr)==0) {
-                                    is_binary_correct = 1; 
-                                }
-                                else {
-                                    error("Difference in MD5 hash of binary, will request binary again.");
-                                }
-                            }
-                        }
+                        error("Difference in MD5 hash of binary, will request binary again.");
                     }
-
-                } while (msg_return <0);
-                
+                }
             }
         }
 
@@ -524,35 +552,38 @@ void start_slave_processes(int argc, char *argv[])
         if(msg_return < 0) {
             COMM_close_connection(socket_manager); 
             COMM_connect_to_job_manager(COMM_addr_manager,NULL);
-        }    
-    } while (is_binary_correct == 0);
+        }
+        else {
+ 
+            // DEBUG START //
+            /*char * path_debug;
+            path_debug = (char *) (lib_path->ptr);
+            switch(COMM_get_rank_id()) {
+                case 1:
+                    path_debug[strlen(path_debug)-4] = '1';
+                    break;
+                case 2:
+                    path_debug[strlen(path_debug)-4] = '2';
+                    break;
+                case 3:
+                    path_debug[strlen(path_debug)-4] = '3';
+                    break;
+                case 4:
+                    path_debug[strlen(path_debug)-4] = '4';
+                    break;
+                case 5:
+                    path_debug[strlen(path_debug)-4] = '5';
+                    break;
+            } */
+            // DEBUG END //
+
+            
+            byte_array_unpack_binary(ba_binary, lib_path->ptr);   
     
-    
-    // DEBUG START //
-    char * path_debug;
-    path_debug = (char *) (lib_path->ptr);
-    switch(COMM_get_rank_id()) {
-        case 1:
-            path_debug[strlen(path_debug)-4] = '1';
-            break;
-        case 2:
-            path_debug[strlen(path_debug)-4] = '2';
-            break;
-        case 3:
-            path_debug[strlen(path_debug)-4] = '3';
-            break;
-        case 4:
-            path_debug[strlen(path_debug)-4] = '4';
-            break;
-        case 5:
-            path_debug[strlen(path_debug)-4] = '5';
-            break;
-    }
-    // DEBUG END //
+        }
+    }     
 
     
-    byte_array_unpack_binary(ba_binary, lib_path->ptr);
-
     while (strncmp((char *) lib_path->ptr, "NULL", 4) != 0) {
         info("received a module to run %s", lib_path->ptr);
 
