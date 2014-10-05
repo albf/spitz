@@ -28,9 +28,9 @@
 
 // Enums of actor and message type
 enum actor {
-	JOB_MANAGER = 0,
-	COMMITTER   = 1,
-    TASK_MANAGER = 2
+	JOB_MANAGER  = 0,
+	COMMITTER    = 1,
+        TASK_MANAGER = 2
 };
 
 // Enuns the types of possible messages.

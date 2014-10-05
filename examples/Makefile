@@ -28,7 +28,7 @@ debug: pi.so picpp.so
 	export SPITS_LOG_LEVEL=2
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			mpirun -np 3 xterm -e gdb --args spitz $$PWD/pi.so 10000
+			mpirun -np 0 xterm -e gdb --args spitz $$PWD/pi.so 10000
 	LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			mpirun -np 3 xterm -e gdb --args spitz $$PWD/picpp.so 10000
 

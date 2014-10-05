@@ -19,11 +19,9 @@
  * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __SPITZ_JOB_MANAGER_H__
-#define __SPITZ_JOB_MANAGER_H__
+#ifndef __SPITZ_COMMITTER_H__
+#define __SPITZ_COMMITTER_H__
 
-#include <barray.h>
+void committer(int argc, char *argv[], void *handle);
 
-void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);
-
-#endif /* __SPITZ_JOB_MANAGER_H__ */
+#endif /* __SPITZ_COMMITTER_H__ */
