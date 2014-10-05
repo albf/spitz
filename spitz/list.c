@@ -1,5 +1,10 @@
 #include "list.h"
 
+#include <stdio.h>
+#include <string.h>   
+#include <stdlib.h>
+#include "comm.h"
+
 // Add an element to a list. If it's not yet initialize, allocate memory and append the first term.
 // If there is at least one hole in the ids number, put in the same hole it could find.
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {

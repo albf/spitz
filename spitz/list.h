@@ -7,11 +7,6 @@
 #ifndef LIST_H
 #define	LIST_H
 
-#include <stdio.h>
-#include <string.h>   
-#include <stdlib.h>
-#include "comm.h"
-
 // Represent a list of connected ips.
 struct connected_ip {
     struct connected_ip * next;

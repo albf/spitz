@@ -182,6 +182,7 @@ void task_manager(struct thread_data *d)
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
     int flushed_tasks;                                              // Return value from flush_results.
+    int tm_retries;
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -228,7 +229,8 @@ void task_manager(struct thread_data *d)
                 break;
             case MSG_EMPTY:
                 COMM_close_connection(socket_manager);
-                if(COMM_connect_to_job_manager(COMM_addr_manager, &CON_RETRIES)!=0) {
+                tm_retries = TM_CON_RETRIES;
+                if(COMM_connect_to_job_manager(COMM_addr_manager, &tm_retries)!=0) {
                     info("Couldn't reconnect to the Job Manager. Closing Task Manager.");
                     alive = 0;
                 }
@@ -245,7 +247,8 @@ void task_manager(struct thread_data *d)
             flushed_tasks = flush_results(d, min_results, b);
             if(flushed_tasks < 0) {
                 info("Couldn't flush results. Is committer still alive?");
-                if(COMM_connect_to_committer(&CON_RETRIES)<0) {
+                tm_retries = TM_CON_RETRIES;
+                if(COMM_connect_to_committer(&tm_retries)<0) {
                     info("If it is, I just couldn't find it. Closing.");
                     alive = 0;
                 }

@@ -25,6 +25,7 @@
 #include <dlfcn.h>
 #include <stdarg.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include "cfifo.h"
 #include "barray.h"
 #include "log.h"
@@ -37,9 +38,8 @@
 #define SPITZ_VERSION "0.1.0"
 
 int LOG_LEVEL = 0;
-
-int NTHREADS = 1;
 int FIFOSZ = 10;
+int NTHREADS; 
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
@@ -85,7 +85,7 @@ void start_slave_processes(int argc, char *argv[])
     enum message_type type;
     int msg_return;
     int is_binary_correct=0;
-    struct stat buffer;   
+    struct stat buffer;
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -246,7 +246,9 @@ void start_slave_processes(int argc, char *argv[])
         } 
         else {                                  // Else : Task Manager
             //pthread_t t[NTHREADS];
-            NTHREADS = get_number_of_cores();
+            if(NTHREADS == -1) {
+                NTHREADS = get_number_of_cores();
+            }
             pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
 
             
@@ -347,6 +349,9 @@ int main(int argc, char *argv[])
     char *nthreads = getenv("SPITS_NUM_THREADS");
     if (nthreads) {
         NTHREADS = atoi(nthreads);
+    }
+    else {
+        NTHREADS=-1;
     }
 
     char *fifosz = getenv("SPITS_TMCACHE_SIZE");

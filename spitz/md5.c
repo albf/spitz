@@ -5,6 +5,13 @@
  * Performance analysis : http://www.isi.edu/touch/pubs/sigcomm95.html */
 
 #include "md5.h"
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include "log.h"
+
  
 typedef union uwb {
     unsigned w;

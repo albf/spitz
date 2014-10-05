@@ -4,6 +4,21 @@
 
 #include "comm.h"
 
+#include <stdio.h>
+#include <string.h>   
+#include <stdlib.h>
+#include <unistd.h>   
+#include <arpa/inet.h>    
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/time.h>           // Wait some seconds beetween requests.
+#include "list.h"               // List of ips connected.
+#include <barray.h>
+#include <errno.h>
+#include <fcntl.h>              // Used to set block/non-block sockets.
+#include "log.h"
+
 /* Global Variables */
 struct sockaddr_in COMM_addr_committer; // address of committer node
 int socket_manager, socket_committer;   // Important socket values

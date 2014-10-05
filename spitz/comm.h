@@ -5,46 +5,32 @@
 #ifndef COMM_H
 #define	COMM_H
 
-#include <stdio.h>
-#include <string.h>   
-#include <stdlib.h>
-#include <unistd.h>   
-#include <arpa/inet.h>    
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <sys/time.h>           // Wait some seconds beetween requests.
-#include "list.h"               // List of ips connected.
-#include <barray.h>
-#include <errno.h>
-#include <fcntl.h>              // Used to set block/non-block sockets.
-#include "barray.h"
-#include "log.h"
-
 #define PORT_MANAGER 8889
 #define PORT_COMMITTER 9997
 #define max_clients 30
 #define max_pending_connections 3
 
+#include "barray.h"
+
 // Enums of actor and message type
 enum actor {
 	JOB_MANAGER  = 0,
 	COMMITTER    = 1,
-        TASK_MANAGER = 2
+    TASK_MANAGER = 2
 };
 
 // Enuns the types of possible messages.
 enum message_type {
-	MSG_READY,              // Task Manager to Job Manager
-	MSG_TASK,               // A task, Job Manager to Task Manager.
-	MSG_RESULT,             // A result, Task Manager to Committer.	
-	MSG_KILL,	            // Kill message, when there is nothing to send.
-	MSG_DONE,
-	MSG_GET_COMMITTER,	    // Task Manager to Job Manager 
-	MSG_GET_PATH,		    // Task Manager to Job Manager
-	MSG_GET_RUNNUM,		    // Task Manager/Committer to Job Manager
+    MSG_READY,              // Task Manager to Job Manager
+    MSG_TASK,               // A task, Job Manager to Task Manager.
+    MSG_RESULT,             // A result, Task Manager to Committer.	
+    MSG_KILL,	            // Kill message, when there is nothing to send.
+    MSG_DONE,
+    MSG_GET_COMMITTER,	    // Task Manager to Job Manager 
+    MSG_GET_PATH,	    // Task Manager to Job Manager
+    MSG_GET_RUNNUM,         // Task Manager/Committer to Job Manager
     MSG_GET_ALIVE,          // Task Manager to JobManager
-	MSG_SET_COMMITTER,	    // Committer to Job Manager
+    MSG_SET_COMMITTER,	    // Committer to Job Manager
     MSG_NEW_CONNECTION,     // Task Manager/Committer to Job Manager/Commiter
     MSG_CLOSE_CONNECTION,   // Task Manager/Committer to Job Manager/Commiter
     MSG_STRING,             // Send a string, char *, from one node to another.

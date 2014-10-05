@@ -22,6 +22,7 @@
 #include "jobmanager.h"
 
 #include <dlfcn.h>
+#include <string.h>
 #include "comm.h"
 #include "log.h"
 #include "barray.h"
