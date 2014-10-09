@@ -23,13 +23,14 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include "log.h"
 
 void cfifo_init(struct cfifo *cfifo, size_t sz, size_t cap)
 {
-	cfifo->cap = cap;
-	cfifo->h = cfifo->len = 0;
-	cfifo->sz = sz;
-	cfifo->ptr = malloc(sz * cap);
+    cfifo->cap = cap;
+    cfifo->h = cfifo->len = 0;
+    cfifo->sz = sz;
+    cfifo->ptr = malloc(sz * cap);
 }
 
 void cfifo_free(struct cfifo *cfifo)
@@ -53,9 +54,11 @@ void cfifo_push(struct cfifo *cfifo, void *el)
 	if (cfifo->len == cfifo->cap) {
 		pos = (char*)cfifo->ptr + cfifo->h * cfifo->sz;
 		cfifo->h++;
-		if (cfifo->h == cfifo->cap)
+		if (cfifo->h == cfifo->cap) {
 			cfifo->h = 0;
-	} else {
+        }
+	} 
+    else {
 		size_t offset = (cfifo->h + cfifo->len) % cfifo->cap;
 		pos = (char*)cfifo->ptr + offset * cfifo->sz;
 		cfifo->len++;
@@ -67,13 +70,15 @@ void cfifo_push(struct cfifo *cfifo, void *el)
 int cfifo_pop(struct cfifo *cfifo, void *el)
 {
 	size_t offset;
-	if (cfifo->len == 0)
+	if (cfifo->len == 0) {
 		return 0;
+    }
 	offset = cfifo->h * cfifo->sz;
 	memcpy(el, (char*)cfifo->ptr + offset, cfifo->sz);
 	cfifo->h++;
-	if (cfifo->h == cfifo->cap)
+	if (cfifo->h == cfifo->cap) {
 		cfifo->h = 0;
+    }
 	cfifo->len--;
 	return 1;
 }

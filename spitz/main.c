@@ -250,9 +250,11 @@ void start_slave_processes(int argc, char *argv[])
                 NTHREADS = get_number_of_cores();
             }
             pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
-
+            
             
             struct thread_data d;
+            struct result_node * aux;
+            
             cfifo_init(&d.f, sizeof(struct byte_array), FIFOSZ);
             sem_init(&d.sem, 0, FIFOSZ);
             sem_init (&d.tcount, 0, 0);
@@ -284,6 +286,16 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_join(t[i], NULL);
             }
 
+            // clean memory from results, as it may have some there
+            aux = d.results;
+            while(aux!= NULL) {
+                d.results = d.results->next;
+                byte_array_free(&(aux->ba));
+                free(aux);
+                aux = d.results;
+            }
+            
+            cfifo_free(&d.f);
             free(t);
         }
         

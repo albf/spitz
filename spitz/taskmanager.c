@@ -54,6 +54,7 @@ void *worker(void *ptr)
     size_t task_id;
     struct thread_data *d = ptr;
     struct byte_array task;
+    struct result_node *result;
 
     workerid = d->id;
 
@@ -75,9 +76,9 @@ void *worker(void *ptr)
         sem_post(&d->sem);
 
         byte_array_unpack64(&task, &task_id);
-
         debug("[worker] Got a TASK %d", task_id);
-        struct result_node *result = malloc(sizeof(*result));
+        
+        result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
         execute_pit(user_data, &task, &result->ba);             // Do the computation.
@@ -101,8 +102,11 @@ void *worker(void *ptr)
 
     void* (*worker_free) (void *);
     worker_free = dlsym(d->handle, "spits_worker_free");
-    if (worker_free)
+    if (worker_free) {
         worker_free(user_data);
+    }
+
+    //free(result);
 
     return NULL;
 }
@@ -257,7 +261,7 @@ void task_manager(struct thread_data *d)
                 }
             }
             else {
-                tasks -= flush_results(d, min_results, b);
+                tasks -= flushed_tasks; 
                 debug("I have sent %d tasks\n", tasks);
             }
             
@@ -266,6 +270,7 @@ void task_manager(struct thread_data *d)
 
     info("Terminating task manager");
     byte_array_free(ba);
+    free(ba);
     COMM_close_all_connections();
 }
 

@@ -356,6 +356,8 @@ int COMM_request_committer() {
     COMM_read_message(ba, &type, socket_manager);
     
     if (strlen((char *) ba->ptr) <= 1) {                                     // Job manager doesn't know yet
+        byte_array_free(ba);
+        free(ba);
         return -1;
     } 
     else {
@@ -368,8 +370,14 @@ int COMM_request_committer() {
         c_port = atoi(token);
         //c_port = atoi(strtok(token, "|"));
         COMM_addr_committer.sin_port = htons(c_port);
+
+        byte_array_free(ba);
+        free(ba);
         return 1;
     }
+
+    byte_array_free(ba);
+    free(ba);
     return -1;
 }
 

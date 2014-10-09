@@ -17,7 +17,14 @@ picpp.so: pi.cpp
 test: pi.so picpp.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 prime.so 30
+		valgrind --tool=memcheck --leak-check=full ./spitz 2 127.0.0.1 prime.so 30
+	
+
+	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			#gdb --args ./spitz 2 127.0.0.1 prime.so 30
+
+	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			#valgrind --tool=memcheck --leak-check=full ./spitz 2 127.0.0.1 prime.so 30
 	
 			# gdb --args ./spitz 2 127.0.0.1 $$PWD/pi.so 30
 	#LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
