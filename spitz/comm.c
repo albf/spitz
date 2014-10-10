@@ -601,6 +601,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
         COMM_client_socket[COMM_loop_b] = 0;
         * type = MSG_CLOSE_CONNECTION;
         byte_array_clear(ba);
+        byte_array_free(ba);
          _byte_array_pack64(ba, (uint64_t) sd);
          return 0;
     }
@@ -651,6 +652,7 @@ void COMM_send_committer(int sock) {
     }
 
     byte_array_free(ba);
+    free(ba);
 }
 
 // Register the committer, when the committer sets it

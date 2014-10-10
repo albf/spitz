@@ -46,6 +46,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
     job_manager(argc, argv, so, final_result);
+    free(lib_path);
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -70,7 +71,10 @@ void start_master_process(int argc, char *argv[], char *so)
         info("%s has spits_main function, using it", so);
         spits_main(argc, argv, run);
     }
-    //dlclose(ptr);
+    
+    if(ptr) {
+        dlclose(ptr);
+    }
 
     // Warned everyone, just closes the program. 
     info("Terminating SPITZ");
@@ -86,6 +90,7 @@ void start_slave_processes(int argc, char *argv[])
     int msg_return;
     int is_binary_correct=0;
     struct stat buffer;
+    void *handle = NULL;
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -235,7 +240,7 @@ void start_slave_processes(int argc, char *argv[])
     while (strncmp((char *) lib_path->ptr, "NULL", 4) != 0) {
         info("received a module to run %s", lib_path->ptr);
 
-        void *handle = dlopen((char *) lib_path->ptr, RTLD_LAZY);
+        handle = dlopen((char *) lib_path->ptr, RTLD_LAZY);
         if (!handle) {
             error("could not open %s", (char *) lib_path->ptr);
             return;
@@ -304,6 +309,11 @@ void start_slave_processes(int argc, char *argv[])
         break;                                  // One run, so get out
     }
 
+    // Clean dlopen memory.
+    if(handle != NULL) {
+        dlclose(handle);
+    }
+    
     // Clean memory used in byte arrays.
     byte_array_free(lib_path);
     byte_array_free(ba_binary);

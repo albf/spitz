@@ -48,6 +48,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
     
+    struct task *clean;                                             // Auxiliary pointer used to free memory. 
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
     struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
     struct task *node;                                              // Pointer of new task.
@@ -138,11 +139,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
                 // if there is a previous in the list. 
                 if (prev) {
+                    clean = iter;
                     prev->next = iter->next;
                 }
 
                 // if not, it's the home.
                 else {
+                    clean = home;
                     home = home->next;
                 }
 
@@ -151,6 +154,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     head = prev;
                 }
                 
+                free(clean);
                 debug("TASK %d is complete!", tid);
                 byte_array_free(&iter->data);
                 break;
@@ -227,5 +231,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     free(ba);
     free(ba_binary);
     free(ba_hash);
+
+    // And in user_data
+    free(user_data);
+
     info("Terminating job manager");
 }
