@@ -14,11 +14,37 @@ pi.so: pi.c
 picpp.so: pi.cpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
-test: pi.so picpp.so
+valgrind0: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-		./spitz 0 127.0.0.1 prime.so 30
-	
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 0 127.0.0.1 prime.so 30
+
+valgrind1: pi.so
+	# Set some environment variables
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 1 127.0.0.1 prime.so 30
+
+valgrid2: pi.so
+	# Set some environment variables
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 2 127.0.0.1 prime.so 30
+
+gdb0: pi.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			gdb --args ./spitz 0 127.0.0.1 prime.so 30
+
+gdb1: pi.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			gdb --args ./spitz 1 127.0.0.1 prime.so 30
+
+gdb2: pi.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			gdb --args ./spitz 2 127.0.0.1 prime.so 30
+
+test: pi.so
+	# Set some environment variables
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+
 
 	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			#gdb --args ./spitz 2 127.0.0.1 prime.so 30

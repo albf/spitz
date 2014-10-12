@@ -74,5 +74,6 @@ int COMM_send_message(struct byte_array *ba, int type, int dest_socket);
 extern int socket_manager, socket_committer;                // socket of servers (job manager and committer)
 extern int COMM_alive;
 extern char * COMM_addr_manager;
+extern int COMM_my_rank;
 
 #endif	/* COMM_H */

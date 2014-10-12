@@ -337,7 +337,8 @@ int main(int argc, char *argv[])
         error("Couldn't ignore SIGPIPE.");
         return -1;
     }
-    
+   
+    COMM_my_rank = (int) type;
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
     } 
