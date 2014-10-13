@@ -556,7 +556,8 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             
         //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
-        
+	debug("Received some request from select().");       
+ 
         // wait until get an activity without EINTR error.
         if ((activity < 0)&&(errno == EINTR)) { 
             error("Select error (EINTR), repeating select loop.");
@@ -627,7 +628,7 @@ void COMM_send_committer(int sock) {
     
     if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
         v = no_answer;
-        n = (size_t) (strlen(no_answer)+1);
+        n = (size_t) strlen(no_answer);
         
         byte_array_pack8v(ba, v, n);
         COMM_send_message(ba, MSG_STRING, sock);
@@ -644,7 +645,7 @@ void COMM_send_committer(int sock) {
         strcat(committer_send, "\n");
        
         v = committer_send;
-        n = (size_t) (strlen(committer_send)+1);
+        n = (size_t) strlen(committer_send);
         byte_array_pack8v(ba, v, n);
         
         // message format: ip|porta
