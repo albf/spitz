@@ -165,7 +165,7 @@ char * md5( const void *msg_e, int mlen)
             hash_a[fm++]=duo[1];
         }
     }
-    hash_a[fm++]='\n';
+    hash_a[fm++]='\0';
 
     return hash_a;
 }

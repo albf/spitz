@@ -622,7 +622,6 @@ void COMM_send_committer(int sock) {
     size_t n;
     char no_answer[2] = "\0\n";
     char * v; 
-    byte_array_init(ba, n);
     
     //COMM_send_message(ba, MSG_STRING, sock);
     
@@ -646,6 +645,8 @@ void COMM_send_committer(int sock) {
        
         v = committer_send;
         n = (size_t) strlen(committer_send);
+        
+        byte_array_init(ba, n);
         byte_array_pack8v(ba, v, n);
         
         // message format: ip|porta
