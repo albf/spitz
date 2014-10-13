@@ -166,13 +166,47 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 void spits_commit_job(void *user_data, struct byte_array *final_result)
 {
     struct prime_list * iter;
-    
+    struct prime_list * bf;
+    int dirty=1;
+    int loop_over=0;    
+    uint64_t aux;
+
     UNUSED(user_data);
     UNUSED(final_result);
-    iter = list_pointer;
+    
+    bf = list_pointer;
+    iter = bf-> next;
+
+    // Bubble Sort
+    while(dirty==1) {
+       dirty = 0; 
+       loop_over = 0;
+
+        while (loop_over == 0) {
+            if(bf->value > iter->value) {
+                aux=bf->value;
+                bf->value = iter->value;
+                iter->value = aux;
+                dirty=1;
+            }
+
+            if(iter->next!=NULL) {
+                bf=iter;
+                iter=iter->next;
+                loop_over=1;
+            }
+            else {
+                bf=list_pointer;
+                iter = bf->next;
+            }
+        }
+    }
+
 
     // Just print everyone.
     printf("Prime Numbers : ");
+    
+    iter = list_pointer;
     while(iter != NULL) {
         printf("%d", (int) iter->value);
         iter = iter->next;
