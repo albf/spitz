@@ -360,7 +360,7 @@ int byte_array_pack_binary(struct byte_array *ba, char * path) {
     }
 
     if(stat(path, &f_status) != 0) {
-        error("Problem getting info from binary. Does it really exists?");
+        error("Problem getting info from binary in %s. Does it really exists?", path);
         return -2;
     }
 
