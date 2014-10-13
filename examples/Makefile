@@ -44,8 +44,7 @@ gdb2: pi.so
 test: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-		./spitz 0 127.0.0.1 prime.so 30
-	
+
 
 	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			#gdb --args ./spitz 2 127.0.0.1 prime.so 30
