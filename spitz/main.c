@@ -39,7 +39,7 @@
 
 int LOG_LEVEL = 0;
 int FIFOSZ = 10;
-int NTHREADS; 
+int NTHREADS = 1; 
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
@@ -329,6 +329,8 @@ int main(int argc, char *argv[])
 {
     enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
     struct sigaction sa;
+
+    error("SPITZ Started, actor number: %d", (int) type);
     
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);
@@ -374,7 +376,7 @@ int main(int argc, char *argv[])
         NTHREADS = atoi(nthreads);
     }
     else {
-        NTHREADS=-1;
+        NTHREADS=1;
     }
 
     char *fifosz = getenv("SPITS_TMCACHE_SIZE");

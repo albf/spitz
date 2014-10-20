@@ -119,9 +119,9 @@ void committer(int argc, char *argv[], void *handle)
         }
     }
 
+    byte_array_free(ba);
     free(user_data);
     free(committed);
     free(ba);
     info("Terminating committer");
-    byte_array_free(ba);
 }

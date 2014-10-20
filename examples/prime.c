@@ -52,14 +52,14 @@ void *spits_worker_new(int argc, char **argv)
 void spits_worker_run(void *user_data, struct byte_array *task, struct byte_array *result)
 {
     // Local Variables
-    uint64_t test_value;
-    uint64_t number;
-    uint64_t i; 
+    int test_value;
+    int number;
+    int i; 
     double sqrt_value;
-    uint64_t sqrt_cast;
-    uint64_t zero=0;
+    int sqrt_cast;
+    int zero=0;
     int is_prime;
-    uint64_t total_prime=0;
+    int total_prime=0;
     size_t len_b;
     
     UNUSED(user_data);
@@ -78,7 +78,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         //printf("PRIME.C => Testing : %" PRIu64 "\n", number);
         //sleep(1);
         sqrt_value = sqrt(number);
-        sqrt_cast = (uint64_t) sqrt_value;
+        sqrt_cast = (int) sqrt_value;
 
         // Check if it is smaller than 2.
         if(number<2) {
@@ -118,7 +118,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
 
 // Linked list with the results
 struct prime_list{
-    uint64_t value;
+    int value;
     struct prime_list * next;
 };
 
@@ -135,9 +135,9 @@ void *spits_setup_commit(int argc, char *argv[])
 
 void spits_commit_pit(void *user_data, struct byte_array *result)
 {
-    uint64_t x;
-    uint64_t i;
-    uint64_t value;
+    int x;
+    int i;
+    int value;
     struct prime_list * insertion;   
    
     UNUSED(user_data);
@@ -169,7 +169,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     struct prime_list * bf;
     int dirty=1;
     int loop_over=0;    
-    uint64_t aux;
+    int aux;
 
     UNUSED(user_data);
     UNUSED(final_result);
@@ -204,7 +204,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
 
 
     // Just print everyone.
-    printf("Prime Numbers : ");
+    printf("Prime Numbers : \n");
     
     iter = list_pointer;
     while(iter != NULL) {
