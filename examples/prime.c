@@ -74,7 +74,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     byte_array_pack64(result, zero);
 
     // Search for all the numbers is the granularity range.
-    for(number = (test_value-1)*num_for_task; number < ((test_value)*num_for_task); number++) {
+    for(number = (test_value)*num_for_task; number < ((test_value+1)*num_for_task); number++) {
         //printf("PRIME.C => Testing : %" PRIu64 "\n", number);
         //sleep(1);
         sqrt_value = sqrt(number);
@@ -135,8 +135,9 @@ void *spits_setup_commit(int argc, char *argv[])
 
 void spits_commit_pit(void *user_data, struct byte_array *result)
 {
-    int x;
-    int i;
+    uint64_t x;
+    uint64_t i;
+    uint64_t u_value;
     int value;
     struct prime_list * insertion;   
    
@@ -147,8 +148,9 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 
     // Checks if the value passed is different then zero and insert in the list.
        for(i=0; i<x; i++) {
-           byte_array_unpack64(result, &value); 
-           
+            byte_array_unpack64(result, &u_value); 
+            value = (int) u_value;           
+
             if(list_pointer == NULL) {
                 list_pointer = (struct prime_list *) malloc (sizeof(struct prime_list));
                 list_pointer->value = value;
@@ -193,11 +195,11 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
             if(iter->next!=NULL) {
                 bf=iter;
                 iter=iter->next;
-                loop_over=1;
             }
             else {
                 bf=list_pointer;
                 iter = bf->next;
+                loop_over=1;
             }
         }
     }
