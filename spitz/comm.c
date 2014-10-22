@@ -355,7 +355,7 @@ int COMM_request_committer() {
     COMM_send_message(NULL, MSG_GET_COMMITTER, socket_manager);
     COMM_read_message(ba, &type, socket_manager);
     
-    if (strlen((char *) ba->ptr) <= 1) {                                     // Job manager doesn't know yet
+    if (ba->len <= 2) {                                                 // Job manager doesn't know yet
         byte_array_free(ba);
         free(ba);
         return -1;
@@ -620,7 +620,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
 void COMM_send_committer(int sock) {
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     size_t n;
-    char no_answer[2] = "\0\n";
+    char no_answer[2] = "\n\0";
     char * v; 
     
     //COMM_send_message(ba, MSG_STRING, sock);
@@ -628,7 +628,8 @@ void COMM_send_committer(int sock) {
     if ((strcmp((const char *) inet_ntoa(COMM_addr_committer.sin_addr), "0.0.0.0") == 0) && (ntohs(COMM_addr_committer.sin_port) == 0)) {
         v = no_answer;
         n = (size_t) strlen(no_answer);
-        
+    
+        byte_array_init(ba, n);
         byte_array_pack8v(ba, v, n);
         COMM_send_message(ba, MSG_STRING, sock);
     }

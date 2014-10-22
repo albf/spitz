@@ -5,8 +5,8 @@
 #ifndef COMM_H
 #define	COMM_H
 
-#define PORT_MANAGER 8890
-#define PORT_COMMITTER 9998
+#define PORT_MANAGER 8892
+#define PORT_COMMITTER 10000
 #define max_clients 30
 #define max_pending_connections 3
 
