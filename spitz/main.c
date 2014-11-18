@@ -32,6 +32,7 @@
 #include "jobmanager.h"
 #include "committer.h"
 #include "taskmanager.h"
+#include "monitor.h"
 #include "comm.h"
 #include "spitz.h"
 
@@ -330,6 +331,14 @@ int main(int argc, char *argv[])
     enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
     struct sigaction sa;
 
+    if((type!=JOB_MANAGER)&&(type!=COMMITTER)&&(type!=TASK_MANAGER)&&(type!=MONITOR)) {
+        error("Wrong type specified in argv[1], try again.");
+        return -1;
+    }
+
+    setvbuf(stdout, (char *) NULL, _IOLBF, 0);                      // Make line buffered stdout.
+    setvbuf(stderr, (char *) NULL, _IOLBF, 0);                      // Make line buffered stdout.
+
     error("SPITZ Started, actor number: %d", (int) type);
     
     sa.sa_handler = SIG_IGN;
@@ -349,11 +358,10 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
-        if(type==COMMITTER) { 		                                // The committer sets itself in the jm
+        if(type==COMMITTER) { 		                            // The committer sets itself in the jm
             COMM_setup_committer_network();
         }
-        else {						                                // Task Managers get the committer
-                                                                    // And connect to it.
+        else if(type==TASK_MANAGER) {                	            // Task Managers get the committer
             COMM_connect_to_committer(NULL);
         }
     }
@@ -369,6 +377,9 @@ int main(int argc, char *argv[])
     char *loglvl = getenv("SPITS_LOG_LEVEL");
     if (loglvl) {
         LOG_LEVEL = atoi(loglvl);
+    }
+    else {
+        LOG_LEVEL = 2;
     }
 
     char *nthreads = getenv("SPITS_NUM_THREADS");
@@ -402,8 +413,11 @@ int main(int argc, char *argv[])
     if (type == JOB_MANAGER) {
         start_master_process(argc, argv, so);
     }
-    else {
+    else if((type == TASK_MANAGER) || (type == COMMITTER)) {
         start_slave_processes(argc, argv);
+    }
+    else if (type == MONITOR) {
+        
     }
 
     free(COMM_addr_manager);

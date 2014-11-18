@@ -1,4 +1,5 @@
 SRC = cfifo.c log.c comm.c main.c jobmanager.c committer.c taskmanager.c list.c md5.c
+COMM = comm
 
 CPPFLAGS = -I.
 CFLAGS = -g
@@ -13,7 +14,7 @@ libspitz.so: barray.c spitz.c
 	$(CC) $(CFLAGS) -shared -fPIC -Wl,-soname,$@ -o $@ $^
 
 clean:
-	-rm -f spitz libspitz.so
+	-rm -f spitz libspitz.so 
 
 test:
 	@true
