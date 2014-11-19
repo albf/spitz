@@ -35,6 +35,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     ptr->rcv_tasks = 0;
     ptr->done_tasks = 0;
     ptr->connected = 1;
+    char * ip_hole;
     
     int holes_counter=0;
     struct connected_ip * backup;
@@ -49,7 +50,10 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         data_pointer->holes = 0;
         data_pointer->list_pointer = ptr;
         
-        return LIST_add_ip_address (data_pointer, NULL, 0, 0, NULL);
+        ip_hole = (char *) malloc(sizeof(char)*2);
+        ip_hole[0]='0'; ip_hole[1]='\0';
+        
+        return LIST_add_ip_address (data_pointer, ip_hole, 0, 0, NULL);
     }
     
     else {
