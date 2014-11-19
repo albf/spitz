@@ -95,7 +95,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
                     debug("Sending generated task %d to %d", task_id, rank);
-                    LIST_update_tasks_info (COMM_ip_list,NULL,-1, task_id, 1, 0);
+                    LIST_update_tasks_info (COMM_ip_list,NULL,-1, rank, 1, 0);
                     
                     // node has a new task
                     if(home == NULL) {
@@ -165,7 +165,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 
                 free(clean);
                 debug("TASK %d is complete by %d!", tid, tm_id);
-                LIST_update_tasks_info (COMM_ip_list,NULL,-1, task_id, 0, 1);
+                LIST_update_tasks_info (COMM_ip_list,NULL,-1, tm_id, 0, 1);
                 byte_array_free(&iter->data);
                 break;
             case MSG_NEW_CONNECTION:

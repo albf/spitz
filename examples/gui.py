@@ -2,12 +2,16 @@ import kivy
 from kivy.uix.gridlayout import GridLayout
 from kivy.app import App
 from kivy.uix.button import Button
+from kivy.config import Config
 import subprocess
 import sys
 
+Config.set('graphics', 'width', '900')
+Config.set('graphics', 'height', '600')
+
 class MyApp(App):
     def build(self):
-        layout = GridLayout(cols=6, row_force_default=True, row_default_height=40)
+        layout = GridLayout(cols=6, row_force_default=True, row_default_height=30)
         layout.add_widget(Button(text='IP', size_hint_x=None, width=250))
         layout.add_widget(Button(text='PORT', size_hint_x=None, width=100))
         layout.add_widget(Button(text='TYPE', size_hint_x=None, width=50))
@@ -31,6 +35,9 @@ class MyApp(App):
 			break
 
 
+	total_rcvd = 0
+	total_compl = 0
+	
 	ln = ln[9:]
 	lnlist = ln.split(';')
 	fnlist = []
@@ -44,6 +51,16 @@ class MyApp(App):
 		for value in line:
 			layout.add_widget(Button(text=value ,size_hint_x=None, width=wid[i]))
 			i = i+1
+			print i
+			if(i == 5):
+				total_rcvd = total_rcvd + int(value)
+			elif (i == 6):
+				total_compl = total_compl + int(value)
+
+
+	percentage = (total_compl / float(30))*100
+        layout.add_widget(Button(text='Completed: '+ str(total_compl), size_hint_x=None, width=200))
+        layout.add_widget(Button(text='Percentage: ' + str(percentage), size_hint_x=None, width=250))
 
 	return layout
 
