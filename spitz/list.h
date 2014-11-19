@@ -29,6 +29,7 @@ struct LIST_data {
 
 // List manipulation 
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank);
+void LIST_disconnect_ip_adress(struct LIST_data * data_pointer, char * adr, int prt);
 struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt);
 struct connected_ip * LIST_search_id(struct LIST_data * data_pointer, int rank_id);
 struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt);

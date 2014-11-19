@@ -101,6 +101,26 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     }
 }
 
+// Mark node as disconnected in the list.
+void LIST_disconnect_ip_adress(struct LIST_data * data_pointer, char * adr, int prt) {
+    struct connected_ip * pointer;
+    
+    if(data_pointer == NULL) {
+        return;
+    }
+    else {
+        pointer = data_pointer->list_pointer;
+        
+        while(pointer != NULL) {
+            if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) {
+                pointer->connected = 0;              
+                return;
+            }
+            pointer = pointer->next;
+        }
+    } 
+}
+
 // Remove an element from the list using the ip and port.
 struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
     struct connected_ip * prev = data_pointer->list_pointer;

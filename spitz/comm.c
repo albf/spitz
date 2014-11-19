@@ -728,7 +728,8 @@ void COMM_close_connection(int sock) {
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
     if(COMM_my_rank==(int)JOB_MANAGER) {
-        COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        //COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        LIST_disconnect_ip_adress(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
     }
     
     //Close the socket 
