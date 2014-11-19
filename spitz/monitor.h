@@ -22,4 +22,4 @@
 
 void monitor(int argc, char *argv[]);
 
-#endif /* __SPITZ_COMMITTER_H__ */
+#endif /* __SPITZ_MONITOR_H__ */

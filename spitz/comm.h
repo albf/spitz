@@ -11,6 +11,7 @@
 #define max_pending_connections 3
 
 #include "barray.h"
+#include "list.h"               // List of ips connected.
 
 // Enums of actor and message type
 enum actor {
@@ -37,7 +38,8 @@ enum message_type {
     MSG_STRING,             // Send a string, char *, from one node to another.
     MSG_EMPTY,              // When nothing was received, used for error proposes.
     MSG_GET_BINARY,         // Used to request and get the binary
-    MSG_GET_HASH            // Used to request the md5 hash of the binary.
+    MSG_GET_HASH,           // Used to request the md5 hash of the binary.
+    MSG_GET_STATUS          // Used to request status of all connected nodes.
 };
 
 /* Functions based in Client/Server architecture */
@@ -76,5 +78,6 @@ extern int socket_manager, socket_committer;                // socket of servers
 extern int COMM_alive;
 extern char * COMM_addr_manager;
 extern int COMM_my_rank;
+extern struct LIST_data * COMM_ip_list;
 
 #endif	/* COMM_H */

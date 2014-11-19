@@ -24,10 +24,11 @@
 #include "log.h"
 #include "spitz.h"
 
-void committer(int argc, char *argv[])
+void monitor(int argc, char *argv[])
 {
     int is_finished=0;                                              // Indicate if it's finished.
     enum message_type type;                                         // Type of received message.
+    int comm_return=0;                                              // Return values from send and read.
    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -35,18 +36,23 @@ void committer(int argc, char *argv[])
 
     info("Starting monitor main loop.");
     while (1) {
-        switch (type) {
-            case MSG_RESULT:
-                break;
-            case MSG_KILL:
-            default:
-                break;
+        comm_return = COMM_send_message(NULL, MSG_GET_STATUS, socket_manager);
+        
+        if(comm_return < 0) {
+            error("Problem found to send message to Job Manager");
+            type = MSG_EMPTY;
         }
 
-        // If he is the only member alive and the work is finished.
-        if (is_finished==1){
-            info("Work is done, time to die.");
-            COMM_close_all_connections(); 
+        else {
+            comm_return = COMM_read_message(ba, &type, socket_manager);
+            if(comm_return < 0) {
+                error("Problem found to read message from Job Manager");
+                type = MSG_EMPTY;
+            } 
+        }
+ 
+        if(type != MSG_EMPTY) {
+            printf("%s \n", ba->ptr);                
             break;
         }
     }

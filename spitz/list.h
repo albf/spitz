@@ -13,7 +13,10 @@ struct connected_ip {
     char * address;
     int port;
     int id;
+    int connected;
     int socket;
+    unsigned long rcv_tasks;
+    unsigned long done_tasks;
 };
 
 // A list and it's data.
@@ -26,16 +29,19 @@ struct LIST_data {
 // List manipulation 
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank);
 struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt);
+struct connected_ip * LIST_search_id(struct LIST_data * data_pointer, int rank_id);
 struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt);
 struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char * adr, int prt, int new_prt);
+void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt, int rank_id, int n_rcv, int n_done);
 void LIST_free_data (struct LIST_data * data_pointer);
 
 // Other requests
 int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt);
-int LIST_get_total_workers (struct LIST_data * data_pointer);
+int LIST_get_total_nodes (struct LIST_data * data_pointer);
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);
 
 // Debug & GUI Information
+char * LIST_get_monitor_info(struct LIST_data * data_pointer);
 void LIST_print_all_ip (struct LIST_data * data_pointer);
 int LIST_print_all_ip_ordered (struct LIST_data * data_pointer);
 

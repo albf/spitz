@@ -77,7 +77,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     byte_array_compute_hash(ba_hash, ba_binary);
     
     void *user_data = ctor((argc), (argv));
+
+    // Information about the completed task.
     size_t tid, task_id = 0;
+    int tm_id;
 
     while (1) {
         COMM_wait_request(&type, &origin_socket, ba); 
@@ -92,6 +95,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
                     debug("Sending generated task %d to %d", task_id, rank);
+                    LIST_update_tasks_info (COMM_ip_list,NULL,-1, task_id, 1, 0);
                     
                     // node has a new task
                     if(home == NULL) {
@@ -126,8 +130,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     is_finished=1;
                 }
                 break;
-            case MSG_DONE:
-                byte_array_unpack64(ba, &tid);
+            case MSG_DONE:;
+                int64_t bufferr; 
+                byte_array_unpack64(ba, &bufferr);
+                tid = (int)bufferr;
+                byte_array_unpack64(ba, &bufferr);
+                tm_id = (int)bufferr;
+                
                 iter = home;
                 prev = NULL;
 
@@ -155,7 +164,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 }
                 
                 free(clean);
-                debug("TASK %d is complete!", tid);
+                debug("TASK %d is complete by %d!", tid, tm_id);
+                LIST_update_tasks_info (COMM_ip_list,NULL,-1, task_id, 0, 1);
                 byte_array_free(&iter->data);
                 break;
             case MSG_NEW_CONNECTION:
@@ -202,6 +212,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     is_finished=1;
                 }
                 break;
+            case MSG_GET_STATUS:
+                v = LIST_get_monitor_info(COMM_ip_list);
+                n = (size_t) (strlen(v)+1); 
+                byte_array_init(ba, n);
+                byte_array_pack8v(ba, v, n);
+                COMM_send_message(ba, MSG_STRING, origin_socket);
+                break;
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
                 break;
@@ -215,8 +232,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             COMM_connect_to_committer(NULL);
             COMM_send_message(ba, MSG_KILL, socket_committer);
 
-            info("Fetching final result");
-            COMM_read_message(final_result, &type, socket_committer);
+            //info("Fetching final result");
+            //COMM_read_message(final_result, &type, socket_committer);
             //COMM_disconnect_from_committer();
             COMM_close_all_connections(); 
             

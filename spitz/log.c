@@ -49,11 +49,15 @@ static void vmessage(FILE *f, const char *msg, const char *prefix,
 	
 	const char *actor;
 	if (rank == 0)
-		actor = "JM";
+            actor = "JM";
 	else if (rank == 1)
-		actor = "CO";
-	else
-		actor = "TM";
+            actor = "CO";
+	else if (rank == 2)
+            actor = "TM";
+        else if (rank == 3) 
+            actor = "MO";
+        else 
+            actor = "??";
 
 	struct timespec tp;
 	clock_gettime(CLOCK_REALTIME, &tp);

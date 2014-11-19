@@ -45,7 +45,9 @@ void committer(int argc, char *argv[], void *handle)
     size_t i, old_cap;                                              // Auxiliary to capacity
     size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 
                                                                     // 1 for committed, 0 for not yet.
-    size_t task_id;                                                 // Task id of received result.
+    int task_id;                                                    // Task id of received result.
+    int tm_rank;                                                    // Rank id of the worker that completed the work.
+    int64_t buffer;
     
     // Loads the user functions.
     void * (*setup) (int, char **);
@@ -68,9 +70,14 @@ void committer(int argc, char *argv[], void *handle)
         
         switch (type) {
             case MSG_RESULT:
-                byte_array_unpack64(ba, &task_id);
-                debug("Got a RESULT message for task %d", task_id);
-                
+                byte_array_unpack64(ba, &buffer);
+                task_id = (int) buffer;
+                byte_array_unpack64(ba, &buffer);
+                tm_rank = (int) buffer;
+                //int total_prim;
+                //byte_array_unpack64(ba, &total_prim);
+                debug("Got a RESULT message for task %d from %d", task_id, tm_rank);
+                //debug("totalprim: %d", total_prim);
                 if(task_id>=cap) {                                   // If id higher them actual cap
                     old_cap = cap;
                     cap=2*task_id;
@@ -85,7 +92,11 @@ void committer(int argc, char *argv[], void *handle)
                     committed[task_id] = 1;
                     commit_pit(user_data, ba);
                     byte_array_clear(ba);
-                    byte_array_pack64(ba, task_id);
+
+                    buffer = (int64_t) task_id;
+                    byte_array_pack64(ba, buffer);
+                    buffer = (int64_t) tm_rank;
+                    byte_array_pack64(ba, buffer);
                     info("Sending task %d to Job Manager.", task_id);
                     COMM_send_message(ba, MSG_DONE, socket_manager);
                 }

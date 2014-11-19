@@ -417,7 +417,7 @@ int main(int argc, char *argv[])
         start_slave_processes(argc, argv);
     }
     else if (type == MONITOR) {
-        
+        monitor(argc, argv); 
     }
 
     free(COMM_addr_manager);

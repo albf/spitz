@@ -1,3 +1,22 @@
+/*
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
+ *
+ * This file is part of spitz.
+ *
+ * spitz is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * spitz is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "list.h"
 
 #include <stdio.h>
@@ -13,6 +32,9 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     ptr->address = adr;
     ptr->port = prt;
     ptr->socket = socket;
+    ptr->rcv_tasks = 0;
+    ptr->done_tasks = 0;
+    ptr->connected = 1;
     
     int holes_counter=0;
     struct connected_ip * backup;
@@ -108,7 +130,7 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     return data_pointer;
 }
 
-// Search for a give address and port.
+// Search for a given address and port.
 struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
     struct connected_ip * pointer;
     
@@ -127,6 +149,27 @@ struct connected_ip * LIST_search_ip_address (struct LIST_data * data_pointer, c
     }
     
     return NULL;
+}
+
+// Search for a given id rank.
+struct connected_ip * LIST_search_id(struct LIST_data * data_pointer, int rank_id) {
+    struct connected_ip * pointer;
+    
+    if(data_pointer == NULL) {
+        return NULL;
+    }
+    else {
+        pointer = data_pointer->list_pointer;
+        
+        while(pointer != NULL) {
+            if(pointer->id == rank_id){
+                return pointer;              
+            }
+            pointer = pointer->next;
+        }
+    }
+    
+    return NULL; 
 }
 
 // Upgrade a member to the committer position (id = (int) COMMITTER). Removes the duplicate.
@@ -207,7 +250,7 @@ int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
 }
 
 // Get the number of total workers registered in the list.
-int LIST_get_total_workers (struct LIST_data * data_pointer) {
+int LIST_get_total_nodes (struct LIST_data * data_pointer) {
     int total = 0;
     struct connected_ip * pointer;
     
@@ -266,5 +309,61 @@ int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
 
     else {
         return LIST_get_socket_list(pointer->next, rank_id);
+    }
+}
+
+// Updates the list using the adr (if it's not null) or the rank_id.
+// Sum done_tasks and rcv_tasks with provided values. 
+void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt, int rank_id, int n_rcv, int n_done) {
+    struct connected_ip * pointer;
+   
+    if(adr!=NULL) {
+        pointer = LIST_search_ip_address(data_pointer,adr, prt);  
+    } 
+    else {
+        pointer = LIST_search_id(data_pointer, rank_id);  
+    }
+
+    if(pointer != NULL) {
+        pointer->done_tasks = pointer->done_tasks + n_done;
+        pointer->rcv_tasks = pointer->rcv_tasks + n_rcv;
+    }
+}
+
+// Format : ip(ip v6)|port(int)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
+// Assume rcv_tasks/done_tasks max 999 999 999 (12 chars)
+// Ip max : 999.999.999.999 = 15 chars
+// Port Range : 0...65535 = 5 chars 
+// Max size of string = n* (15+1 (ip) + 5+1 (port) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 51. 
+char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
+    char * info;
+    char buffer[15];
+    int total_nodes = LIST_get_total_nodes(data_pointer);
+    struct connected_ip * pointer = data_pointer->list_pointer;
+    
+    info = (char *) malloc(sizeof(char)*51*total_nodes + 1);     // \n addition
+    info[0] = '\0';
+    
+    while (pointer != NULL) {
+        strcat(info, pointer->address);
+        strcat(info, "|");
+    
+        sprintf(buffer, "%d", pointer->port);
+        strcat(info, buffer);
+        strcat(info, "|");
+
+        sprintf(buffer, "%d", pointer->connected);
+        strcat(info, buffer);
+        strcat(info, "|");
+        
+        sprintf(buffer, "%lu", pointer->rcv_tasks);
+        strcat(info, buffer);
+        strcat(info, "|");
+    
+        sprintf(buffer, "%lu", pointer->done_tasks);
+        strcat(info, buffer);
+        strcat(info, ";");
+
+        pointer = pointer->next;
     }
 }

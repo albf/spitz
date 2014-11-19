@@ -13,7 +13,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>           // Wait some seconds beetween requests.
-#include "list.h"               // List of ips connected.
 #include <barray.h>
 #include <errno.h>
 #include <fcntl.h>              // Used to set block/non-block sockets.

@@ -14,6 +14,15 @@ pi.so: pi.c
 picpp.so: pi.cpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ $^ $(LDFLAGS)
 
+python:
+	python monitor.py
+
+fixguys:
+	rm spitz
+	rm libspitz.so
+	cp ../spitz/spitz .
+	cp ../spitz/libspitz.so .
+
 valgrind0: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
@@ -40,6 +49,13 @@ gdb1: pi.so
 gdb2: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			gdb --args ./spitz 2 127.0.0.1 prime.so 30
+
+
+gdb3: pi.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			gdb --args ./spitz 3 127.0.0.1 prime.so 30
+
+
 
 test: pi.so
 	# Set some environment variables

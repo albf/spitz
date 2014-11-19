@@ -107,9 +107,18 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         
     // Pack the number of primes found in total in this range.
     len_b = result->len;
-    result->len=8;
+    result->len=16;
     byte_array_pack64(result, total_prime);
     result->len=len_b;
+
+    result->iptr = result->ptr;
+    int x=0;
+    x = byte_array_unpack64(result, &x);
+    x=0;
+    x = byte_array_unpack64(result, &x);
+    x=0;
+    x = byte_array_unpack64(result, &x);
+    x=0;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -135,8 +144,8 @@ void *spits_setup_commit(int argc, char *argv[])
 
 void spits_commit_pit(void *user_data, struct byte_array *result)
 {
-    uint64_t x;
-    uint64_t i;
+    int x;
+    int i;
     uint64_t u_value;
     int value;
     struct prime_list * insertion;   

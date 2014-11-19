@@ -51,6 +51,7 @@ int get_number_of_cores() {
 
 void *worker(void *ptr)
 {
+    int my_rank = COMM_get_rank_id(); 
     size_t task_id;
     struct thread_data *d = ptr;
     struct byte_array task;
@@ -82,6 +83,7 @@ void *worker(void *ptr)
         result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
+        byte_array_pack64(&result->ba, my_rank);
         execute_pit(user_data, &task, &result->ba);             // Do the computation.
         byte_array_free(&task);
 
@@ -274,4 +276,3 @@ void task_manager(struct thread_data *d)
     free(ba);
     COMM_close_all_connections();
 }
-
