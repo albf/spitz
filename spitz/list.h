@@ -12,6 +12,7 @@ struct connected_ip {
     struct connected_ip * next;
     char * address;
     int port;
+    int type;
     int id;
     int connected;
     int socket;

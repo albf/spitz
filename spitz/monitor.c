@@ -52,7 +52,7 @@ void monitor(int argc, char *argv[])
         }
  
         if(type != MSG_EMPTY) {
-            printf("%s \n", ba->ptr);                
+            printf("[STATUS] %s \n", ba->ptr);                
             break;
         }
     }

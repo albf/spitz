@@ -35,6 +35,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     ptr->rcv_tasks = 0;
     ptr->done_tasks = 0;
     ptr->connected = 1;
+    ptr->type = 2;
     char * ip_hole;
     
     int holes_counter=0;
@@ -45,6 +46,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         
         ptr->id=0;
         ptr->next = NULL;
+        ptr->type=0;
         
         data_pointer->id_counter = 0;
         data_pointer->holes = 0;
@@ -197,6 +199,7 @@ struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char
             ptr->address = adr;
             ptr->port = new_prt;
             ptr->socket = committer_socket;
+            ptr->type = 1;
             ptr = NULL;
         }
         else {
@@ -334,18 +337,18 @@ void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt
     }
 }
 
-// Format : ip(ip v6)|port(int)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
+// Format : ip(ip v6)|port(int)|type(0,1,2 or 3)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
 // Assume rcv_tasks/done_tasks max 999 999 999 (12 chars)
 // Ip max : 999.999.999.999 = 15 chars
 // Port Range : 0...65535 = 5 chars 
-// Max size of string = n* (15+1 (ip) + 5+1 (port) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 51. 
+// Max size of string = n* (15+1 (ip) + 5+1 (port) 1+1 (type) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 53. 
 char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
     char * info;
     char buffer[15];
     int total_nodes = LIST_get_total_nodes(data_pointer);
     struct connected_ip * pointer = data_pointer->list_pointer;
     
-    info = (char *) malloc(sizeof(char)*51*total_nodes + 1);     // \n addition
+    info = (char *) malloc(sizeof(char)*53*total_nodes + 1);     // \n addition
     info[0] = '\0';
     
     while (pointer != NULL) {
@@ -353,6 +356,10 @@ char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
         strcat(info, "|");
     
         sprintf(buffer, "%d", pointer->port);
+        strcat(info, buffer);
+        strcat(info, "|");
+
+        sprintf(buffer, "%d", pointer->type);
         strcat(info, buffer);
         strcat(info, "|");
 
@@ -370,4 +377,6 @@ char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
 
         pointer = pointer->next;
     }
+    strcat(info, "\0");
+    return info;
 }
