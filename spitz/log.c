@@ -48,16 +48,21 @@ static void vmessage(FILE *f, const char *msg, const char *prefix,
 	int rank = COMM_get_rank_id();
 	
 	const char *actor;
-	if (rank == 0)
+	if (type == JOB_MANAGER) {
             actor = "JM";
-	else if (rank == 1)
+        }
+	else if (type == COMMITTER) {
             actor = "CO";
-	else if (rank == 2)
+        }
+	else if (type == TASK_MANAGER) {
             actor = "TM";
-        else if (rank == 3) 
+        }
+        else if (type == MONITOR) { 
             actor = "MO";
-        else 
+        }
+        else { 
             actor = "??";
+        }
 
 	struct timespec tp;
 	clock_gettime(CLOCK_REALTIME, &tp);

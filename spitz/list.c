@@ -319,6 +319,21 @@ int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
     }
 }
 
+// Get a socket for a given rank id value, based in list of ips.
+int LIST_get_rank_id_with_socket(struct connected_ip * pointer, int socket) {
+    if (pointer == NULL) {
+        return -1;
+    }
+    
+    else if (pointer->socket == socket) {
+        return pointer->id;
+    }
+
+    else {
+        return LIST_get_rank_id_with_socket(pointer->next, socket);
+    }
+}
+
 // Updates the list using the adr (if it's not null) or the rank_id.
 // Sum done_tasks and rcv_tasks with provided values. 
 void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt, int rank_id, int n_rcv, int n_done) {

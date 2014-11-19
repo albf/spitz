@@ -94,6 +94,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     node->id = task_id;
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
+                    rank = LIST_get_rank_id_with_socket(COMM_ip_list->list_pointer, origin_socket);
                     debug("Sending generated task %d to %d", task_id, rank);
                     LIST_update_tasks_info (COMM_ip_list,NULL,-1, rank, 1, 0);
                     

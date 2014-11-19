@@ -40,20 +40,20 @@ valgrid2: pi.so
 
 gdb0: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 0 127.0.0.1 prime.so 30
+			gdb --args ./spitz 0 127.0.0.1 prime.so 100
 
 gdb1: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 1 127.0.0.1 prime.so 30
+			gdb --args ./spitz 1 127.0.0.1 prime.so 100
 
 gdb2: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 prime.so 30
+			gdb --args ./spitz 2 127.0.0.1 prime.so 100
 
 
 gdb3: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 3 127.0.0.1 prime.so 30
+			gdb --args ./spitz 3 127.0.0.1 prime.so 100
 
 
 

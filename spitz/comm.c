@@ -24,6 +24,7 @@ int socket_manager, socket_committer;   // Important socket values
 int COMM_my_rank, COMM_run_num;         // Rank and run_num variables
 int COMM_loop_b;                        // Used to balance the requests
 char * COMM_addr_manager;               // String of JM ip.
+enum actor type;                        // Type of current node.
 
 /* Job Manager/Committer (servers) only */
 int COMM_master_socket;                 // socket used to accept connections
@@ -769,4 +770,14 @@ void COMM_close_all_connections() {
     if(socket_committer > 0) {
         close (socket_committer);
     }
+}
+
+// Get actor type, must be defined using the function below. 
+enum actor COMM_get_actor_type(){
+    return type;
+}
+
+// Set actor type.
+void COMM_set_actor_type(char * value) {
+    type = atoi(value);
 }

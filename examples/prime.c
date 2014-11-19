@@ -73,7 +73,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     // Pack zero to keep a place for the total primes found, added in the end.
     byte_array_pack64(result, zero);
 
-    sleep(1);
+    sleep(5);
 
     // Search for all the numbers is the granularity range.
     for(number = (test_value)*num_for_task; number < ((test_value+1)*num_for_task); number++) {

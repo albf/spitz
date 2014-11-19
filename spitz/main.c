@@ -328,9 +328,10 @@ void start_slave_processes(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-    enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
+    //enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
     struct sigaction sa;
-
+    COMM_set_actor_type(argv[1]);
+    
     if((type!=JOB_MANAGER)&&(type!=COMMITTER)&&(type!=TASK_MANAGER)&&(type!=MONITOR)) {
         error("Wrong type specified in argv[1], try again.");
         return -1;

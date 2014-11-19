@@ -21,7 +21,7 @@ class MyApp(App):
         
 	wid = [250, 100, 50, 50, 150, 150]
 	
-	p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "30"],
+	p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "100"],
                      stdout=subprocess.PIPE,
                      #stderr=subprocess.PIPE,
                      cwd="/home/alexandre/Codes/spitz/examples")
@@ -58,7 +58,7 @@ class MyApp(App):
 				total_compl = total_compl + int(value)
 
 
-	percentage = (total_compl / float(30))*100
+	percentage = (total_compl / float(100))*100
         layout.add_widget(Button(text='Completed: '+ str(total_compl), size_hint_x=None, width=200))
         layout.add_widget(Button(text='Percentage: ' + str(percentage), size_hint_x=None, width=250))
 

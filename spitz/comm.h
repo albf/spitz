@@ -51,8 +51,10 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries);
 // Both, check by id what's the case.
 int COMM_get_alive();
 void COMM_close_all_connections();
+enum actor COMM_get_actor_type();
 int COMM_get_rank_id();
 int COMM_get_run_num();
+void COMM_set_actor_type(char * value);
 
 // 1. Server functions : connection oriented.
 void COMM_close_connection(int sock);
@@ -79,5 +81,6 @@ extern int COMM_alive;
 extern char * COMM_addr_manager;
 extern int COMM_my_rank;
 extern struct LIST_data * COMM_ip_list;
+extern enum actor type;
 
 #endif	/* COMM_H */
