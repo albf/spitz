@@ -40,6 +40,8 @@ void LIST_free_data (struct LIST_data * data_pointer);
 // Other requests
 int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt);
 int LIST_get_total_nodes (struct LIST_data * data_pointer);
+int LIST_get_type_with_socket(struct LIST_data * data_pointer, int socket);
+int LIST_get_rank_id_with_socket(struct LIST_data * data_pointer, int socket);
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);
 
 // Debug & GUI Information

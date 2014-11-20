@@ -55,7 +55,9 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         ip_hole = (char *) malloc(sizeof(char)*2);
         ip_hole[0]='0'; ip_hole[1]='\0';
         
-        return LIST_add_ip_address (data_pointer, ip_hole, 0, 0, NULL);
+        data_pointer = LIST_add_ip_address (data_pointer, ip_hole, 0, 0, NULL);
+        LIST_search_id(data_pointer, 1)->connected=0;
+        return data_pointer;
     }
     
     else {
@@ -220,6 +222,7 @@ struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char
             ptr->port = new_prt;
             ptr->socket = committer_socket;
             ptr->type = 1;
+            ptr->connected = 1;
             ptr = NULL;
         }
         else {
@@ -339,19 +342,38 @@ int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
     }
 }
 
-// Get a socket for a given rank id value, based in list of ips.
-int LIST_get_rank_id_with_socket(struct connected_ip * pointer, int socket) {
+// Get rank for a given socket, based in list of ips.
+int LIST_get_rank_id_with_socket(struct LIST_data * data_pointer, int socket) {
+    struct connected_ip * pointer = data_pointer-> list_pointer; 
+    
     if (pointer == NULL) {
         return -1;
     }
-    
-    else if (pointer->socket == socket) {
-        return pointer->id;
+   
+    while (pointer != NULL) {
+        if (pointer->socket == socket) {
+            return pointer->id;
+        }
+        pointer = pointer->next;
     }
+    return -1;
+}
 
-    else {
-        return LIST_get_rank_id_with_socket(pointer->next, socket);
+// Get type using socket.
+int LIST_get_type_with_socket(struct LIST_data * data_pointer, int socket) {
+    struct connected_ip * pointer = data_pointer-> list_pointer; 
+    
+    if (pointer == NULL) {
+        return -1;
     }
+   
+    while (pointer != NULL) {
+        if (pointer->socket == socket) {
+            return pointer->type;
+        }
+        pointer = pointer->next;
+    }
+    return -1;
 }
 
 // Updates the list using the adr (if it's not null) or the rank_id.
@@ -372,11 +394,11 @@ void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt
     }
 }
 
-// Format : ip(ip v6)|port(int)|type(0,1,2 or 3)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
+// Format : id(max 999 999)|ip(ip v6)|port(int)|type(0,1,2 or 3)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
 // Assume rcv_tasks/done_tasks max 999 999 999 (12 chars)
 // Ip max : 999.999.999.999 = 15 chars
 // Port Range : 0...65535 = 5 chars 
-// Max size of string = n* (15+1 (ip) + 5+1 (port) 1+1 (type) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 53. 
+// Max size of string = n* (9+1 (id) +15+1 (ip) + 5+1 (port) 1+1 (type) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 53. 
 char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
     char * info;
     char buffer[15];
@@ -387,6 +409,10 @@ char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
     info[0] = '\0';
     
     while (pointer != NULL) {
+        sprintf(buffer, "%d", pointer->id);
+        strcat(info, buffer);
+        strcat(info, "|");
+        
         strcat(info, pointer->address);
         strcat(info, "|");
     

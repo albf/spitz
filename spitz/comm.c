@@ -680,6 +680,16 @@ int COMM_register_committer(int sock) {
     return 0;
 }
 
+// Register the monitor when it requests.
+int COMM_register_monitor(int sock) {
+    struct connected_ip * monitor_node;
+    
+    monitor_node = LIST_search_id(COMM_ip_list, LIST_get_rank_id_with_socket(COMM_ip_list, sock));
+    monitor_node->type = 3; 
+
+    return 0;
+}
+
 // Creates a new connection when the job manager or committer sees it.
 void COMM_create_new_connection() {
     int i, rcv_socket, id_send;
@@ -722,14 +732,22 @@ void COMM_create_new_connection() {
 // Close the connection for committer and job manager.
 void COMM_close_connection(int sock) {
     struct sockaddr_in address;
+    enum actor node_role;
     
     //Somebody disconnected , get his details and print
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&COMM_addrlen);
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
     if(COMM_my_rank==(int)JOB_MANAGER) {
-        //COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
-        LIST_disconnect_ip_adress(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        node_role = (enum actor) LIST_get_type_with_socket(COMM_ip_list, sock);
+       
+        //If it's the monitor, remove from the list. Mark as disconnected otherwise.
+        if(node_role == MONITOR) {
+            COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        }
+        else {
+            LIST_disconnect_ip_adress(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        }
     }
     
     //Close the socket 

@@ -34,6 +34,9 @@ void monitor(int argc, char *argv[])
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
 
+    COMM_send_message(NULL, MSG_SET_MONITOR, socket_manager);       // set as a committer with manager
+    debug("Set monitor successfully.");
+
     info("Starting monitor main loop.");
     while (1) {
         comm_return = COMM_send_message(NULL, MSG_GET_STATUS, socket_manager);

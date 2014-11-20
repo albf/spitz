@@ -39,7 +39,8 @@ enum message_type {
     MSG_EMPTY,              // When nothing was received, used for error proposes.
     MSG_GET_BINARY,         // Used to request and get the binary
     MSG_GET_HASH,           // Used to request the md5 hash of the binary.
-    MSG_GET_STATUS          // Used to request status of all connected nodes.
+    MSG_GET_STATUS,         // Used to request status of all connected nodes.
+    MSG_SET_MONITOR         // Monitor to JobManager
 };
 
 /* Functions based in Client/Server architecture */
@@ -66,6 +67,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket,struct byte_
 // 2. Server functions : variable oriented.
 void COMM_increment_run_num();
 int COMM_register_committer(int sock);
+int COMM_register_monitor(int sock);
 void COMM_send_committer(int sock);
 
 // Debug
