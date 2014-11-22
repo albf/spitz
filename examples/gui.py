@@ -3,16 +3,23 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.app import App
 from kivy.uix.button import Button
 from kivy.config import Config
+from operator import itemgetter
 import subprocess
 import sys
 
-Config.set('graphics', 'width', '950')
-Config.set('graphics', 'height', '600')
 
 class MonitorData:
-	def __init__(self):
+	def __init__(self, factor, NodesPerPage):
 		self.columns = ['ID', 'IP', 'PORT', 'TYPE', 'ON', 'RECEIVED','COMPLETED']  
 		self.rows = []
+		self.index = 0
+		self.npp = NodesPerPage
+		self.wid = [factor*50,factor*250,factor*100,factor*50,factor*50,factor*150,factor*150]
+		self.factor = factor
+		self.total_rcvd = 0
+		self.total_compl = 0
+		self.lastIndex= -1 
+		self.lastOrder = -1
 
 	def getStatus(self):
 		self.p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "100"],
@@ -27,17 +34,28 @@ class MonitorData:
 				print ln
 				break
 
+		self.fillRows(ln)
+
+	def fillRows(self,status):
 		self.total_rcvd = 0
 		self.total_compl = 0
 		
-		ln = ln[9:]
-		lnlist = ln.split(';')
+		status = status[9:]
+		lnlist = status.split(';')
 		for item in lnlist:
 			self.rows.append(item.split('|'))
 
-		self.rows.pop()
+			if (len(self.rows[-1]) >= 6):
+				self.total_rcvd += int(self.rows[-1][5])
+				self.total_compl += int(self.rows[-1][6])
+				for indexT in range(len(self.columns)):
+					if(indexT!=1):
+						self.rows[-1][indexT] = int(self.rows[-1][indexT])
+					
+		else:
+				self.rows.pop()
+
 		print self.rows
-		
 
 # i = 5 total_rcvd
 # i = 6 completed
@@ -45,33 +63,96 @@ class MonitorData:
 		percentage = (self.total_compl / float(100))*100
 
 
+	def makeListLayout(self, layout):	
+		layout.clear_widgets()
+		for col in range(len(self.columns)):
+			btnO = Button(text=self.columns[col], size_hint_x=None, width=self.wid[col])
+			btnO.bind(on_press=buttonOrder)
+			layout.add_widget(btnO)
 		
+		upper = min(len(self.rows), (self.index + 1)*self.npp)
+		#print "upper: "+str(upper)
+		for i in range(self.index*self.npp, upper):
+			for j in range(len(self.wid)):
+				layout.add_widget(Button(text=str(self.rows[i][j]), size_hint_x=None, width=self.wid[j]))
+		self.ListLayout = layout
 
+	def makeNavigationLayout(self, layout):
+		layout.clear_widgets()
+		if(self.index > 0):
+			btnP = Button(text="Previous", size_hint_x=None, width = self.factor*400)
+			btnP.bind(on_press = buttonPrev)
+			layout.add_widget(btnP)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
+
+		if(len(self.rows)>(self.index + 1)*self.npp):
+			btnN = Button(text="Next", size_hint_x=None, width = self.factor*400)
+			btnN.bind(on_press = buttonNext)
+			layout.add_widget(btnN)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
+		self.NavigationLayout = layout
+
+	def test(self,layout,index):
+		layout.add_widget(Button(text='Hello 1'))
+		layout.add_widget(Button(text='World 1'))
+		
+def buttonPrev(instance):
+	Data.index = Data.index - 1
+	Data.makeListLayout(Data.ListLayout)
+	Data.makeNavigationLayout(Data.NavigationLayout)	
+
+def buttonNext(instance):
+	Data.index = Data.index + 1
+	Data.makeListLayout(Data.ListLayout)
+	Data.makeNavigationLayout(Data.NavigationLayout)	
+
+def buttonOrder(instance):
+	index = Data.columns.index(instance.text) 
+	if(Data.lastIndex == index):
+		if(Data.lastOrder == 1):
+			Data.lastOrder = -1
+			Data.rows = sorted(Data.rows, key=itemgetter(index), reverse = True)
+		else:
+			Data.rows = sorted(Data.rows, key=itemgetter(index)) 
+			Data.lastOrder = 1
+	else:
+		Data.lastIndex = index	
+		Data.lastOrder = 1
+		Data.rows = sorted(Data.rows, key=itemgetter(index))
+
+	Data.makeListLayout(Data.ListLayout)
+	
 
 class MyApp(App):
     def build(self):
-        layout = GridLayout(cols=7, row_force_default=True, row_default_height=30)
-        layout.add_widget(Button(text='ID', size_hint_x=None, width=50))
-        layout.add_widget(Button(text='IP', size_hint_x=None, width=250))
-        layout.add_widget(Button(text='PORT', size_hint_x=None, width=100))
-        layout.add_widget(Button(text='TYPE', size_hint_x=None, width=50))
-        layout.add_widget(Button(text='ON', size_hint_x=None, width=50))
-        layout.add_widget(Button(text='RECEIVED', size_hint_x=None, width=150))
-        layout.add_widget(Button(text='COMPLETED', size_hint_x=None, width=150))
-        
-	wid = [50,250, 100, 50, 50, 150, 150]
-	
+	Data.getStatus()
 
-	layout.add_widget(Button(text=value ,size_hint_x=None, width=wid[i]))
+	#Define window size.
+	Config.set('graphics', 'width', Data.factor*800) 
+	Config.set('graphics', 'height', Data.factor*600)
 
+	# Layout that will design the screen.
+	layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
 
+	# Make list rows and add it to the main layout 
+	ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, rows=(Data.npp + 1) , size_hint_y=3)
+	Data.makeListLayout(ListLayout)
+	layout.add_widget(ListLayout)
 
-	layout.add_widget(Button(text='-'+ str(total_compl), size_hint_x=None, width=50))
-        layout.add_widget(Button(text='Completed: '+ str(total_compl), size_hint_x=None, width=200))
-        layout.add_widget(Button(text='Percentage: ' + str(percentage), size_hint_x=None, width=250))
+	# Make Navigation Commands and add it to the main layout 
+	NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
+	Data.makeNavigationLayout(NavigationLayout)
+	layout.add_widget(NavigationLayout)
+
+	# Make Navigation Commands and add it to the main layout 
+	#NavigationLayout2 = GridLayout(cols=2, row_default_height=Data.factor*15)
+	#Data.makeNavigationLayout(NavigationLayout2)
+	#layout.add_widget(NavigationLayout2)
 
 	return layout
 
-#MyApp().run()
-Data = MonitorData()
-Data.getStatus()
+
+Data = MonitorData(1, 10)
+MyApp().run()
