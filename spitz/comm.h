@@ -34,7 +34,7 @@ enum message_type {
     MSG_GET_PATH,	    // Task Manager to Job Manager
     MSG_GET_RUNNUM,         // Task Manager/Committer to Job Manager
     MSG_GET_ALIVE,          // Task Manager to JobManager
-    MSG_SET_COMMITTER,	    // Committer to Job Manager
+    MSG_SET_COMMITTER,	    // Committer to Job Manager and Committer to VM Task Manager
     MSG_NEW_CONNECTION,     // Task Manager/Committer to Job Manager/Commiter
     MSG_CLOSE_CONNECTION,   // Task Manager/Committer to Job Manager/Commiter
     MSG_STRING,             // Send a string, char *, from one node to another.
@@ -42,7 +42,8 @@ enum message_type {
     MSG_GET_BINARY,         // Used to request and get the binary
     MSG_GET_HASH,           // Used to request the md5 hash of the binary.
     MSG_GET_STATUS,         // Used to request status of all connected nodes.
-    MSG_SET_MONITOR         // Monitor to JobManager
+    MSG_SET_MONITOR,        // Monitor to JobManager
+    MSG_SET_JOB_MANAGER     // Job Manager to VM Task Manager
 };
 
 /* Functions based in Client/Server architecture */

@@ -97,7 +97,13 @@ void start_vm_task_manager(int argc, char *argv[]) {
         COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
-            case MSG_READY:
+            case MSG_SET_JOB_MANAGER:
+                socket_manager = origin_socket;
+                is_there_jm = 1;               
+                break;
+            case MSG_SET_COMMITTER:
+                socket_committer = origin_socket;
+                is_there_cm = 1;
                 break;
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
@@ -115,12 +121,14 @@ void start_vm_task_manager(int argc, char *argv[]) {
             break;
         }
     }
-
     // Free memory allocated in byte arrays.
     byte_array_free(ba);
     free(ba);
+
+    start_slave_processes(argc,argv);
 } 
 
+// Start of a slave process (task managers or committer)
 void start_slave_processes(int argc, char *argv[])
 {
     struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -290,7 +298,7 @@ void start_slave_processes(int argc, char *argv[])
         if (COMM_get_rank_id() == (int) COMMITTER) {
             committer(argc, argv, handle);
         } 
-        else {                                  // Else : Task Manager
+        else {                                  // Else : Task Manager or VM Task Manager
             //pthread_t t[NTHREADS];
             if(NTHREADS == -1) {
                 NTHREADS = get_number_of_cores();
