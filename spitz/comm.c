@@ -449,6 +449,65 @@ int COMM_setup_committer_network() {
     return 0;
 }
 
+// VM_Client setup client. 
+int COMM_setup_vm_network() {
+    int i,flags, opt = 1;
+    struct sockaddr_in address;
+      
+    for (i = 0; i < max_clients; i++) {
+        COMM_client_socket[i] = 0;
+    }
+      
+    //  create a master socket
+    if( (COMM_master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+        error("socket creation in setup_job_manager failed\n");
+        return -1;
+    }
+  
+    //set master socket to allow multiple connections
+    if( setsockopt(COMM_master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 ) {
+        error("error in setsockopt function\n");
+        return -1;
+    }
+  
+    /* Set socket to non-blocking */ 
+    if ((flags = fcntl(COMM_master_socket, F_GETFL, 0)) < 0) 
+    { 
+        error("Error getting the flags of master socket.");
+    } 
+
+    if (fcntl(COMM_master_socket, F_SETFL, flags | O_NONBLOCK) < 0) 
+    { 
+        error("Error setting new flags to the mater socket.\n");
+    } 
+
+    //type of socket created
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( PORT_VM );
+    
+    //bind the socket to localhost port PORT_MANAGER
+    if (bind(COMM_master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
+    {
+        error("Bind in setup_job_manager failed\n");
+        return -1;
+    }
+    debug("Listener on port %d \n", PORT_VM);
+     
+    //try to specify maximum of 3 pending connections for the master socket
+    if (listen(COMM_master_socket, max_pending_connections) < 0) {
+        return -1;
+    }
+    
+    // Start list of variables
+    COMM_addrlen = sizeof(address);                                      
+    COMM_my_rank = 0;
+    COMM_loop_b = 0;
+    COMM_committer_index = -1;
+    
+    return 0;
+}
+
 // Setup the job_manager network, to accept connections and other variables
 int COMM_setup_job_manager_network() {
     int i,flags, opt = 1;

@@ -7,6 +7,7 @@
 
 #define PORT_MANAGER 8896
 #define PORT_COMMITTER 10004
+#define PORT_VM 11005
 #define max_clients 30
 #define max_pending_connections 3
 
@@ -18,7 +19,8 @@ enum actor {
     JOB_MANAGER  = 0,
     COMMITTER    = 1,
     TASK_MANAGER = 2,
-    MONITOR = 3 
+    MONITOR = 3,
+    VM_TASK_MANAGER = 4
 };
 
 // Enuns the types of possible messages.
@@ -48,6 +50,7 @@ enum message_type {
 // Client functions.
 int COMM_connect_to_committer(int * retries);
 int COMM_connect_to_job_manager(char ip_adr[], int * retries);
+int COMM_setup_vm_network();
 
 // Both, check by id what's the case.
 int COMM_get_alive();

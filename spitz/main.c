@@ -81,6 +81,46 @@ void start_master_process(int argc, char *argv[], char *so)
     info("Terminating SPITZ");
 }
 
+void start_vm_task_manager(int argc, char *argv[]) {
+    int is_there_jm=0;                                              // Indicates if the job manager is set.
+    int is_there_cm=0;                                              // Indicates if committer is set.
+    enum message_type type;                                         // Type of received message.
+    uint64_t socket_cl;                                             // Closing socket.
+    int origin_socket;                                              // Socket that sent the request.
+    char * v;                                                       // Used as auxiliary. 
+    
+    // Data structure to exchange message between processes. 
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    byte_array_init(ba, 10);
+
+    while (1) {
+        COMM_wait_request(&type, &origin_socket, ba); 
+        
+        switch (type) {
+            case MSG_READY:
+                break;
+            case MSG_EMPTY:
+                info("Message received incomplete or a problem occurred.");
+                break;
+            case MSG_CLOSE_CONNECTION:
+                _byte_array_unpack64(ba, &socket_cl);
+                COMM_close_connection((int)socket_cl);
+                break;
+            default:
+                break;
+        }
+        
+        // If both are set. 
+        if ((is_there_jm==1)&&(is_there_cm==1)){
+            break;
+        }
+    }
+
+    // Free memory allocated in byte arrays.
+    byte_array_free(ba);
+    free(ba);
+} 
+
 void start_slave_processes(int argc, char *argv[])
 {
     struct byte_array * lib_path = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -353,7 +393,10 @@ int main(int argc, char *argv[])
     COMM_my_rank = (int) type;
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
-    } 
+    }
+    else if (type == VM_TASK_MANAGER) {
+        COMM_setup_vm_network();        
+    }
     else {
         COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
@@ -420,6 +463,9 @@ int main(int argc, char *argv[])
     else if (type == MONITOR) {
         monitor(argc, argv); 
     }
+    else if(type == VM_TASK_MANAGER) {
+        start_vm_task_manager(argc, argv);         
+    } 
 
     free(COMM_addr_manager);
     return 0;

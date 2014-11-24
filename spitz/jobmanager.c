@@ -71,7 +71,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     byte_array_init(ba_binary, 0);
     byte_array_pack_binary(ba_binary, so);
  
-    // Binary Array used to store the binary, the .so. 
+    // Binary Array used to store the hash of the binary
     struct byte_array * ba_hash = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba_hash, 0);
     byte_array_compute_hash(ba_hash, ba_binary);

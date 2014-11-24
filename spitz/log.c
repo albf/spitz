@@ -54,7 +54,7 @@ static void vmessage(FILE *f, const char *msg, const char *prefix,
 	else if (type == COMMITTER) {
             actor = "CO";
         }
-	else if (type == TASK_MANAGER) {
+	else if ((type == TASK_MANAGER) || (type == VM_TASK_MANAGER)) {
             actor = "TM";
         }
         else if (type == MONITOR) { 
