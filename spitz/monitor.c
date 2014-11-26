@@ -27,6 +27,7 @@
 void monitor(int argc, char *argv[])
 {
     int is_finished=0;                                              // Indicate if it's finished.
+    int command;                                                    // Command code red by stdin.
     enum message_type type;                                         // Type of received message.
     int comm_return=0;                                              // Return values from send and read.
    
@@ -39,24 +40,32 @@ void monitor(int argc, char *argv[])
 
     info("Starting monitor main loop.");
     while (1) {
-        comm_return = COMM_send_message(NULL, MSG_GET_STATUS, socket_manager);
-        
-        if(comm_return < 0) {
-            error("Problem found to send message to Job Manager");
-            type = MSG_EMPTY;
-        }
+        scanf("%d", &command);
+        error("Read Command: %d", command);
 
-        else {
-            comm_return = COMM_read_message(ba, &type, socket_manager);
-            if(comm_return < 0) {
-                error("Problem found to read message from Job Manager");
-                type = MSG_EMPTY;
-            } 
-        }
- 
-        if(type != MSG_EMPTY) {
-            printf("[STATUS] %s \n", ba->ptr);                
+        if(command == 0) {
+            printf("[STATUS #00] Finishing monitor.\n");                
             break;
+        }
+        
+        if(command == 1) {
+            type = MSG_EMPTY;
+            while (type == MSG_EMPTY) {
+                comm_return = COMM_send_message(NULL, MSG_GET_STATUS, socket_manager);
+                if(comm_return < 0) {
+                    error("Problem found to send message to Job Manager");
+                    type = MSG_EMPTY;
+                }
+
+                else {
+                    comm_return = COMM_read_message(ba, &type, socket_manager);
+                    if(comm_return < 0) {
+                        error("Problem found to read message from Job Manager");
+                        type = MSG_EMPTY;
+                    } 
+                }
+            }
+            printf("[STATUS #01] %s \n", ba->ptr);                
         }
     }
 

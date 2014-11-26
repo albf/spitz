@@ -20,27 +20,29 @@ class MonitorData:
 		self.total_compl = 0
 		self.lastIndex= -1 
 		self.lastOrder = -1
+		self.ln = ""
 
-	def getStatus(self):
+	def runMonitorProcess(self):
 		self.p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "100"],
 			     stdout=subprocess.PIPE,
-			     #stderr=subprocess.PIPE,
+			     stdin=subprocess.PIPE,
 			     cwd="/home/alexandre/Codes/spitz/examples")
 
+	def getStatusMessage(self, task):
+		
+		self.p.stdin.write(str(task)+"\n")
 		while 1:
-			ln = self.p.stdout.readline()
-			if ln.startswith("[STATUS] "):
-				
-				print ln
-				break
-
-		self.fillRows(ln)
+			self.ln = self.p.stdout.readline()
+			print "MESSAGE: "
+			if self.ln.startswith("[STATUS"):
+				return 
 
 	def fillRows(self,status):
 		self.total_rcvd = 0
 		self.total_compl = 0
-		
-		status = status[9:]
+		del self.rows[:]		
+
+		status = status[13:]
 		lnlist = status.split(';')
 		for item in lnlist:
 			self.rows.append(item.split('|'))
@@ -57,8 +59,8 @@ class MonitorData:
 
 		print self.rows
 
-# i = 5 total_rcvd
-# i = 6 completed
+		# i = 5 total_rcvd
+		# i = 6 completed
 
 		percentage = (self.total_compl / float(100))*100
 
@@ -94,6 +96,12 @@ class MonitorData:
 			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
 		self.NavigationLayout = layout
 
+	def makeHeaderLayout(self, layout):
+		layout.clear_widgets()
+		btnP = Button(text="Update", size_hint_x=None, width = self.factor*400)
+		btnP.bind(on_press = buttonUpdate)
+		layout.add_widget(btnP)
+
 	def test(self,layout,index):
 		layout.add_widget(Button(text='Hello 1'))
 		layout.add_widget(Button(text='World 1'))
@@ -123,36 +131,53 @@ def buttonOrder(instance):
 		Data.rows = sorted(Data.rows, key=itemgetter(index))
 
 	Data.makeListLayout(Data.ListLayout)
-	
+
+def buttonUpdate(instance):
+	Data.getStatusMessage(1)
+	Data.fillRows(Data.ln)
+	reDrawList()
+
+# Redraw list using current values of nodes.	
+def reDrawList():
+	Data.makeListLayout(Data.ListLayout)
+	Data.makeNavigationLayout(Data.NavigationLayout)
 
 class MyApp(App):
-    def build(self):
-	Data.getStatus()
+	def build(self):
+		Data.runMonitorProcess()
 
-	#Define window size.
-	Config.set('graphics', 'width', Data.factor*800) 
-	Config.set('graphics', 'height', Data.factor*600)
+		#Define window size.
+		Config.set('graphics', 'width', Data.factor*800) 
+		Config.set('graphics', 'height', Data.factor*600)
 
-	# Layout that will design the screen.
-	layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
+		# Layout that will design the screen.
+		layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
 
-	# Make list rows and add it to the main layout 
-	ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, rows=(Data.npp + 1) , size_hint_y=3)
-	Data.makeListLayout(ListLayout)
-	layout.add_widget(ListLayout)
+		# Make header layout and add to the main.
+		HeaderLayout = GridLayout(cols=1, row_default_height=Data.factor*15)
+		Data.makeHeaderLayout(HeaderLayout)
+		layout.add_widget(HeaderLayout)
 
-	# Make Navigation Commands and add it to the main layout 
-	NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
-	Data.makeNavigationLayout(NavigationLayout)
-	layout.add_widget(NavigationLayout)
+		# Make list rows and add it to the main layout 
+		Data.ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, rows=(Data.npp + 1) , size_hint_y=3)
+		layout.add_widget(Data.ListLayout)
 
-	# Make Navigation Commands and add it to the main layout 
-	#NavigationLayout2 = GridLayout(cols=2, row_default_height=Data.factor*15)
-	#Data.makeNavigationLayout(NavigationLayout2)
-	#layout.add_widget(NavigationLayout2)
+		# Make Navigation Commands and add it to the main layout 
+		Data.NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
+		layout.add_widget(Data.NavigationLayout)
 
-	return layout
+		reDrawList()
 
+		# Make Navigation Commands and add it to the main layout 
+		#NavigationLayout2 = GridLayout(cols=2, row_default_height=Data.factor*15)
+		#Data.makeNavigationLayout(NavigationLayout2)
+		#layout.add_widget(NavigationLayout2)
+
+		return layout
+
+	def on_stop(self):
+		Data.getStatusMessage(0)
+		print Data.ln
 
 Data = MonitorData(1, 10)
 MyApp().run()

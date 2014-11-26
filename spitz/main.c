@@ -81,53 +81,6 @@ void start_master_process(int argc, char *argv[], char *so)
     info("Terminating SPITZ");
 }
 
-void start_vm_task_manager(int argc, char *argv[]) {
-    int is_there_jm=0;                                              // Indicates if the job manager is set.
-    int is_there_cm=0;                                              // Indicates if committer is set.
-    enum message_type type;                                         // Type of received message.
-    uint64_t socket_cl;                                             // Closing socket.
-    int origin_socket;                                              // Socket that sent the request.
-    char * v;                                                       // Used as auxiliary. 
-    
-    // Data structure to exchange message between processes. 
-    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
-    byte_array_init(ba, 10);
-
-    while (1) {
-        COMM_wait_request(&type, &origin_socket, ba); 
-        
-        switch (type) {
-            case MSG_SET_JOB_MANAGER:
-                socket_manager = origin_socket;
-                is_there_jm = 1;               
-                break;
-            case MSG_SET_COMMITTER:
-                socket_committer = origin_socket;
-                is_there_cm = 1;
-                break;
-            case MSG_EMPTY:
-                info("Message received incomplete or a problem occurred.");
-                break;
-            case MSG_CLOSE_CONNECTION:
-                _byte_array_unpack64(ba, &socket_cl);
-                COMM_close_connection((int)socket_cl);
-                break;
-            default:
-                break;
-        }
-        
-        // If both are set. 
-        if ((is_there_jm==1)&&(is_there_cm==1)){
-            break;
-        }
-    }
-    // Free memory allocated in byte arrays.
-    byte_array_free(ba);
-    free(ba);
-
-    start_slave_processes(argc,argv);
-} 
-
 // Start of a slave process (task managers or committer)
 void start_slave_processes(int argc, char *argv[])
 {
@@ -373,6 +326,53 @@ void start_slave_processes(int argc, char *argv[])
     free(ba_hash);
     free(ba_hash_jm);
 }
+
+void start_vm_task_manager(int argc, char *argv[]) {
+    int is_there_jm=0;                                              // Indicates if the job manager is set.
+    int is_there_cm=0;                                              // Indicates if committer is set.
+    enum message_type type;                                         // Type of received message.
+    uint64_t socket_cl;                                             // Closing socket.
+    int origin_socket;                                              // Socket that sent the request.
+    char * v;                                                       // Used as auxiliary. 
+    
+    // Data structure to exchange message between processes. 
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    byte_array_init(ba, 10);
+
+    while (1) {
+        COMM_wait_request(&type, &origin_socket, ba); 
+        
+        switch (type) {
+            case MSG_SET_JOB_MANAGER:
+                socket_manager = origin_socket;
+                is_there_jm = 1;               
+                break;
+            case MSG_SET_COMMITTER:
+                socket_committer = origin_socket;
+                is_there_cm = 1;
+                break;
+            case MSG_EMPTY:
+                info("Message received incomplete or a problem occurred.");
+                break;
+            case MSG_CLOSE_CONNECTION:
+                _byte_array_unpack64(ba, &socket_cl);
+                COMM_close_connection((int)socket_cl);
+                break;
+            default:
+                break;
+        }
+        
+        // If both are set. 
+        if ((is_there_jm==1)&&(is_there_cm==1)){
+            break;
+        }
+    }
+    // Free memory allocated in byte arrays.
+    byte_array_free(ba);
+    free(ba);
+
+    start_slave_processes(argc,argv);
+} 
 
 int main(int argc, char *argv[])
 {
