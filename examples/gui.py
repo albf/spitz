@@ -22,12 +22,14 @@ class MonitorData:
 		self.lastOrder = -1
 		self.ln = ""
 
+	# Starts monitor C process.
 	def runMonitorProcess(self):
 		self.p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "100"],
 			     stdout=subprocess.PIPE,
 			     stdin=subprocess.PIPE,
 			     cwd="/home/alexandre/Codes/spitz/examples")
 
+	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
 		
 		self.p.stdin.write(str(task)+"\n")
@@ -37,6 +39,7 @@ class MonitorData:
 			if self.ln.startswith("[STATUS"):
 				return 
 
+	# Using the last status received, parse the list string.
 	def fillRows(self,status):
 		self.total_rcvd = 0
 		self.total_compl = 0
@@ -65,6 +68,7 @@ class MonitorData:
 		percentage = (self.total_compl / float(100))*100
 
 
+	# Makes the layout of the list, adding the columns name, the ordering handlers and the actual page.
 	def makeListLayout(self, layout):	
 		layout.clear_widgets()
 		for col in range(len(self.columns)):
@@ -79,6 +83,7 @@ class MonitorData:
 				layout.add_widget(Button(text=str(self.rows[i][j]), size_hint_x=None, width=self.wid[j]))
 		self.ListLayout = layout
 
+	# Makes the buttons to navigate. Add the handler and text if there is any.
 	def makeNavigationLayout(self, layout):
 		layout.clear_widgets()
 		if(self.index > 0):
@@ -96,26 +101,27 @@ class MonitorData:
 			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
 		self.NavigationLayout = layout
 
+	# Makes the header layout, with the commands.
 	def makeHeaderLayout(self, layout):
 		layout.clear_widgets()
 		btnP = Button(text="Update", size_hint_x=None, width = self.factor*400)
 		btnP.bind(on_press = buttonUpdate)
 		layout.add_widget(btnP)
 
-	def test(self,layout,index):
-		layout.add_widget(Button(text='Hello 1'))
-		layout.add_widget(Button(text='World 1'))
-		
+
+# Handler of the Prev button, return to the previous page.		
 def buttonPrev(instance):
 	Data.index = Data.index - 1
 	Data.makeListLayout(Data.ListLayout)
 	Data.makeNavigationLayout(Data.NavigationLayout)	
 
+# Handler of the Next button, go to the next page.		
 def buttonNext(instance):
 	Data.index = Data.index + 1
 	Data.makeListLayout(Data.ListLayout)
 	Data.makeNavigationLayout(Data.NavigationLayout)	
 
+# Handler responsible for ordering the list (using one of the columns).
 def buttonOrder(instance):
 	index = Data.columns.index(instance.text) 
 	if(Data.lastIndex == index):
@@ -132,6 +138,7 @@ def buttonOrder(instance):
 
 	Data.makeListLayout(Data.ListLayout)
 
+# Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):
 	Data.getStatusMessage(1)
 	Data.fillRows(Data.ln)
@@ -143,7 +150,9 @@ def reDrawList():
 	Data.makeNavigationLayout(Data.NavigationLayout)
 
 class MyApp(App):
+	# Responsible for building the program.
 	def build(self):
+		# Start the monitor process.
 		Data.runMonitorProcess()
 
 		#Define window size.
@@ -175,9 +184,13 @@ class MyApp(App):
 
 		return layout
 
+	# Run when closing. Send a quit message and print the sucess (or not) message.
 	def on_stop(self):
 		Data.getStatusMessage(0)
 		print Data.ln
 
-Data = MonitorData(1, 10)
-MyApp().run()
+
+# Main part.
+if __name__ == "__main__":
+	Data = MonitorData(1, 10)
+	MyApp().run()
