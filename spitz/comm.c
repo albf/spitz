@@ -788,7 +788,7 @@ void COMM_send_committer(int sock) {
 
         strcat(committer_send, "|");
         strcat(committer_send, port_str);
-        strcat(committer_send, "\n");
+        strcat(committer_send, "\0");
        
         v = committer_send;
         n = (size_t) strlen(committer_send);

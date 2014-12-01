@@ -107,7 +107,14 @@ class MonitorData:
 		btnP = Button(text="Update", size_hint_x=None, width = self.factor*400)
 		btnP.bind(on_press = buttonUpdate)
 		layout.add_widget(btnP)
+		btnV = Button(text="Launch VM", size_hint_x=None, width = self.factor*400)
+		btnV.bind(on_press = buttonVM)
+		layout.add_widget(btnV)
 
+
+# Handler of the VM button, will launch an VM task manager.
+def buttonVM(instance):
+	print 'teste'
 
 # Handler of the Prev button, return to the previous page.		
 def buttonPrev(instance):
@@ -163,7 +170,7 @@ class MyApp(App):
 		layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
 
 		# Make header layout and add to the main.
-		HeaderLayout = GridLayout(cols=1, row_default_height=Data.factor*15)
+		HeaderLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
 		Data.makeHeaderLayout(HeaderLayout)
 		layout.add_widget(HeaderLayout)
 

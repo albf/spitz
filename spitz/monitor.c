@@ -30,7 +30,12 @@ void monitor(int argc, char *argv[])
     int command;                                                    // Command code red by stdin.
     enum message_type type;                                         // Type of received message.
     int comm_return=0;                                              // Return values from send and read.
-   
+
+    // Used to parse and send a ip from a vm task manager.
+    size_t n;
+    char * v; 
+    char vm_send[26] = "";
+    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
@@ -48,7 +53,7 @@ void monitor(int argc, char *argv[])
             break;
         }
         
-        if(command == 1) {
+        else if(command == 1) {
             type = MSG_EMPTY;
             while (type == MSG_EMPTY) {
                 comm_return = COMM_send_message(NULL, MSG_GET_STATUS, socket_manager);
@@ -66,6 +71,34 @@ void monitor(int argc, char *argv[])
                 }
             }
             printf("[STATUS #01] %s \n", ba->ptr);                
+        }
+        else if(command == 2) {
+            // format : ip|port\n
+            scanf("%s", vm_send);
+            
+            v = vm_send;
+            n = (size_t) strlen(vm_send);
+            
+            byte_array_init(ba, n);
+            byte_array_pack8v(ba, v, n);
+            
+            type = MSG_EMPTY;
+            while (type == MSG_EMPTY) {
+                comm_return = COMM_send_message(NULL, MSG_NEW_VM_TASK_MANAGER, socket_manager);
+                if(comm_return < 0) {
+                    error("Problem found to send message to Job Manager");
+                    type = MSG_EMPTY;
+                }
+
+                else {
+                    comm_return = COMM_read_message(ba, &type, socket_manager);
+                    if(comm_return < 0) {
+                        error("Problem found to read message from Job Manager");
+                        type = MSG_EMPTY;
+                    } 
+                }
+            }
+            printf("[STATUS #03] %s \n", ba->ptr);                
         }
     }
 
