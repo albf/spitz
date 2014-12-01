@@ -260,6 +260,93 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
     return 0;
 }
 
+
+
+
+// Connect to VM task manager with address provided by job manager. 
+int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
+    int c_port;
+    char * token;
+    struct sockaddr_in node_address;
+    int socket_node;
+    int is_connected = 0;
+    int retries_left;
+    int id_send; 
+    
+    // Verify if retries is valid.
+    if(retries != NULL) {
+        if(*retries <= 0) {
+            error("Retries value not valid in connect_to_committer function.");
+            return -1;
+        }
+         
+        retries_left = *retries;
+    }
+    
+    // Get the ip and port values.
+    token = strtok((char *) ba->ptr, "|\0");
+    node_address.sin_addr.s_addr = inet_addr(token);
+    node_address.sin_family = AF_INET;
+    
+    token = strtok(NULL, "|\0");
+    c_port = atoi(token);
+    //c_port = atoi(strtok(token, "|"));
+    node_address.sin_port = htons(c_port);
+
+    //Create socket
+    socket_node = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_committer == -1) {
+        error("Could not create socket");
+        return -2;
+    }
+    
+    //Connect to remote server
+    while(is_connected == 0 ) {
+        if(retries != NULL) {
+            if(retries_left == 0) {
+                error("Failed to connect to Vm Task Manager, no retries left.");
+                return -3;
+            }
+            retries_left --;
+        }
+        
+        if (connect(socket_node, (struct sockaddr *)&node_address, sizeof(node_address)) < 0) { 
+            error("Could not connect to the Vm Task Manager. Trying again.\n");
+            sleep(1); 
+        }
+        else { 
+            debug("Connected Successfully to the VM Task Manager\n");
+            is_connected = 1; 
+        }
+    }   
+
+    // Add new connection to the list, assign rank id and send to the client (if the manager).
+    if(COMM_my_rank == (int)JOB_MANAGER) {
+        COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, &id_send); 
+        COMM_send_int(socket_node,id_send);
+    }
+
+    //add new socket to array of sockets
+    for (i = 0; i < max_clients; i++) 
+    {
+	  //if position is empty
+        if( COMM_client_socket[i] == 0 )
+        {
+            COMM_client_socket[i] = rcv_socket;
+            
+            if(COMM_my_rank==0) {
+                info("Adding to list of sockets as %d\n" , i);
+                COMM_LIST_print_ip_list(); 
+            }
+
+            break;
+        }
+    }
+    COMM_alive++;
+
+    return 0;
+}
+
 // Get committer with the job manager and establish a connection.
 int COMM_connect_to_committer(int * retries) {
     COMM_get_committer();
@@ -727,7 +814,8 @@ int COMM_register_committer(int sock) {
             break;
         }
     }
-    
+   
+    socket_committer = sock;
     getpeername(sock, (struct sockaddr*) &COMM_addr_committer, (socklen_t*) & COMM_addrlen);
     old_prt = ntohs(COMM_addr_committer.sin_port);
     

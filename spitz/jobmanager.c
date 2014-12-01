@@ -226,6 +226,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
                 break;
+            case MSG_NEW_VM_TASK_MANAGER:
+                info("Received information about VM task manager waiting connection.");
+                COMM_connect_to_vm_task_manager(3, ba);
+                COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
+                break;
             default:
                 break;
         }

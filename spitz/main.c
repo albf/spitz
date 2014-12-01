@@ -339,9 +339,9 @@ void start_vm_task_manager(int argc, char *argv[]) {
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba, 10);
 
-    while (1) {
+    while ((is_there_jm == 0) || (is_there_cm ==0)) {
         COMM_wait_request(&type, &origin_socket, ba); 
-        
+         
         switch (type) {
             case MSG_SET_JOB_MANAGER:
                 socket_manager = origin_socket;
@@ -353,6 +353,9 @@ void start_vm_task_manager(int argc, char *argv[]) {
                 break;
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
+                break;
+            case MSG_NEW_CONNECTION:
+                COMM_create_new_connection();
                 break;
             case MSG_CLOSE_CONNECTION:
                 _byte_array_unpack64(ba, &socket_cl);

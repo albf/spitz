@@ -118,6 +118,10 @@ void committer(int argc, char *argv[], void *handle)
                 _byte_array_unpack64(ba, &socket_cl);
                 COMM_close_connection((int)socket_cl);
                 break;
+             case MSG_NEW_VM_TASK_MANAGER:
+                info("Received information about VM task manager waiting connection.");
+                COMM_connect_to_vm_task_manager(3, ba);
+                break;
             default:
                 break;
         }

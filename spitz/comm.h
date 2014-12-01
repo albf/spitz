@@ -43,7 +43,8 @@ enum message_type {
     MSG_GET_HASH,           // Used to request the md5 hash of the binary.
     MSG_GET_STATUS,         // Used to request status of all connected nodes.
     MSG_SET_MONITOR,        // Monitor to JobManager
-    MSG_SET_JOB_MANAGER     // Job Manager to VM Task Manager
+    MSG_SET_JOB_MANAGER,    // Job Manager to VM Task Manager
+    MSG_NEW_VM_TASK_MANAGER   // Monitor to JobManager, JobManager to Committer.
 };
 
 /* Functions based in Client/Server architecture */
@@ -51,6 +52,7 @@ enum message_type {
 // Client functions.
 int COMM_connect_to_committer(int * retries);
 int COMM_connect_to_job_manager(char ip_adr[], int * retries);
+int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba);
 int COMM_setup_vm_network();
 
 // Both, check by id what's the case.
