@@ -23,6 +23,7 @@
 #include "barray.h"
 #include "log.h"
 #include "spitz.h"
+#include <string.h>   
 
 void monitor(int argc, char *argv[])
 {
@@ -30,6 +31,7 @@ void monitor(int argc, char *argv[])
     int command;                                                    // Command code red by stdin.
     enum message_type type;                                         // Type of received message.
     int comm_return=0;                                              // Return values from send and read.
+    int retries;                                                    // Number of retries used to send a VM.
 
     // Used to parse and send a ip from a vm task manager.
     size_t n;
@@ -47,12 +49,12 @@ void monitor(int argc, char *argv[])
     while (1) {
         scanf("%d", &command);
         error("Read Command: %d", command);
-
+        // Quit Command
         if(command == 0) {
             printf("[STATUS #00] Finishing monitor.\n");                
             break;
         }
-        
+        // Get status command. 
         else if(command == 1) {
             type = MSG_EMPTY;
             while (type == MSG_EMPTY) {
@@ -72,9 +74,12 @@ void monitor(int argc, char *argv[])
             }
             printf("[STATUS #01] %s \n", ba->ptr);                
         }
+        // Connect to VM Task Manager command.
         else if(command == 2) {
             // format : ip|port\n
+            error("inside command 2");
             scanf("%s", vm_send);
+            error("VM IP: %s", vm_send);
             
             v = vm_send;
             n = (size_t) strlen(vm_send);
@@ -83,22 +88,25 @@ void monitor(int argc, char *argv[])
             byte_array_pack8v(ba, v, n);
             
             type = MSG_EMPTY;
+            retries = 3;
             while (type == MSG_EMPTY) {
-                comm_return = COMM_send_message(NULL, MSG_NEW_VM_TASK_MANAGER, socket_manager);
+                comm_return = COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_manager);
                 if(comm_return < 0) {
                     error("Problem found to send message to Job Manager");
                     type = MSG_EMPTY;
+                    retries = retries - 1;
+                    if(retries == 0) {
+                        break;
+                        printf("[STATUS #02] Failed \n");                
+                    }
                 }
 
                 else {
-                    comm_return = COMM_read_message(ba, &type, socket_manager);
-                    if(comm_return < 0) {
-                        error("Problem found to read message from Job Manager");
-                        type = MSG_EMPTY;
-                    } 
+                    error("VM IP and PORT sent successfully to Job Manager");
+                    break;
                 }
             }
-            printf("[STATUS #03] %s \n", ba->ptr);                
+            printf("[STATUS #02] Success \n");                
         }
     }
 

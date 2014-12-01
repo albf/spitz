@@ -34,6 +34,7 @@ void committer(int argc, char *argv[], void *handle)
     int origin_socket=0;                                            // Socket of the requester, return by COMM_wait_request.
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket, packed by the COMM_wait_request.
+    int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -119,8 +120,9 @@ void committer(int argc, char *argv[], void *handle)
                 COMM_close_connection((int)socket_cl);
                 break;
              case MSG_NEW_VM_TASK_MANAGER:
+                retries = 3;
                 info("Received information about VM task manager waiting connection.");
-                COMM_connect_to_vm_task_manager(3, ba);
+                COMM_connect_to_vm_task_manager(&retries, ba);
                 break;
             default:
                 break;

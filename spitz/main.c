@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
     struct sigaction sa;
     COMM_set_actor_type(argv[1]);
     
-    if((type!=JOB_MANAGER)&&(type!=COMMITTER)&&(type!=TASK_MANAGER)&&(type!=MONITOR)) {
+    if((type!=JOB_MANAGER)&&(type!=COMMITTER)&&(type!=TASK_MANAGER)&&(type!=MONITOR)&&(type!=VM_TASK_MANAGER)) {
         error("Wrong type specified in argv[1], try again.");
         return -1;
     }

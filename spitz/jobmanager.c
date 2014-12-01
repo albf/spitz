@@ -47,6 +47,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int run_num;                                                    // Actual run number.
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
+    int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
     
     struct task *clean;                                             // Auxiliary pointer used to free memory. 
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
@@ -227,8 +228,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 info("Message received incomplete or a problem occurred.");
                 break;
             case MSG_NEW_VM_TASK_MANAGER:
+                retries = 3;
                 info("Received information about VM task manager waiting connection.");
-                COMM_connect_to_vm_task_manager(3, ba);
+                COMM_connect_to_vm_task_manager(&retries, ba);
                 COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 break;
             default:

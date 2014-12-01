@@ -55,7 +55,9 @@ gdb3: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			gdb --args ./spitz 3 127.0.0.1 prime.so 100
 
-
+gdb4: pi.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			gdb --args ./spitz 4 127.0.0.1 prime.so 100
 
 test: pi.so
 	# Set some environment variables

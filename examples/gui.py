@@ -35,9 +35,21 @@ class MonitorData:
 		self.p.stdin.write(str(task)+"\n")
 		while 1:
 			self.ln = self.p.stdout.readline()
-			print "MESSAGE: "
+			print "MESSAGE: " + str(self.ln)
 			if self.ln.startswith("[STATUS"):
 				return 
+
+	# Send a request to the monitor to launch the VM present in the provided ip|port string.
+	def launchVMnode(self, task, ip):
+		
+		self.p.stdin.write(str(task)+"\n")
+		self.p.stdin.write(ip+"\n")
+		while 1:
+			self.ln = self.p.stdout.readline()
+			print "MESSAGE: " + str(self.ln)
+			if self.ln.startswith("[STATUS"):
+				return 
+
 
 	# Using the last status received, parse the list string.
 	def fillRows(self,status):
@@ -114,7 +126,8 @@ class MonitorData:
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	print 'teste'
+	ip = '127.0.0.1|11005'
+	Data.launchVMnode(2, ip)
 
 # Handler of the Prev button, return to the previous page.		
 def buttonPrev(instance):

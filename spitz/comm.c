@@ -272,6 +272,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int is_connected = 0;
     int retries_left;
     int id_send; 
+    int i;
     
     // Verify if retries is valid.
     if(retries != NULL) {
@@ -332,7 +333,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 	  //if position is empty
         if( COMM_client_socket[i] == 0 )
         {
-            COMM_client_socket[i] = rcv_socket;
+            COMM_client_socket[i] = socket_node;
             
             if(COMM_my_rank==0) {
                 info("Adding to list of sockets as %d\n" , i);
