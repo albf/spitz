@@ -48,6 +48,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
+    int aux; uint64_t aux64;                                          // Auxiliary, used to cast variables. 
     
     struct task *clean;                                             // Auxiliary pointer used to free memory. 
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
@@ -231,6 +232,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
                 COMM_connect_to_vm_task_manager(&retries, ba);
+                break;
+            case MSG_GET_NUM_TASKS:
+                aux = atoi(argv[0]);
+                aux64 = (uint64_t) aux;
+                byte_array_clear(ba);
+                byte_array_pack64(ba, aux64);
+                COMM_send_message(ba,MSG_GET_NUM_TASKS,origin_socket); 
                 break;
             default:
                 break;

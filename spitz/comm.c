@@ -38,7 +38,7 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 /* Functions Exclusive to this implementation, not used by upper level */
 
 // Worker
-int COMM_get_committer(int retries);
+int COMM_get_committer(int * retries);
 int COMM_request_committer();
 
 // Communication
@@ -357,8 +357,8 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 int COMM_connect_to_committer(int * retries) {
     int is_connected = 0;
     int retries_left;
-
-    if(COMM_get_committer(* retries)<0) {
+    
+    if(COMM_get_committer(retries)<0) {
         error("Job Manager doesn't know who is the committer yet.");
         return -4;
     }
@@ -429,18 +429,26 @@ int COMM_get_run_num() {
 }
 
 // Request and return the committer from the job_manager
-int COMM_get_committer(int retries) {
+int COMM_get_committer(int * retries) {
+    int retries_left = 0;
+    
+    if(retries != NULL) {
+        retries_left = *retries;
+    }
+    
     if(COMM_my_rank==0) {
         return 0;
     }
     
     while(COMM_request_committer() != 1) {
-        retries = retries - 1;
         info("Committer not found yet! \n");
-        sleep(1);
-        if(retries == 0) {
-            return -1;
+        if(retries != NULL) {
+            retries_left = retries_left - 1;
+            if(retries_left == 0) {
+                return -1;
+            }
         }
+        sleep(1);
     }
     return 0;
 }

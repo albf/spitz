@@ -42,6 +42,7 @@ enum message_type {
     MSG_GET_BINARY,         // Used to request and get the binary
     MSG_GET_HASH,           // Used to request the md5 hash of the binary.
     MSG_GET_STATUS,         // Used to request status of all connected nodes.
+    MSG_GET_NUM_TASKS,      // Used to request the number of tasks registered for in the JM.
     MSG_SET_MONITOR,        // Monitor to JobManager
     MSG_SET_JOB_MANAGER,    // Job Manager to VM Task Manager
     MSG_NEW_VM_TASK_MANAGER   // Monitor to JobManager, JobManager to Committer.

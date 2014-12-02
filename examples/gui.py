@@ -3,6 +3,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.app import App
 from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
+from kivy.uix.progressbar import ProgressBar
 from kivy.config import Config
 from operator import itemgetter
 import subprocess
@@ -22,6 +23,8 @@ class MonitorData:
 		self.lastIndex= -1 
 		self.lastOrder = -1
 		self.ln = ""
+		self.TotalTasks = 1
+		self.total_compl = 0
 
 	# Starts monitor C process.
 	def runMonitorProcess(self):
@@ -39,6 +42,19 @@ class MonitorData:
 			print "MESSAGE: " + str(self.ln)
 			if self.ln.startswith("[STATUS"):
 				return 
+
+	# Get number of tasks from the Job Manager
+	def getNumberOfTasks(self, task):
+		
+		self.p.stdin.write(str(task)+"\n")
+		while 1:
+			line = self.p.stdout.readline()
+			print "MESSAGE: " + str(line)
+			if line.startswith("[STATUS"):
+				self.TotalTasks = int(line[13:])
+				#print self.TotalTasks	
+				return 
+
 
 	# Send a request to the monitor to launch the VM present in the provided ip|port string.
 	def launchVMnode(self, task, ip):
@@ -70,7 +86,7 @@ class MonitorData:
 					if(indexT!=1):
 						self.rows[-1][indexT] = int(self.rows[-1][indexT])
 					
-		else:
+			else:
 				self.rows.pop()
 
 		print self.rows
@@ -78,7 +94,7 @@ class MonitorData:
 		# i = 5 total_rcvd
 		# i = 6 completed
 
-		percentage = (self.total_compl / float(100))*100
+		#percentage = (self.total_compl / float(100))*100
 
 
 	# Makes the layout of the list, adding the columns name, the ordering handlers and the actual page.
@@ -129,8 +145,12 @@ class MonitorData:
 		self.commandWidget = TextInput(multiline=False)
 		self.commandWidget.readonly = True	
 		self.commandWidget.text = itext
-		layout.add_widget(self.commandWidget)
 
+		pb = ProgressBar(max=1000)	
+		pb.value = (self.total_compl*1000)/(int(self.TotalTasks))
+
+		layout.add_widget(self.commandWidget)
+		layout.add_widget(pb)
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
@@ -170,6 +190,7 @@ def buttonOrder(instance):
 # Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):
 	Data.getStatusMessage(1)
+	Data.getNumberOfTasks(3)
 	Data.fillRows(Data.ln)
 	Data.makeCommandLayout(Data.CommandLayout, Data.ln) 
 	reDrawList()

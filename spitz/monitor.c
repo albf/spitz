@@ -32,7 +32,8 @@ void monitor(int argc, char *argv[])
     int comm_return=0;                                              // Return values from send and read.
     int retries;                                                    // Number of retries used to send a VM.
     int is_connected=0;                                             // Indicate if connected successfully
-
+    uint64_t aux64;                                                   // Used to receive the number of tasks.
+    
     // Used to parse and send a ip from a vm task manager.
     size_t n;
     char * v; 
@@ -137,6 +138,28 @@ void monitor(int argc, char *argv[])
                     printf("[STATUS #02] Success \n");                
                 } 
             }
+        }
+        // Get number of tasks command. 
+        else if(command == 3) {
+            type = MSG_EMPTY;
+            while (type == MSG_EMPTY) {
+                comm_return = COMM_send_message(NULL, MSG_GET_NUM_TASKS, socket_manager);
+                if(comm_return < 0) {
+                    error("Problem found to send message to Job Manager");
+                    type = MSG_EMPTY;
+                }
+
+                else {
+                    comm_return = COMM_read_message(ba, &type, socket_manager);
+                    if(comm_return < 0) {
+                        error("Problem found to read message from Job Manager");
+                        type = MSG_EMPTY;
+                    } 
+                }
+            }
+
+            byte_array_unpack64(ba, &aux64);
+            printf("[STATUS #03] %d \n", (int)aux64); 
         }
 
     }
