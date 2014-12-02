@@ -334,6 +334,7 @@ void start_vm_task_manager(int argc, char *argv[]) {
     uint64_t socket_cl;                                             // Closing socket.
     int origin_socket;                                              // Socket that sent the request.
     char * v;                                                       // Used as auxiliary. 
+    int64_t bufferr;                                                // Buffer used to receive id. 
     
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
@@ -345,7 +346,16 @@ void start_vm_task_manager(int argc, char *argv[]) {
         switch (type) {
             case MSG_SET_JOB_MANAGER:
                 socket_manager = origin_socket;
-                is_there_jm = 1;               
+                byte_array_unpack64(ba, &bufferr);
+                COMM_my_rank = (int)bufferr;
+                if(COMM_my_rank < 0) {
+                    error("Problem getting the rank id. Disconnected from Job Manager.");
+                    close(socket_manager);
+                }
+                else {
+                    debug("Successfully received a rank id from Job Manager.");
+                    is_there_jm = 1;               
+                }
                 break;
             case MSG_SET_COMMITTER:
                 socket_committer = origin_socket;

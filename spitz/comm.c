@@ -245,7 +245,7 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
         else {
             debug("Connected Successfully to the Job Manager\n");
             COMM_my_rank = COMM_read_int(socket_manager);
-            if(COMM_my_rank == -1) {
+            if(COMM_my_rank < 0) {
                 error("Problem getting the rank id. Disconnected from Job Manager.");
                 close(socket_manager);
                 sleep(1);
