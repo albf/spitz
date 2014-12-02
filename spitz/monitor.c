@@ -27,11 +27,11 @@
 
 void monitor(int argc, char *argv[])
 {
-    int is_finished=0;                                              // Indicate if it's finished.
     int command;                                                    // Command code red by stdin.
     enum message_type type;                                         // Type of received message.
     int comm_return=0;                                              // Return values from send and read.
     int retries;                                                    // Number of retries used to send a VM.
+    int is_connected=0;                                             // Indicate if connected successfully
 
     // Used to parse and send a ip from a vm task manager.
     size_t n;
@@ -80,34 +80,65 @@ void monitor(int argc, char *argv[])
             error("inside command 2");
             scanf("%s", vm_send);
             error("VM IP: %s", vm_send);
-            
-            v = vm_send;
-            n = (size_t) strlen(vm_send);
-            
-            byte_array_init(ba, n);
-            byte_array_pack8v(ba, v, n);
-            
-            type = MSG_EMPTY;
+
             retries = 3;
-            while (type == MSG_EMPTY) {
-                comm_return = COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_manager);
-                if(comm_return < 0) {
-                    error("Problem found to send message to Job Manager");
-                    type = MSG_EMPTY;
-                    retries = retries - 1;
-                    if(retries == 0) {
+            is_connected = COMM_connect_to_committer(&retries);
+            
+            if(is_connected < 0) {
+                error("Couldn't connect to committer!");
+            }
+            else {
+                v = vm_send;
+                n = (size_t) strlen(vm_send);
+                
+                byte_array_init(ba, n);
+                byte_array_pack8v(ba, v, n);
+                
+                type = MSG_EMPTY;
+                retries = 3;
+                while (type == MSG_EMPTY) {
+                    comm_return = COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_manager);
+                    if(comm_return < 0) {
+                        error("Problem found to send message to Job Manager");
+                        type = MSG_EMPTY;
+                        retries = retries - 1;
+                        if(retries == 0) {
+                            break;
+                            printf("[STATUS #02] Failed \n");                
+                        }
+                    }
+
+                    else {
+                        error("VM IP and PORT sent successfully to Job Manager");
                         break;
-                        printf("[STATUS #02] Failed \n");                
                     }
                 }
 
-                else {
-                    error("VM IP and PORT sent successfully to Job Manager");
-                    break;
-                }
+                if (retries>0) {
+                    type = MSG_EMPTY;
+                    retries = 3;
+                    while (type == MSG_EMPTY) {
+                        comm_return = COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
+                        if(comm_return < 0) {
+                            error("Problem found to send message to committer.");
+                            type = MSG_EMPTY;
+                            retries = retries - 1;
+                            if(retries == 0) {
+                                break;
+                                printf("[STATUS #02] Failed \n");                
+                            }
+                        }
+
+                        else {
+                            error("VM IP and PORT sent successfully to committer.");
+                            break;
+                        }
+                    }
+                    printf("[STATUS #02] Success \n");                
+                } 
             }
-            printf("[STATUS #02] Success \n");                
         }
+
     }
 
     byte_array_free(ba);

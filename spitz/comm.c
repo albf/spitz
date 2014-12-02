@@ -38,7 +38,7 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 /* Functions Exclusive to this implementation, not used by upper level */
 
 // Worker
-void COMM_get_committer();
+int COMM_get_committer(int retries);
 int COMM_request_committer();
 
 // Communication
@@ -324,7 +324,12 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     // Add new connection to the list, assign rank id and send to the client (if the manager).
     if(COMM_my_rank == (int)JOB_MANAGER) {
         COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, &id_send); 
-        COMM_send_int(socket_node,id_send);
+        byte_array_clear(ba);
+        byte_array_pack64(ba, id_send);
+        COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
+    }
+    else if(COMM_my_rank == (int) COMMITTER) {
+        COMM_send_message(NULL,MSG_SET_COMMITTER,socket_node);
     }
 
     //add new socket to array of sockets
@@ -350,9 +355,13 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 
 // Get committer with the job manager and establish a connection.
 int COMM_connect_to_committer(int * retries) {
-    COMM_get_committer();
     int is_connected = 0;
     int retries_left;
+
+    if(COMM_get_committer(* retries)<0) {
+        error("Job Manager doesn't know who is the committer yet.");
+        return -4;
+    }
 
     // Verify if retries is valid.
     if(retries != NULL) {
@@ -420,15 +429,20 @@ int COMM_get_run_num() {
 }
 
 // Request and return the committer from the job_manager
-void COMM_get_committer() {
+int COMM_get_committer(int retries) {
     if(COMM_my_rank==0) {
-        return;
+        return 0;
     }
     
     while(COMM_request_committer() != 1) {
+        retries = retries - 1;
         info("Committer not found yet! \n");
         sleep(1);
+        if(retries == 0) {
+            return -1;
+        }
     }
+    return 0;
 }
 
 // Do the request for the committer value. May receive a failed message.
@@ -589,7 +603,7 @@ int COMM_setup_vm_network() {
     
     // Start list of variables
     COMM_addrlen = sizeof(address);                                      
-    COMM_my_rank = 0;
+    COMM_my_rank = (int) VM_TASK_MANAGER;
     COMM_loop_b = 0;
     COMM_committer_index = -1;
     
