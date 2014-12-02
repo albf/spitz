@@ -2,6 +2,7 @@ import kivy
 from kivy.uix.gridlayout import GridLayout
 from kivy.app import App
 from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
 from kivy.config import Config
 from operator import itemgetter
 import subprocess
@@ -123,10 +124,18 @@ class MonitorData:
 		btnV.bind(on_press = buttonVM)
 		layout.add_widget(btnV)
 
+	def makeCommandLayout(self, layout, itext):
+		layout.clear_widgets()
+		self.commandWidget = TextInput(multiline=False)
+		self.commandWidget.readonly = True	
+		self.commandWidget.text = itext
+		layout.add_widget(self.commandWidget)
+
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	ip = '127.0.0.1|11005'
+	ip = '127.0.0.1|11006'
+	Data.makeCommandLayout(Data.CommandLayout, 'Connecting to VM Task Manager in : ' + str(ip))
 	Data.launchVMnode(2, ip)
 
 # Handler of the Prev button, return to the previous page.		
@@ -162,6 +171,7 @@ def buttonOrder(instance):
 def buttonUpdate(instance):
 	Data.getStatusMessage(1)
 	Data.fillRows(Data.ln)
+	Data.makeCommandLayout(Data.CommandLayout, Data.ln) 
 	reDrawList()
 
 # Redraw list using current values of nodes.	
@@ -195,13 +205,13 @@ class MyApp(App):
 		Data.NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
 		layout.add_widget(Data.NavigationLayout)
 
+
+		# Make Console Layout and add it to the main layout 
+		Data.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
+		Data.makeCommandLayout(Data.CommandLayout, 'Welcome to SPITZ Monitor')
+		layout.add_widget(Data.CommandLayout)
+
 		reDrawList()
-
-		# Make Navigation Commands and add it to the main layout 
-		#NavigationLayout2 = GridLayout(cols=2, row_default_height=Data.factor*15)
-		#Data.makeNavigationLayout(NavigationLayout2)
-		#layout.add_widget(NavigationLayout2)
-
 		return layout
 
 	# Run when closing. Send a quit message and print the sucess (or not) message.
