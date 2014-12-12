@@ -29,7 +29,9 @@
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {
     struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     struct connected_ip * iter;
-    ptr->address = adr;
+    ptr->address = (char *) malloc (sizeof(char)*12);   // max size of ip : xxx.xxx.xxx\0
+    (ptr->address)[0] = '\0';
+    strcat(ptr->address, adr);
     ptr->port = prt;
     ptr->socket = socket;
     ptr->rcv_tasks = 0;
@@ -133,6 +135,7 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     }
     
     if((strcmp((const char *)adr, (const char *)data_pointer->list_pointer->address)==0)&&(prt == data_pointer->list_pointer->port)){ 
+        free(data_pointer->list_pointer->address);
     	ptr = data_pointer->list_pointer->next;
         free(data_pointer->list_pointer);
         data_pointer->id_counter--;
@@ -143,6 +146,7 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     ptr = data_pointer->list_pointer->next;
     while(ptr!=NULL) {
         if((strcmp((const char *)adr, (const char *)ptr->address)==0) && (prt == ptr->port)) {
+            free(ptr->address);
             prev->next = ptr->next;
             free(ptr);
             ptr = NULL;
@@ -218,7 +222,9 @@ struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char
                 free(ptr->address);
             }
 
-            ptr->address = adr;
+            ptr->address = (char *) malloc (sizeof(char)*12);   // max size of ip : xxx.xxx.xxx\0
+            (ptr->address)[0] = '\0';
+            strcat(ptr->address, adr);
             ptr->port = new_prt;
             ptr->socket = committer_socket;
             ptr->type = 1;
