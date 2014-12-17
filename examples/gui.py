@@ -265,8 +265,6 @@ class ScreenBank:
 
 		self.layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
 		self.settings_json = json.dumps([
-		    {'type': 'title',
-		     'title': 'Parameters'},
 		    {'type': 'string',
 		     'title': 'Job Manager IP',
 		     'desc': 'Address of the JM.',
@@ -281,12 +279,30 @@ class ScreenBank:
 		     'title': 'Number of Tasks',
 		     'desc': 'Amount of work to be done.',
 		     'section': 'example',
-		     'key': 'num_tasks'},
-		    {'type': 'string',
-		     'title': 'A path setting',
-		     'desc': 'Path description text',
+		     'key': 'num_tasks'}])
+
+		self.settings_json2 = json.dumps([
+		   {'type': 'string',
+		     'title': 'Virtual Machine IP',
+		     'desc': 'Address of the Virtual Machine TM.',
 		     'section': 'example',
-		     'key': 'pathexample'}])
+		     'key': 'vm_ip'},
+		   {'type': 'string',
+		     'title': 'Virtual Machine Port',
+		     'desc': 'Port of the Virtual Machine TM.',
+		     'section': 'example',
+		     'key': 'vm_prt'}, 
+		   {'type': 'string',
+		     'title': 'SSH Login',
+		     'desc': 'Used to log in VM TM.',
+		     'section': 'example',
+		     'key': 'ssh_login'},
+		   {'type': 'string',
+		     'title': 'SSH Password',
+		     'desc': 'Look behind you before typing.',
+		     'section': 'example',
+		     'key': 'ssh_pass'}])
+
 
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self):
@@ -341,7 +357,10 @@ class MyApp(App):
 		     'jm_address' : '127.0.0.1',
 		     'lib_path' : 'prime.so',
 		     'num_tasks' : '100',
-		     'pathexample' : '/asdsa/dsad'
+		     'vm_ip' : '127.0.0.1',
+		     'vm_prt' : '11006',
+		     'ssh_login' : 'user',
+		     'ssh_pass' : 'pass'
 		})
 
 		Screen.AppInstance = self
@@ -357,9 +376,13 @@ class MyApp(App):
 		print 'BUILD SETTINGS'
 
 		jsondata = Screen.settings_json 
-		settings.add_json_panel('SPITZ Virtual Machine',self.config, data=jsondata)
+		print jsondata
+		settings.add_json_panel('Spitz Parameters',self.config, data=jsondata)
 		#self.sett = Settings()
-
+		jsondata = Screen.settings_json2 
+		print jsondata
+		settings.add_json_panel('Virtual Machine',self.config, data=jsondata)
+	
 		#self.open_settings()	
 		
 # Main part.
