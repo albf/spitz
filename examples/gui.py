@@ -40,9 +40,9 @@ class MonitorData:
 
 	# Starts monitor C process.
 	def runMonitorProcess(self):
-		lib_path = str(self.config.get('example', 'lib_path'))
-		jm_ip = str(self.config.get('example', 'jm_address'))
-		num_tasks = str(self.config.get('example', 'num_tasks'))
+		lib_path = str(Screen.AppInstance.config.get('example', 'lib_path'))
+		jm_ip = str(Screen.AppInstance.config.get('example', 'jm_address'))
+		num_tasks = str(Screen.AppInstance.config.get('example', 'num_tasks'))
 
 		print 'My DEBUGGG'
 		print num_tasks
@@ -205,7 +205,8 @@ class MonitorData:
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	ip = '191.238.16.92|11006'
+	ip = str(Screen.AppInstance.config.get('example', 'vm_ip')) + '|' + str(Screen.AppInstance.config.get('example', 'vm_prt')) 
+	#ip = '191.238.16.92|11006'
 	Data.makeCommandLayout(Data.CommandLayout, 'Connecting to VM Task Manager in : ' + str(ip))
 	Data.launchVMnode(2, ip)
 
@@ -339,7 +340,7 @@ class MyApp(App):
 	# Responsible for building the program.
 	def build(self):
 		# Start the monitor process.
-		#Data.runMonitorProcess()
+		Data.runMonitorProcess()
 
 		# Layout that will design the screen.
 		Screen.buildMainScreen()
