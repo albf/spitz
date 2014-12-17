@@ -5,12 +5,24 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
 from kivy.config import Config
+from kivy.uix.label import Label
+from kivy.uix.settings import Settings
+from kivy.config import ConfigParser
 from operator import itemgetter
+import json
 import subprocess
 import sys
+import os
+import paramiko
 
 
+''' ----- 
+    MonitorData 
+    ----- '''
+
+# Represent all the data in the main screen.
 class MonitorData:
+	# Initialize the class.
 	def __init__(self, factor, NodesPerPage):
 		self.columns = ['ID', 'IP', 'PORT', 'TYPE', 'ON', 'RECEIVED','COMPLETED']  
 		self.rows = []
@@ -58,6 +70,22 @@ class MonitorData:
 
 	# Send a request to the monitor to launch the VM present in the provided ip|port string.
 	def launchVMnode(self, task, ip):
+		'''	# Connect, if not connected yet, to SSH and SFTP
+		if not hasattr(self, 'ssh'):
+			self.ssh = paramiko.SSHClient()
+			self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+			self.ssh.connect('143.106.16.163', username='USER', password='SENHA') 
+			self.ssh.exec_command('mkdir -p ~/spitz')
+			self.sftp = self.ssh.open_sftp()
+
+		# Send spitz and libspitz.so to VM node.
+		if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
+			self.sftp.put('spitz', 'spitz/spitz') 
+			self.ssh.exec_command('chmod 555 ~/spitz/spitz')
+			self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
+		else:
+			raise Exception('Spitz file(s) missing') '''
+
 		
 		self.p.stdin.write(str(task)+"\n")
 		self.p.stdin.write(ip+"\n")
@@ -133,12 +161,17 @@ class MonitorData:
 	# Makes the header layout, with the commands.
 	def makeHeaderLayout(self, layout):
 		layout.clear_widgets()
-		btnP = Button(text="Update", size_hint_x=None, width = self.factor*400)
+		btnP = Button(text="Update", size_hint_x=None, width = self.factor*266)
 		btnP.bind(on_press = buttonUpdate)
+
 		layout.add_widget(btnP)
-		btnV = Button(text="Launch VM", size_hint_x=None, width = self.factor*400)
+		btnV = Button(text="Launch VM", size_hint_x=None, width = self.factor*266)
 		btnV.bind(on_press = buttonVM)
 		layout.add_widget(btnV)
+
+		btnS = Button(text="Settings", size_hint_x=None, width = self.factor*267)
+		btnS.bind(on_press = buttonSettings)
+		layout.add_widget(btnS)
 
 	def makeCommandLayout(self, layout, itext):
 		layout.clear_widgets()
@@ -152,9 +185,20 @@ class MonitorData:
 		layout.add_widget(self.commandWidget)
 		layout.add_widget(pb)
 
+	# Redraw list using current values of nodes.	
+	def reDrawList(self):
+		self.makeListLayout(self.ListLayout)
+		self.makeNavigationLayout(self.NavigationLayout)
+
+
+
+''' ----- 
+    Handlers of the main screen.
+    ----- '''
+
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	ip = '127.0.0.1|11006'
+	ip = '191.238.16.92|11006'
 	Data.makeCommandLayout(Data.CommandLayout, 'Connecting to VM Task Manager in : ' + str(ip))
 	Data.launchVMnode(2, ip)
 
@@ -193,55 +237,130 @@ def buttonUpdate(instance):
 	Data.getNumberOfTasks(3)
 	Data.fillRows(Data.ln)
 	Data.makeCommandLayout(Data.CommandLayout, Data.ln) 
-	reDrawList()
+	Data.reDrawList()
 
-# Redraw list using current values of nodes.	
-def reDrawList():
-	Data.makeListLayout(Data.ListLayout)
-	Data.makeNavigationLayout(Data.NavigationLayout)
+def buttonSettings(instance):
+	Screen.layout.clear_widgets()
+	Screen.buildSettingsScreen()
 
-class MyApp(App):
-	# Responsible for building the program.
-	def build(self):
-		# Start the monitor process.
-		Data.runMonitorProcess()
 
+def buttonSettingsClose():
+	Screen.layout.clear_widgets()
+	Screen.buildMainScreen()
+
+''' ----- 
+    ScreenBank
+    ----- '''
+
+# Class that stores the main layout and build the different screens of the program.
+class ScreenBank:
+	# Initialize the class.
+	def __init__(self):
 		#Define window size.
 		Config.set('graphics', 'width', Data.factor*800) 
 		Config.set('graphics', 'height', Data.factor*600)
 
-		# Layout that will design the screen.
-		layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
+		self.layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
+		self.sett = Settings()
+		self.sett.on_close = buttonSettingsClose 
+		self.settings_json = json.dumps([
+		    {'type': 'title',
+		     'title': 'example title'},
+		    {'type': 'bool',
+		     'title': 'A boolean setting',
+		     'desc': 'Boolean description text',
+		     'section': 'example',
+		     'key': 'boolexample'},
+		    {'type': 'numeric',
+		     'title': 'A numeric setting',
+		     'desc': 'Numeric description text',
+		     'section': 'example',
+		     'key': 'numericexample'},
+		    {'type': 'string',
+		     'title': 'A string setting',
+		     'desc': 'String description text',
+		     'section': 'example',
+		     'key': 'stringexample'},
+		    {'type': 'path',
+		     'title': 'A path setting',
+		     'desc': 'Path description text',
+		     'section': 'example',
+		     'key': 'pathexample'}])
 
+	# Build the main screen, with header, list, navigation and command.
+	def buildMainScreen(self):
 		# Make header layout and add to the main.
-		HeaderLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
+		HeaderLayout = GridLayout(cols=3, row_default_height=Data.factor*15)
 		Data.makeHeaderLayout(HeaderLayout)
-		layout.add_widget(HeaderLayout)
+		self.layout.add_widget(HeaderLayout)
 
 		# Make list rows and add it to the main layout 
 		Data.ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, rows=(Data.npp + 1) , size_hint_y=3)
-		layout.add_widget(Data.ListLayout)
+		self.layout.add_widget(Data.ListLayout)
 
 		# Make Navigation Commands and add it to the main layout 
 		Data.NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
-		layout.add_widget(Data.NavigationLayout)
+		self.layout.add_widget(Data.NavigationLayout)
 
 
 		# Make Console Layout and add it to the main layout 
 		Data.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
 		Data.makeCommandLayout(Data.CommandLayout, 'Welcome to SPITZ Monitor')
-		layout.add_widget(Data.CommandLayout)
+		self.layout.add_widget(Data.CommandLayout)
 
-		reDrawList()
-		return layout
+		Data.reDrawList()
+
+	# Build the Settings screen.
+	def buildSettingsScreen(self):
+		# Make header layout and add to the main.
+		#HeaderLayout = GridLayout(cols=3, row_default_height=Data.factor*15)
+
+		#config = ConfigParser()
+		#config.read('/home/alexandre/.kivy/myconfig.ini')
+
+		#l.add_json_panel('My custom panel', config, os.path.join(os.path.dirname(__file__), 'gui.json'))
+		#settings.add_json_panel('Panel Name',self.config,data=settings_json)
+		#Data.makeHeaderLayout(HeaderLayout)
+
+		#self.sett.add_json_panel('Panel Name',MyApp.config,data=Screen.settings_json)
+		self.layout.add_widget(self.sett)
+
+
+class MyApp(App):
+	# Responsible for building the program.
+	def build(self):
+		# Start the monitor process.
+		#Data.runMonitorProcess()
+
+		# Layout that will design the screen.
+		Screen.buildMainScreen()
+
+		return Screen.layout
 
 	# Run when closing. Send a quit message and print the sucess (or not) message.
 	def on_stop(self):
 		Data.getStatusMessage(0)
 		print Data.ln
 
+	def build_config(self, config):
+		print 'BUILD CONFIG'
+		config.setdefaults('example', {
+		     'boolexample' : 'True',
+		     'numericexample' : '12',
+		     'stringexample' : 'sssssssstring',
+		     'pathexample' : '/asdsa/dsad'
+		})
 
+		jsondata = Screen.settings_json 
+		Screen.sett.add_json_panel('Test application',self.config, data=jsondata)
+
+
+	def build_settings(self, settings):
+		print 'BUILD SETTINGS'
+		
 # Main part.
 if __name__ == "__main__":
 	Data = MonitorData(1, 10)
+	Screen = ScreenBank() 	
+
 	MyApp().run()
