@@ -77,16 +77,30 @@ class MonitorData:
 
 	# Send a request to the monitor to launch the VM present in the provided ip|port string.
 	def launchVMnode(self, task, ip):
-		'''	# Connect, if not connected yet, to SSH and SFTP
+		# Connect, if not connected yet, to SSH and SFTP
 		if not hasattr(self, 'ssh'):
 			self.ssh = paramiko.SSHClient()
 			self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-			self.ssh.connect('143.106.16.163', username='USER', password='SENHA') 
-			self.ssh.exec_command('mkdir -p ~/spitz')
-			self.sftp = self.ssh.open_sftp()
+			self.ssh.connect(str(Screen.AppInstance.config.get('example', 'vm_ip')),
+						username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
+						password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+			#self.ssh.exec_command('mkdir -p ~/spitz')
+			#self.sftp = self.ssh.open_sftp()
+
+		#self.ssh.exec_command('cd spitz/examples')
+		#command = 'LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \ '
+		#command = command + './spitz 4 127.0.0.1 ' + str(Screen.AppInstance.config.get('example', 'lib_path')) + ' '
+		#command = command + str(Screen.AppInstance.config.get('example', 'num_tasks'))	
+		#print command
+
+		stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test')
+		#print 'LAUNCH VM NODE STDOUT:'
+		#print stdout.readlines()
+		#print stderr.readlines()
+		#print 'END'
 
 		# Send spitz and libspitz.so to VM node.
-		if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
+		'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
 			self.sftp.put('spitz', 'spitz/spitz') 
 			self.ssh.exec_command('chmod 555 ~/spitz/spitz')
 			self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
