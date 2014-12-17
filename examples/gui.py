@@ -40,7 +40,14 @@ class MonitorData:
 
 	# Starts monitor C process.
 	def runMonitorProcess(self):
-		self.p = subprocess.Popen(["./spitz", "3", "127.0.0.1", "prime.so", "100"],
+		lib_path = str(self.config.get('example', 'lib_path'))
+		jm_ip = str(self.config.get('example', 'jm_address'))
+		num_tasks = str(self.config.get('example', 'num_tasks'))
+
+		print 'My DEBUGGG'
+		print num_tasks
+
+		self.p = subprocess.Popen(["./spitz", "3", jm_ip, lib_path, num_tasks],
 			     stdout=subprocess.PIPE,
 			     stdin=subprocess.PIPE,
 			     cwd="/home/alexandre/Codes/spitz/examples")
@@ -240,13 +247,9 @@ def buttonUpdate(instance):
 	Data.reDrawList()
 
 def buttonSettings(instance):
-	Screen.layout.clear_widgets()
+	#Screen.layout.clear_widgets()
 	Screen.buildSettingsScreen()
 
-
-def buttonSettingsClose():
-	Screen.layout.clear_widgets()
-	Screen.buildMainScreen()
 
 ''' ----- 
     ScreenBank
@@ -261,27 +264,25 @@ class ScreenBank:
 		Config.set('graphics', 'height', Data.factor*600)
 
 		self.layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
-		self.sett = Settings()
-		self.sett.on_close = buttonSettingsClose 
 		self.settings_json = json.dumps([
 		    {'type': 'title',
-		     'title': 'example title'},
-		    {'type': 'bool',
-		     'title': 'A boolean setting',
-		     'desc': 'Boolean description text',
-		     'section': 'example',
-		     'key': 'boolexample'},
-		    {'type': 'numeric',
-		     'title': 'A numeric setting',
-		     'desc': 'Numeric description text',
-		     'section': 'example',
-		     'key': 'numericexample'},
+		     'title': 'Parameters'},
 		    {'type': 'string',
-		     'title': 'A string setting',
-		     'desc': 'String description text',
+		     'title': 'Job Manager IP',
+		     'desc': 'Address of the JM.',
 		     'section': 'example',
-		     'key': 'stringexample'},
+		     'key': 'jm_address'},
 		    {'type': 'path',
+		     'title': 'Library Path',
+		     'desc': 'File with user functions.',
+		     'section': 'example',
+		     'key': 'lib_path'},
+		    {'type': 'numeric',
+		     'title': 'Number of Tasks',
+		     'desc': 'Amount of work to be done.',
+		     'section': 'example',
+		     'key': 'num_tasks'},
+		    {'type': 'string',
 		     'title': 'A path setting',
 		     'desc': 'Path description text',
 		     'section': 'example',
@@ -312,21 +313,13 @@ class ScreenBank:
 
 	# Build the Settings screen.
 	def buildSettingsScreen(self):
-		# Make header layout and add to the main.
-		#HeaderLayout = GridLayout(cols=3, row_default_height=Data.factor*15)
-
-		#config = ConfigParser()
-		#config.read('/home/alexandre/.kivy/myconfig.ini')
-
-		#l.add_json_panel('My custom panel', config, os.path.join(os.path.dirname(__file__), 'gui.json'))
-		#settings.add_json_panel('Panel Name',self.config,data=settings_json)
-		#Data.makeHeaderLayout(HeaderLayout)
-
-		#self.sett.add_json_panel('Panel Name',MyApp.config,data=Screen.settings_json)
-		self.layout.add_widget(self.sett)
+		MyApp.open_settings(self.AppInstance)
+		#self.layout.add_widget(self.sett)
 
 
 class MyApp(App):
+	use_kivy_settings = False
+
 	# Responsible for building the program.
 	def build(self):
 		# Start the monitor process.
@@ -344,19 +337,30 @@ class MyApp(App):
 
 	def build_config(self, config):
 		print 'BUILD CONFIG'
-		config.setdefaults('example', {
-		     'boolexample' : 'True',
-		     'numericexample' : '12',
-		     'stringexample' : 'sssssssstring',
+		self.config.setdefaults('example', {
+		     'jm_address' : '127.0.0.1',
+		     'lib_path' : 'prime.so',
+		     'num_tasks' : '100',
 		     'pathexample' : '/asdsa/dsad'
 		})
 
-		jsondata = Screen.settings_json 
-		Screen.sett.add_json_panel('Test application',self.config, data=jsondata)
+		Screen.AppInstance = self
+
+		#Screen.sett = self.settings
+		#Screen.sett.on_close = buttonSettingsClose
+		#jsondata = Screen.settings_json 
+		#Screen.sett.add_json_panel('SPITZ Virtual Machine',self.config, data=jsondata)
+		#Data.config = self.config
 
 
 	def build_settings(self, settings):
 		print 'BUILD SETTINGS'
+
+		jsondata = Screen.settings_json 
+		settings.add_json_panel('SPITZ Virtual Machine',self.config, data=jsondata)
+		#self.sett = Settings()
+
+		#self.open_settings()	
 		
 # Main part.
 if __name__ == "__main__":
