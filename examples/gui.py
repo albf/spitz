@@ -2,6 +2,7 @@ import kivy
 from kivy.uix.gridlayout import GridLayout
 from kivy.app import App
 from kivy.uix.button import Button
+from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
 from kivy.config import Config
@@ -14,7 +15,7 @@ import subprocess
 import sys
 import os
 import paramiko
-
+from datetime import datetime
 
 ''' ----- 
     MonitorData 
@@ -35,8 +36,16 @@ class MonitorData:
 		self.lastIndex= -1 
 		self.lastOrder = -1
 		self.ln = ""
-		self.TotalTasks = 1
-		self.total_compl = 0
+		self.TotalTasks = 1		# Number of tasks, initiate with 1 to avoid division issues.
+		self.total_compl = 0		# Total completed tasks.
+		self.log = ""			# Stores all log information.
+
+		# Layout that represents the list.
+		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
+		self.NavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+
+		# Layout that represents the log
+		self.LogWidget = TextInput(multiline=True)
 
 	# Starts monitor C process.
 	def runMonitorProcess(self):
@@ -93,7 +102,7 @@ class MonitorData:
 		#command = command + str(Screen.AppInstance.config.get('example', 'num_tasks'))	
 		#print command
 
-		stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test')
+		stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
 		#print 'LAUNCH VM NODE STDOUT:'
 		#print stdout.readlines()
 		#print stderr.readlines()
@@ -182,15 +191,31 @@ class MonitorData:
 	# Makes the header layout, with the commands.
 	def makeHeaderLayout(self, layout):
 		layout.clear_widgets()
-		btnP = Button(text="Update", size_hint_x=None, width = self.factor*266)
-		btnP.bind(on_press = buttonUpdate)
 
+		btnP = Button(text="Update", size_hint_x=None, width = self.factor*125)
+		btnP.bind(on_press = buttonUpdate)
 		layout.add_widget(btnP)
-		btnV = Button(text="Launch VM", size_hint_x=None, width = self.factor*266)
+
+		btnSep = Button(text="", size_hint_x=None, width = self.factor*50)
+		layout.add_widget(btnSep)
+
+		btnLi = ToggleButton(text="List", group='menu', size_hint_x=None, width = self.factor*125, state='down')
+		btnLi.bind(on_press = buttonList)
+		layout.add_widget(btnLi)
+
+		btnV = ToggleButton(text="VM Launcher", group='menu', size_hint_x=None, width = self.factor*125)
 		btnV.bind(on_press = buttonVM)
 		layout.add_widget(btnV)
 
-		btnS = Button(text="Settings", size_hint_x=None, width = self.factor*267)
+		btnS = ToggleButton(text="Statistics", group='menu', size_hint_x=None, width = self.factor*125)
+		#btnS.bind(on_press = buttonS)
+		layout.add_widget(btnS)
+
+		btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
+		btnL.bind(on_press = buttonLog)
+		layout.add_widget(btnL)
+
+		btnS = Button(text="Settings", size_hint_x=None, width = self.factor*125)
 		btnS.bind(on_press = buttonSettings)
 		layout.add_widget(btnS)
 
@@ -205,6 +230,11 @@ class MonitorData:
 
 		layout.add_widget(self.commandWidget)
 		layout.add_widget(pb)
+	
+		#Get current time and add the message to the log pile.	
+		logmessage = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+		logmessage = logmessage + " >>> " + itext 
+		self.log = self.log + "\n" + logmessage
 
 	# Redraw list using current values of nodes.	
 	def reDrawList(self):
@@ -212,6 +242,10 @@ class MonitorData:
 		self.makeNavigationLayout(self.NavigationLayout)
 
 
+	def makeLogLayout(self):
+		self.LogWidget.readonly = True
+		self.LogWidget.text = self.log
+			
 
 ''' ----- 
     Handlers of the main screen.
@@ -265,6 +299,14 @@ def buttonSettings(instance):
 	#Screen.layout.clear_widgets()
 	Screen.buildSettingsScreen()
 
+def buttonLog(instane):
+	Data.makeLogLayout()
+	Screen.buildLogScreen()
+
+def buttonList(instance):
+	print "xx"
+	Screen.buildListScreen()
+
 
 ''' ----- 
     ScreenBank
@@ -278,7 +320,10 @@ class ScreenBank:
 		Config.set('graphics', 'width', Data.factor*800) 
 		Config.set('graphics', 'height', Data.factor*600)
 
+		# Create main and middle layout
 		self.layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
+		self.MiddleLayout = GridLayout(cols=1, size_hint_y=11)
+
 		self.settings_json = json.dumps([
 		    {'type': 'string',
 		     'title': 'Job Manager IP',
@@ -309,7 +354,7 @@ class ScreenBank:
 		     'key': 'vm_prt'}, 
 		   {'type': 'string',
 		     'title': 'SSH Login',
-		     'desc': 'Used to log in VM TM.',
+		     'desc': 'Used to log in Virtual Machine TM.',
 		     'section': 'example',
 		     'key': 'ssh_login'},
 		   {'type': 'string',
@@ -318,22 +363,37 @@ class ScreenBank:
 		     'section': 'example',
 		     'key': 'ssh_pass'}])
 
+		self.settings_json3 = json.dumps([
+		   {'type': 'bool',
+		     'title': 'SSH Port Fowarding',
+		     'desc': 'Activate/Deactivate for connecting with Job Manager',
+		     'section': 'example',
+		     'key': 'ssh_pf_bool'},
+		   {'type': 'string',
+		     'title': 'SSH Login',
+		     'desc': 'Username used in SSH connection.',
+		     'section': 'example',
+		     'key': 'ssh_pf_login'}, 
+		   {'type': 'string',
+		     'title': 'SSH Password',
+		     'desc': 'Look behind you before typing.',
+		     'section': 'example',
+		     'key': 'ssh_pf_pass'}])
+
 
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self):
 		# Make header layout and add to the main.
-		HeaderLayout = GridLayout(cols=3, row_default_height=Data.factor*15)
+		HeaderLayout = GridLayout(cols=7, row_default_height=Data.factor*15)
 		Data.makeHeaderLayout(HeaderLayout)
 		self.layout.add_widget(HeaderLayout)
 
-		# Make list rows and add it to the main layout 
-		Data.ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, rows=(Data.npp + 1) , size_hint_y=3)
-		self.layout.add_widget(Data.ListLayout)
+		# Make list rows and add it to the middle layout 
+		self.MiddleLayout.add_widget(Data.ListLayout)
 
-		# Make Navigation Commands and add it to the main layout 
-		Data.NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
-		self.layout.add_widget(Data.NavigationLayout)
-
+		# Build list screen and add Middle Layout to the main layout.
+		self.buildListScreen()
+		self.layout.add_widget(self.MiddleLayout)
 
 		# Make Console Layout and add it to the main layout 
 		Data.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
@@ -341,6 +401,17 @@ class ScreenBank:
 		self.layout.add_widget(Data.CommandLayout)
 
 		Data.reDrawList()
+
+	# Build the list screen, just updating the middle layout.
+	def buildListScreen(self):
+		self.MiddleLayout.clear_widgets()
+		self.MiddleLayout.add_widget(Data.ListLayout)
+		self.MiddleLayout.add_widget(Data.NavigationLayout)
+
+	# Build the log screen, justu pdating the middle layout.
+	def buildLogScreen(self):
+		self.MiddleLayout.clear_widgets()
+		self.MiddleLayout.add_widget(Data.LogWidget)
 
 	# Build the Settings screen.
 	def buildSettingsScreen(self):
@@ -375,7 +446,10 @@ class MyApp(App):
 		     'vm_ip' : '127.0.0.1',
 		     'vm_prt' : '11006',
 		     'ssh_login' : 'user',
-		     'ssh_pass' : 'pass'
+		     'ssh_pass' : 'pass',
+		     'ssh_pf_bool' : True,
+		     'ssh_pf_login' : 'user',
+		     'ssh_pf_pass' : 'pass',
 		})
 
 		Screen.AppInstance = self
@@ -391,13 +465,13 @@ class MyApp(App):
 		print 'BUILD SETTINGS'
 
 		jsondata = Screen.settings_json 
-		print jsondata
 		settings.add_json_panel('Spitz Parameters',self.config, data=jsondata)
-		#self.sett = Settings()
+
 		jsondata = Screen.settings_json2 
-		print jsondata
 		settings.add_json_panel('Virtual Machine',self.config, data=jsondata)
 	
+		jsondata = Screen.settings_json3 
+		settings.add_json_panel('Port Fowarding',self.config, data=jsondata)
 		#self.open_settings()	
 		
 # Main part.
