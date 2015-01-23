@@ -15,7 +15,11 @@ import subprocess
 import sys
 import os
 import paramiko
+import socket
 from datetime import datetime
+from azure import *
+from azure.servicemanagement import *
+
 
 ''' ----- 
     MonitorData 
@@ -26,23 +30,33 @@ class MonitorData:
 	# Initialize the class.
 	def __init__(self, factor, NodesPerPage):
 		self.columns = ['ID', 'IP', 'PORT', 'TYPE', 'ON', 'RECEIVED','COMPLETED']  
-		self.rows = []
-		self.index = 0
-		self.npp = NodesPerPage
+		self.rows = []			# Rows representing the status values.
+		self.index = 0			# Index of the current page 
+		self.npp = NodesPerPage		# Nodes displayed in each status page.
 		self.wid = [factor*50,factor*250,factor*100,factor*50,factor*50,factor*150,factor*150]
-		self.factor = factor
+		self.factor = factor		# Factor of screen size.
 		self.total_rcvd = 0
-		self.total_compl = 0
+		self.total_compl = 0		# Total completed tasks.
 		self.lastIndex= -1 
 		self.lastOrder = -1
 		self.ln = ""
 		self.TotalTasks = 1		# Number of tasks, initiate with 1 to avoid division issues.
 		self.total_compl = 0		# Total completed tasks.
-		self.log = ""			# Stores all log information.
+		self.log = ""			# Stores all log information
+
+		# VM Variables.
+		self.IsVMsListed = False	# Indicate if VMs are listed alredy.
+		self.VMcolumns = ['Name', 'Location', 'Reachable', 'Spitz', 'Action'] 
+		self.VMwid = [factor*200, factor*200, factor*100, factor*100, factor*200] 
+		self.VMrows = []
 
 		# Layout that represents the list.
 		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
 		self.NavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+
+		# Layout that represents the VMlist..
+		self.VMListLayout = GridLayout(cols=len(self.VMcolumns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
+		self.VMNavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
 
 		# Layout that represents the log
 		self.LogWidget = TextInput(multiline=True)
@@ -53,13 +67,59 @@ class MonitorData:
 		jm_ip = str(Screen.AppInstance.config.get('example', 'jm_address'))
 		num_tasks = str(Screen.AppInstance.config.get('example', 'num_tasks'))
 
-		print 'My DEBUGGG'
-		print num_tasks
-
+		# Run a spitz instance as a subprocess.
 		self.p = subprocess.Popen(["./spitz", "3", jm_ip, lib_path, num_tasks],
 			     stdout=subprocess.PIPE,
 			     stdin=subprocess.PIPE,
 			     cwd="/home/alexandre/Codes/spitz/examples")
+
+	def connectToCloudProvider(self):
+		subscription_id = str(Screen.AppInstance.config.get('example', 'subscription_id'))
+		certificate_path = str(Screen.AppInstance.config.get('example', 'certificate_path'))
+ 		sms = ServiceManagementService(subscription_id, certificate_path)
+
+		try:
+			result = sms.list_hosted_services()
+			for hosted_service in result:
+				print hosted_service.service_name
+				if "spitz" in str(hosted_service.service_name).lower() :
+					address = str(hosted_service.service_name) + ".cloudapp.net"
+					sshs = paramiko.SSHClient()
+					sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+					reach = "YES"					
+					isThereSpitz = "NO"
+	
+					try:
+						sshs.connect(address,
+							 username=str(Screen.AppInstance.config.get('example', 'ssh_login')),
+							 password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+
+						stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
+						pid = stdouts.readlines()
+						if len(pid) != 0:
+							isThereSpitz = "YES"
+					except socket.gaierror as e1:
+						Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+						reach = "NO"
+					except socket.error as e2:
+						Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+						reach = "NO"
+					except paramiko.AuthenticationException as e3:
+						Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+						reach = "NO"
+					except:
+						Data.makeCommandLayout(Data.CommandLayout, "unexpected error connecting to " + str(address) + ".")
+						reach = "NO"
+
+
+
+					self.VMrows.append([hosted_service.service_name, address, reach, isThereSpitz, "NOTHING"])
+					print self.VMrows	
+
+			self.IsVMsListed = True	
+
+		except WindowsAzureError as WAE:
+			Data.makeCommandLayout(Data.CommandLayout, "Couldn't connect with Azure, is your credentials right?") 
 
 	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
@@ -188,6 +248,39 @@ class MonitorData:
 			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
 		self.NavigationLayout = layout
 
+	# Makes the layout of the VM list, adding the columns name, the ordering handlers and the actual page.
+	def makeVMListLayout(self, layout):	
+		layout.clear_widgets()
+		for col in range(len(self.VMcolumns)):
+			btnO = Button(text=self.VMcolumns[col], size_hint_x=None, width=self.VMwid[col])
+			btnO.bind(on_press=buttonOrder)
+			layout.add_widget(btnO)
+		
+		upper = min(len(self.VMrows), (self.index + 1)*self.npp)
+		#print "upper: "+str(upper)
+		for i in range(self.index*self.npp, upper):
+			for j in range(len(self.VMwid)):
+				layout.add_widget(Button(text=str(self.VMrows[i][j]), size_hint_x=None, width=self.VMwid[j]))
+		self.VMListLayout = layout
+
+	# Makes the buttons to navigate the VM list. Add the handler and text if there is any.
+	def makeVMNavigationLayout(self, layout):
+		layout.clear_widgets()
+		if(self.index > 0):
+			btnP = Button(text="Previous", size_hint_x=None, width = self.factor*400)
+			btnP.bind(on_press = VMbuttonPrev)
+			layout.add_widget(btnP)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
+
+		if(len(self.rows)>(self.index + 1)*self.npp):
+			btnN = Button(text="Next", size_hint_x=None, width = self.factor*400)
+			btnN.bind(on_press = VMbuttonNext)
+			layout.add_widget(btnN)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
+		self.VMNavigationLayout = layout
+
 	# Makes the header layout, with the commands.
 	def makeHeaderLayout(self, layout):
 		layout.clear_widgets()
@@ -253,10 +346,13 @@ class MonitorData:
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	ip = str(Screen.AppInstance.config.get('example', 'vm_ip')) + '|' + str(Screen.AppInstance.config.get('example', 'vm_prt')) 
-	#ip = '191.238.16.92|11006'
-	Data.makeCommandLayout(Data.CommandLayout, 'Connecting to VM Task Manager in : ' + str(ip))
-	Data.launchVMnode(2, ip)
+	Data.index = 0				# Reset the current index.
+	if(Data.IsVMsListed == False):
+		Data.connectToCloudProvider()
+		Data.makeVMListLayout(Data.VMListLayout)
+		Data.makeVMNavigationLayout(Data.VMNavigationLayout)
+
+	Screen.buildVMListScreen()
 
 # Handler of the Prev button, return to the previous page.		
 def buttonPrev(instance):
@@ -304,7 +400,7 @@ def buttonLog(instane):
 	Screen.buildLogScreen()
 
 def buttonList(instance):
-	print "xx"
+	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
 
 
@@ -380,6 +476,17 @@ class ScreenBank:
 		     'section': 'example',
 		     'key': 'ssh_pf_pass'}])
 
+		self.settings_json4 = json.dumps([
+		   {'type': 'string',
+		     'title': 'Subscription ID',
+		     'desc': 'ID obtained in Azure.',
+		     'section': 'example',
+		     'key': 'subscription_id'}, 
+		   {'type': 'path',
+		     'title': 'Certificate Path',
+		     'desc': 'Location of the path sent to Azure.',
+		     'section': 'example',
+		     'key': 'certificate_path'}])
 
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self):
@@ -408,6 +515,12 @@ class ScreenBank:
 		self.MiddleLayout.add_widget(Data.ListLayout)
 		self.MiddleLayout.add_widget(Data.NavigationLayout)
 
+	# Build the list screen, just updating the middle layout.
+	def buildVMListScreen(self):
+		self.MiddleLayout.clear_widgets()
+		self.MiddleLayout.add_widget(Data.VMListLayout)
+		self.MiddleLayout.add_widget(Data.VMNavigationLayout)
+
 	# Build the log screen, justu pdating the middle layout.
 	def buildLogScreen(self):
 		self.MiddleLayout.clear_widgets()
@@ -426,6 +539,7 @@ class MyApp(App):
 	def build(self):
 		# Start the monitor process.
 		Data.runMonitorProcess()
+		#Data.connectToCloudProvider()
 
 		# Layout that will design the screen.
 		Screen.buildMainScreen()
@@ -450,6 +564,8 @@ class MyApp(App):
 		     'ssh_pf_bool' : True,
 		     'ssh_pf_login' : 'user',
 		     'ssh_pf_pass' : 'pass',
+		     'subscription_id' : 'id',
+		     'certificate_path' : '/',
 		})
 
 		Screen.AppInstance = self
@@ -472,6 +588,9 @@ class MyApp(App):
 	
 		jsondata = Screen.settings_json3 
 		settings.add_json_panel('Port Fowarding',self.config, data=jsondata)
+
+		jsondata = Screen.settings_json4 
+		settings.add_json_panel('Cloud Provider',self.config, data=jsondata)
 		#self.open_settings()	
 		
 # Main part.
