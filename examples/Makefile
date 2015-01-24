@@ -59,21 +59,21 @@ gdb4: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
 			gdb --args ./spitz 4 127.0.0.1 prime.so 100
 
-test: pi.so
-	# Set some environment variables
+test0: prime.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			./spitz 0 127.0.0.1 prime.so 100
 
+test1: prime.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			./spitz 1 127.0.0.1 prime.so 100
 
-	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			#gdb --args ./spitz 2 127.0.0.1 prime.so 30
+test2: prime.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			./spitz 2 127.0.0.1 prime.so 100
 
-	#LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			#valgrind --tool=memcheck --leak-check=full ./spitz 2 127.0.0.1 prime.so 30
-	
-			# gdb --args ./spitz 2 127.0.0.1 $$PWD/pi.so 30
-	#LD_LIBRARY_PATH=$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-	#		mpirun -np 3 spitz $$PWD/picpp.so 10000
-	# format : ./spitz #type #ipManager #Path.so #TotalJobs
+test4: prime.so
+	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
+			./spitz 4 127.0.0.1 prime.so 100
 
 debug: pi.so picpp.so
 	export SPITS_LOG_LEVEL=2

@@ -122,6 +122,8 @@ class MonitorData:
 					self.VMrows.append([hosted_service.service_name, address, reach, isThereSpitz, action])
 					print self.VMrows	
 
+			# Debug for running a VM TM locally.
+			self.VMrows.append(["Debug", "localhost", 1, 1, "Start"])
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:

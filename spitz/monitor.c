@@ -83,12 +83,12 @@ void monitor(int argc, char *argv[])
             error("VM IP: %s", vm_send);
 
             retries = 3;
-            is_connected = COMM_connect_to_committer(&retries);
+            /*is_connected = COMM_connect_to_committer(&retries);
             
             if(is_connected < 0) {
                 error("Couldn't connect to committer!");
             }
-            else {
+            else { */
                 v = vm_send;
                 n = (size_t) strlen(vm_send);
                 
@@ -113,7 +113,7 @@ void monitor(int argc, char *argv[])
                         error("VM IP and PORT sent successfully to Job Manager");
                         break;
                     }
-                }
+                } /*
 
                 if (retries>0) {
                     type = MSG_EMPTY;
@@ -137,7 +137,7 @@ void monitor(int argc, char *argv[])
                     }
                     printf("[STATUS #02] Success \n");                
                 } 
-            }
+            } */
         }
         // Get number of tasks command. 
         else if(command == 3) {
