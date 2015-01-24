@@ -507,6 +507,8 @@ int COMM_setup_committer_network() {
     for (i = 0; i < max_clients; i++) {
         COMM_client_socket[i] = 0;
     }
+
+    COMM_client_socket[0] = socket_manager;
       
     //  create a master socket
     if( (COMM_master_socket= socket(AF_INET , SOCK_STREAM , 0)) == 0) {

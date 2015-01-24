@@ -231,8 +231,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_NEW_VM_TASK_MANAGER:
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
-                COMM_connect_to_vm_task_manager(&retries, ba);
                 COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
+                COMM_connect_to_vm_task_manager(&retries, ba);
                 break;
             case MSG_GET_NUM_TASKS:
                 aux = atoi(argv[0]);

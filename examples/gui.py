@@ -20,6 +20,7 @@ from datetime import datetime
 from azure import *
 from azure.servicemanagement import *
 from functools import partial
+import atexit
 
 ''' ----- 
     MonitorData 
@@ -202,43 +203,46 @@ class MonitorData:
 		ssh = paramiko.SSHClient()
 		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-		try:
-			ssh.connect(address,
-				username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
-				password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+		if(address != "localhost"):
+			try:
+				ssh.connect(address,
+					username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
+					password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
 
-			# Send spitz and libspitz.so to VM node.
-			'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
-				self.sftp.put('spitz', 'spitz/spitz') 
-				self.ssh.exec_command('chmod 555 ~/spitz/spitz')
-				self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
-			else:
-				raise Exception('Spitz file(s) missing') '''
+				# Send spitz and libspitz.so to VM node.
+				'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
+					self.sftp.put('spitz', 'spitz/spitz') 
+					self.ssh.exec_command('chmod 555 ~/spitz/spitz')
+					self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
+				else:
+					raise Exception('Spitz file(s) missing') '''
 
-			stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
-			self.VMrows[index][3] = "YES"
-		
-		except socket.gaierror as e1:
-			Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
-			reach = "NO"
-		except socket.error as e2:
-			Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
-			reach = "NO"
-		except paramiko.AuthenticationException as e3:
-			Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
-			reach = "NO"
+				stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
+				self.VMrows[index][3] = "YES"
+			
+			except socket.gaierror as e1:
+				Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+				reach = "NO"
+			except socket.error as e2:
+				Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+				reach = "NO"
+			except paramiko.AuthenticationException as e3:
+				Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+				reach = "NO"
 
 		# Second part, send info to the monitor. 
-		if(isConnected == 1):
+		if(reach == "YES"):
 			self.p.stdin.write(str(task)+"\n")
-			ip = socket.gethostbyname(address) 
-			self.p.stdin.write(str(ip)+"\n")
+			ip = str(socket.gethostbyname(address)) + "|11006" 
+			self.p.stdin.write(ip+"\n")
 			while 1:
 				self.ln = self.p.stdout.readline()
 				print "MESSAGE: " + str(self.ln)
 				if self.ln.startswith("[STATUS"):
 					return 
-			Data.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
+
+			self.p.kill()
+			self.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
 			return True
 		return False	
 
@@ -669,6 +673,12 @@ class MyApp(App):
 		
 # Main part.
 if __name__ == "__main__":
+	Data = MonitorData(1, 10)
+	Screen = ScreenBank() 	
+
+	MyApp().run()
+
+def test():
 	Data = MonitorData(1, 10)
 	Screen = ScreenBank() 	
 
