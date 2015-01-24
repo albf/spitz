@@ -19,7 +19,7 @@ import socket
 from datetime import datetime
 from azure import *
 from azure.servicemanagement import *
-
+from functools import partial
 
 ''' ----- 
     MonitorData 
@@ -73,6 +73,8 @@ class MonitorData:
 			     stdin=subprocess.PIPE,
 			     cwd="/home/alexandre/Codes/spitz/examples")
 
+	# Connect to Azure and get information about all services with SPITZ in their name.
+	# Check if it's on and if there is a spitz instance running.
 	def connectToCloudProvider(self):
 		subscription_id = str(Screen.AppInstance.config.get('example', 'subscription_id'))
 		certificate_path = str(Screen.AppInstance.config.get('example', 'certificate_path'))
@@ -111,15 +113,60 @@ class MonitorData:
 						Data.makeCommandLayout(Data.CommandLayout, "unexpected error connecting to " + str(address) + ".")
 						reach = "NO"
 
+					action = "Try Again"
+					if (reach == "YES") and (isThereSpitz=="YES"):
+						action = "Stop"
+					elif (reach == "YES") and (isThereSpitz=="NO"):
+						action = "Start"
 
-
-					self.VMrows.append([hosted_service.service_name, address, reach, isThereSpitz, "NOTHING"])
+					self.VMrows.append([hosted_service.service_name, address, reach, isThereSpitz, action])
 					print self.VMrows	
 
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
 			Data.makeCommandLayout(Data.CommandLayout, "Couldn't connect with Azure, is your credentials right?") 
+
+	# Test if an unreachable VM is, now, reachable. Also checks for SPITZ intance if it's on. 
+	def VMTryAgain(self, index):
+		address = self.VMrows[index][1] 
+		print address
+		sshs = paramiko.SSHClient()
+		sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+		reach = "YES"					
+		isThereSpitz = "NO"
+
+		try:
+			sshs.connect(address,
+				 username=str(Screen.AppInstance.config.get('example', 'ssh_login')),
+				 password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+
+			stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
+			pid = stdouts.readlines()
+			if len(pid) != 0:
+				isThereSpitz = "YES"
+		except socket.gaierror as e1:
+			Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+			reach = "NO"
+		except socket.error as e2:
+			Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+			reach = "NO"
+		except paramiko.AuthenticationException as e3:
+			Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+			reach = "NO"
+		except:
+			Data.makeCommandLayout(Data.CommandLayout, "unexpected error connecting to " + str(address) + ".")
+			reach = "NO"
+
+		if(reach=="YES"):
+			self.VMrows[index][2] = reach
+			self.VMrows[index][3] = isThereSpitz
+			if(isThereSpitz == "YES"):
+				self.VMrows[index][4] = "Stop"
+			else:
+				self.VMrows[index][4] = "Start"
+
+		return reach
 
 	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
@@ -144,46 +191,48 @@ class MonitorData:
 				return 
 
 
-	# Send a request to the monitor to launch the VM present in the provided ip|port string.
+	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	def launchVMnode(self, task, ip):
-		# Connect, if not connected yet, to SSH and SFTP
-		if not hasattr(self, 'ssh'):
-			self.ssh = paramiko.SSHClient()
-			self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-			self.ssh.connect(str(Screen.AppInstance.config.get('example', 'vm_ip')),
+		isConnected = 0
+
+		# First Part : Connect to SSH and run SPITZ in the choosed VM
+		ssh = paramiko.SSHClient()
+		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+		try:
+			ssh.connect(str(Screen.AppInstance.config.get('example', 'vm_ip')),
 						username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
 						password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
-			#self.ssh.exec_command('mkdir -p ~/spitz')
-			#self.sftp = self.ssh.open_sftp()
 
-		#self.ssh.exec_command('cd spitz/examples')
-		#command = 'LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \ '
-		#command = command + './spitz 4 127.0.0.1 ' + str(Screen.AppInstance.config.get('example', 'lib_path')) + ' '
-		#command = command + str(Screen.AppInstance.config.get('example', 'num_tasks'))	
-		#print command
+			# Send spitz and libspitz.so to VM node.
+			'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
+				self.sftp.put('spitz', 'spitz/spitz') 
+				self.ssh.exec_command('chmod 555 ~/spitz/spitz')
+				self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
+			else:
+				raise Exception('Spitz file(s) missing') '''
 
-		stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
-		#print 'LAUNCH VM NODE STDOUT:'
-		#print stdout.readlines()
-		#print stderr.readlines()
-		#print 'END'
-
-		# Send spitz and libspitz.so to VM node.
-		'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
-			self.sftp.put('spitz', 'spitz/spitz') 
-			self.ssh.exec_command('chmod 555 ~/spitz/spitz')
-			self.sftp.put('libspitz.so', 'spitz/libspitz.so') 
-		else:
-			raise Exception('Spitz file(s) missing') '''
-
+			stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
+			isConnected = 1
 		
-		self.p.stdin.write(str(task)+"\n")
-		self.p.stdin.write(ip+"\n")
-		while 1:
-			self.ln = self.p.stdout.readline()
-			print "MESSAGE: " + str(self.ln)
-			if self.ln.startswith("[STATUS"):
-				return 
+		except socket.gaierror as e1:
+			Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+			reach = "NO"
+		except socket.error as e2:
+			Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+			reach = "NO"
+		except paramiko.AuthenticationException as e3:
+			Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+			reach = "NO"
+		
+		if(isConnected == 1):
+			self.p.stdin.write(str(task)+"\n")
+			self.p.stdin.write(ip+"\n")
+			while 1:
+				self.ln = self.p.stdout.readline()
+				print "MESSAGE: " + str(self.ln)
+				if self.ln.startswith("[STATUS"):
+					return 
 
 
 	# Using the last status received, parse the list string.
@@ -259,8 +308,14 @@ class MonitorData:
 		upper = min(len(self.VMrows), (self.index + 1)*self.npp)
 		#print "upper: "+str(upper)
 		for i in range(self.index*self.npp, upper):
-			for j in range(len(self.VMwid)):
+			for j in range(len(self.VMwid)-1):
 				layout.add_widget(Button(text=str(self.VMrows[i][j]), size_hint_x=None, width=self.VMwid[j]))
+
+			# Button responsible for VM action, as it has different index and action, calls partial functions.
+			btnA = Button(text=str(self.VMrows[i][len(self.VMwid)-1]), size_hint_x=None, width=self.VMwid[-1])
+			print i
+			btnA.bind(on_press=partial(buttonVMAction, i, btnA.text))
+			layout.add_widget(btnA)
 		self.VMListLayout = layout
 
 	# Makes the buttons to navigate the VM list. Add the handler and text if there is any.
@@ -403,7 +458,18 @@ def buttonList(instance):
 	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
 
+def buttonVMAction(*args, **kwargs):
+	index = args[0]
+	action = args[1]
+	print index
+	print action
+	
+	if(action == "Try Again"):
+		FoundIt = Data.VMTryAgain(index)
+		if(FoundIt == "YES"):
+			Screen.buildVMListScreen()
 
+	
 ''' ----- 
     ScreenBank
     ----- '''
