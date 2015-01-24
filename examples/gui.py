@@ -192,17 +192,18 @@ class MonitorData:
 
 
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
-	def launchVMnode(self, task, ip):
-		isConnected = 0
+	def launchVMnode(self, task, index):
+		reach = "YES"
+		address = self.VMrows[index][1] 
 
 		# First Part : Connect to SSH and run SPITZ in the choosed VM
 		ssh = paramiko.SSHClient()
 		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 		try:
-			ssh.connect(str(Screen.AppInstance.config.get('example', 'vm_ip')),
-						username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
-						password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+			ssh.connect(address,
+				username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
+				password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
 
 			# Send spitz and libspitz.so to VM node.
 			'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
@@ -213,7 +214,7 @@ class MonitorData:
 				raise Exception('Spitz file(s) missing') '''
 
 			stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
-			isConnected = 1
+			self.VMrows[index][3] = "YES"
 		
 		except socket.gaierror as e1:
 			Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
@@ -224,16 +225,20 @@ class MonitorData:
 		except paramiko.AuthenticationException as e3:
 			Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
 			reach = "NO"
-		
+
+		# Second part, send info to the monitor. 
 		if(isConnected == 1):
 			self.p.stdin.write(str(task)+"\n")
-			self.p.stdin.write(ip+"\n")
+			ip = socket.gethostbyname(address) 
+			self.p.stdin.write(str(ip)+"\n")
 			while 1:
 				self.ln = self.p.stdout.readline()
 				print "MESSAGE: " + str(self.ln)
 				if self.ln.startswith("[STATUS"):
 					return 
-
+			Data.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
+			return True
+		return False	
 
 	# Using the last status received, parse the list string.
 	def fillRows(self,status):
@@ -465,10 +470,11 @@ def buttonVMAction(*args, **kwargs):
 	print action
 	
 	if(action == "Try Again"):
-		FoundIt = Data.VMTryAgain(index)
-		if(FoundIt == "YES"):
+		if(Data.VMTryAgain(index) == "YES"):
 			Screen.buildVMListScreen()
-
+	elif(action == "Start"):
+		if(Data.launchVMnode(2, index) == True):
+			Screen.buildVMListScreen()
 	
 ''' ----- 
     ScreenBank
