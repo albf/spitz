@@ -50,6 +50,8 @@ class MonitorData:
 		self.VMcolumns = ['Name', 'Location', 'Reachable', 'Spitz', 'Action'] 
 		self.VMwid = [factor*200, factor*200, factor*100, factor*100, factor*200] 
 		self.VMrows = []
+		self.VMlastIndex= -1 
+		self.VMlastOrder = -1
 
 		# Layout that represents the list.
 		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
@@ -239,9 +241,9 @@ class MonitorData:
 				self.ln = self.p.stdout.readline()
 				print "MESSAGE: " + str(self.ln)
 				if self.ln.startswith("[STATUS"):
-					return 
+					break	
 
-			self.p.kill()
+			#self.p.kill()
 			self.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
 			return True
 		return False	
@@ -313,7 +315,7 @@ class MonitorData:
 		layout.clear_widgets()
 		for col in range(len(self.VMcolumns)):
 			btnO = Button(text=self.VMcolumns[col], size_hint_x=None, width=self.VMwid[col])
-			btnO.bind(on_press=buttonOrder)
+			btnO.bind(on_press=buttonVMOrder)
 			layout.add_widget(btnO)
 		
 		upper = min(len(self.VMrows), (self.index + 1)*self.npp)
@@ -448,6 +450,23 @@ def buttonOrder(instance):
 		Data.rows = sorted(Data.rows, key=itemgetter(index))
 
 	Data.makeListLayout(Data.ListLayout)
+
+# Handler responsible for ordering the list (using one of the columns).
+def buttonVMOrder(instance):
+	index = Data.VMcolumns.index(instance.text) 
+	if(Data.VMlastIndex == index):
+		if(Data.VMlastOrder == 1):
+			Data.VMlastOrder = -1
+			Data.VMrows = sorted(Data.VMrows, key=itemgetter(index), reverse = True)
+		else:
+			Data.VMrows = sorted(Data.VMrows, key=itemgetter(index)) 
+			Data.VMlastOrder = 1
+	else:
+		Data.VMlastIndex = index	
+		Data.VMlastOrder = 1
+		Data.VMrows = sorted(Data.VMrows, key=itemgetter(index))
+
+	Data.makeVMListLayout(Data.VMListLayout)
 
 # Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):

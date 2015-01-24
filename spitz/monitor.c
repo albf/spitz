@@ -135,9 +135,9 @@ void monitor(int argc, char *argv[])
                             break;
                         }
                     }
-                    printf("[STATUS #02] Success \n");                
                 } 
             } */
+            printf("[STATUS #02] Success \n"); 
         }
         // Get number of tasks command. 
         else if(command == 3) {
