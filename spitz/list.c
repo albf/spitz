@@ -25,10 +25,14 @@
 #include "comm.h"
 
 // Add an element to a list. If it's not yet initialize, allocate memory and append the first term.
-// If there is at least one hole in the ids number, put in the same hole it could find.
+// If there is at least one hole in the ids number, put in the first hole it could find.
 struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {
-    struct connected_ip * ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
+    struct connected_ip * ptr;
     struct connected_ip * iter;
+    char * ip_hole;
+    int holes_counter=0;
+   
+    ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
     ptr->address = (char *) malloc (sizeof(char)*12);   // max size of ip : xxx.xxx.xxx\0
     (ptr->address)[0] = '\0';
     strcat(ptr->address, adr);
@@ -38,10 +42,6 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     ptr->done_tasks = 0;
     ptr->connected = 1;
     ptr->type = 2;
-    char * ip_hole;
-    
-    int holes_counter=0;
-    struct connected_ip * backup;
     
     if(data_pointer == NULL) {     // Initialize, add the job manager
         data_pointer = (struct LIST_data *) malloc (sizeof(struct LIST_data));
@@ -76,14 +76,13 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         }
         else {                  // Add worker with holes
             holes_counter = data_pointer->holes;
-            iter = backup;
+            iter = data_pointer->list_pointer;
             
             while (holes_counter > 0) {
                 if(iter->id != ((iter->next->id)+1)) {
                     if(holes_counter > 1) {
                         iter = iter ->next;
                     }
-                    
                     holes_counter--;
                 }
             
@@ -118,6 +117,7 @@ void LIST_disconnect_ip_adress(struct LIST_data * data_pointer, char * adr, int 
         while(pointer != NULL) {
             if((strcmp((const char *)adr, (const char *)pointer->address)==0) && (prt == pointer->port)) {
                 pointer->connected = 0;              
+                pointer->socket = -1;
                 return;
             }
             pointer = pointer->next;
@@ -133,7 +133,8 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     if(data_pointer == NULL) {
         return data_pointer;
     }
-    
+   
+    // First check for the head.
     if((strcmp((const char *)adr, (const char *)data_pointer->list_pointer->address)==0)&&(prt == data_pointer->list_pointer->port)){ 
         free(data_pointer->list_pointer->address);
     	ptr = data_pointer->list_pointer->next;
@@ -142,7 +143,8 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
         data_pointer->list_pointer = ptr;
         return data_pointer;
     }
-    
+   
+    // Check for the rest.
     ptr = data_pointer->list_pointer->next;
     while(ptr!=NULL) {
         if((strcmp((const char *)adr, (const char *)ptr->address)==0) && (prt == ptr->port)) {
@@ -152,7 +154,44 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
             ptr = NULL;
             data_pointer->holes++;
         }
-        
+        else {
+            prev = ptr;
+            ptr = ptr->next;
+        }
+    }
+    
+    return data_pointer;
+}
+
+// Remove an element from the list using the ip and port.
+struct LIST_data * LIST_remove_id(struct LIST_data * data_pointer, int id) {
+    struct connected_ip * prev = data_pointer->list_pointer;
+    struct connected_ip * ptr;
+
+    if(data_pointer == NULL) {
+        return data_pointer;
+    }
+   
+    // First check for the head.
+    if(data_pointer->list_pointer->id == id) {
+        free(data_pointer->list_pointer->address);
+    	ptr = data_pointer->list_pointer->next;
+        free(data_pointer->list_pointer);
+        data_pointer->id_counter--;
+        data_pointer->list_pointer = ptr;
+        return data_pointer;
+    }
+   
+    // Check for the rest.
+    ptr = data_pointer->list_pointer->next;
+    while(ptr!=NULL) {
+        if(ptr->id == id) {
+            free(ptr->address);
+            prev->next = ptr->next;
+            free(ptr);
+            ptr = NULL;
+            data_pointer->holes++;
+        }
         else {
             prev = ptr;
             ptr = ptr->next;
@@ -236,6 +275,24 @@ struct LIST_data * LIST_register_committer(struct LIST_data * data_pointer, char
         }
     }
     
+    return data_pointer;    
+}
+
+// Changed id from a node. Do it to reuse id and info for previously disconnected node. 
+// Due to the logic of the close_connection function, it will only have one duplicate.
+struct LIST_data * LIST_update_id(struct LIST_data * data_pointer, int current_id, int original_id) {
+    struct connected_ip * ptr_c = LIST_search_id(data_pointer, current_id); 
+    struct connected_ip * ptr_o= LIST_search_id(data_pointer, original_id); 
+    
+    if((ptr_c == NULL)||(ptr_o == NULL)) {
+        return data_pointer;
+    }
+
+    ptr_o->connected = 1;
+    ptr_o->socket = ptr_c->socket;
+    ptr_o->port = ptr_c->port;
+   
+    LIST_remove_id(data_pointer, current_id);
     return data_pointer;    
 }
 
@@ -348,21 +405,21 @@ int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
     }
 }
 
-// Get rank for a given socket, based in list of ips.
-int LIST_get_rank_id_with_socket(struct LIST_data * data_pointer, int socket) {
+// Get node for a given socket, based in list of ips.
+struct connected_ip * LIST_search_socket(struct LIST_data * data_pointer, int socket) {
     struct connected_ip * pointer = data_pointer-> list_pointer; 
     
     if (pointer == NULL) {
-        return -1;
+        return NULL;
     }
    
     while (pointer != NULL) {
         if (pointer->socket == socket) {
-            return pointer->id;
+            return pointer;
         }
         pointer = pointer->next;
     }
-    return -1;
+    return NULL;
 }
 
 // Get type using socket.

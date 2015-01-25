@@ -313,7 +313,9 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         
         if (connect(socket_node, (struct sockaddr *)&node_address, sizeof(node_address)) < 0) { 
             error("Could not connect to the Vm Task Manager. Trying again.\n");
-            sleep(1); 
+            if(retries_left != 0) {
+                sleep(1); 
+            }
         }
         else { 
             debug("Connected Successfully to the VM Task Manager\n");
@@ -321,35 +323,36 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         }
     }   
 
-    // Add new connection to the list, assign rank id and send to the client (if the manager).
-    if(COMM_my_rank == (int)JOB_MANAGER) {
-        COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, &id_send); 
-        byte_array_clear(ba);
-        byte_array_pack64(ba, id_send);
-        COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
-    }
-    else if(COMM_my_rank == (int) COMMITTER) {
-        COMM_send_message(NULL,MSG_SET_COMMITTER,socket_node);
-    }
-
-    //add new socket to array of sockets
-    for (i = 0; i < max_clients; i++) 
-    {
-	  //if position is empty
-        if( COMM_client_socket[i] == 0 )
-        {
-            COMM_client_socket[i] = socket_node;
-            
-            if(COMM_my_rank==0) {
-                info("Adding to list of sockets as %d\n" , i);
-                COMM_LIST_print_ip_list(); 
-            }
-
-            break;
+    if(is_connected == 1) {
+        // Add new connection to the list, assign rank id and send to the client (if the manager).
+        if(COMM_my_rank == (int)JOB_MANAGER) {
+            COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, &id_send); 
+            byte_array_clear(ba);
+            byte_array_pack64(ba, id_send);
+            COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
         }
-    }
-    COMM_alive++;
+        else if(COMM_my_rank == (int) COMMITTER) {
+            COMM_send_message(NULL,MSG_SET_COMMITTER,socket_node);
+        }
 
+        //add new socket to array of sockets
+        for (i = 0; i < max_clients; i++) 
+        {
+              //if position is empty
+            if( COMM_client_socket[i] == 0 )
+            {
+                COMM_client_socket[i] = socket_node;
+                
+                if(COMM_my_rank==0) {
+                    info("Adding to list of sockets as %d\n" , i);
+                    COMM_LIST_print_ip_list(); 
+                }
+
+                break;
+            }
+        }
+        COMM_alive++;
+    }
     return 0;
 }
 
@@ -856,7 +859,7 @@ int COMM_register_committer(int sock) {
 int COMM_register_monitor(int sock) {
     struct connected_ip * monitor_node;
     
-    monitor_node = LIST_search_id(COMM_ip_list, LIST_get_rank_id_with_socket(COMM_ip_list, sock));
+    monitor_node = LIST_search_socket(COMM_ip_list, sock);
     monitor_node->type = 3; 
 
     return 0;
@@ -904,17 +907,25 @@ void COMM_create_new_connection() {
 // Close the connection for committer and job manager.
 void COMM_close_connection(int sock) {
     struct sockaddr_in address;
-    enum actor node_role;
-    
+    enum actor node_role=-1;
+    struct connected_ip * node;
+    unsigned long node_rt;
+
     //Somebody disconnected , get his details and print
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&COMM_addrlen);
     info("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
 
     if(COMM_my_rank==(int)JOB_MANAGER) {
-        node_role = (enum actor) LIST_get_type_with_socket(COMM_ip_list, sock);
+        // Search for provided node using the socket.
+        node = LIST_search_socket(COMM_ip_list, sock);
+
+        if(node != NULL) {
+            node_role = (enum actor) node->type; 
+            node_rt = node->rcv_tasks; 
+        }
        
-        //If it's the monitor, remove from the list. Mark as disconnected otherwise.
-        if(node_role == MONITOR) {
+        //If it's the monitor or a node that haven't worked, remove from the list. Mark as disconnected otherwise.
+        if((node_role == MONITOR)||(node_rt == 0)) {
             COMM_ip_list = LIST_remove_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
         }
         else {
