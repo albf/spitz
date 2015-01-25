@@ -26,7 +26,7 @@
 
 // Add an element to a list. If it's not yet initialize, allocate memory and append the first term.
 // If there is at least one hole in the ids number, put in the first hole it could find.
-struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket, int * rank) {
+struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * adr, int prt, int socket,int type, int * rank) {
     struct connected_ip * ptr;
     struct connected_ip * iter;
     char * ip_hole;
@@ -41,7 +41,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     ptr->rcv_tasks = 0;
     ptr->done_tasks = 0;
     ptr->connected = 1;
-    ptr->type = 2;
+    ptr->type = type;
     
     if(data_pointer == NULL) {     // Initialize, add the job manager
         data_pointer = (struct LIST_data *) malloc (sizeof(struct LIST_data));
@@ -57,7 +57,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         ip_hole = (char *) malloc(sizeof(char)*2);
         ip_hole[0]='0'; ip_hole[1]='\0';
         
-        data_pointer = LIST_add_ip_address (data_pointer, ip_hole, 0, 0, NULL);
+        data_pointer = LIST_add_ip_address (data_pointer, ip_hole, 0, 0, (int) COMMITTER, NULL);
         LIST_search_id(data_pointer, 1)->connected=0;
         return data_pointer;
     }

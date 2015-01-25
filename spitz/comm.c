@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <fcntl.h>              // Used to set block/non-block sockets.
 #include "log.h"
+#include "taskmanager.h"
 
 /* Global Variables */
 struct sockaddr_in COMM_addr_committer; // address of committer node
@@ -75,7 +76,7 @@ int COMM_send_message(struct byte_array *ba, int type, int dest_socket) {
 }
 
 // Receive the message responsible for the communication between processes
-// Returns 0 for sucess -1 if found any issue. In that case, message type is MSG_EMPTY.
+// Returns 0 for sucess -1 and -2 if found any issue. In that case, message type is MSG_EMPTY.
 int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket) {
     int read_return;
     
@@ -205,6 +206,9 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
     struct sockaddr_in address;
     int is_connected = 0;
     int retries_left;
+    int rank_rcv;
+    int msg_ret;
+    struct byte_array * ba;
         
     // Verify if retries is valid.
     if(retries != NULL) {
@@ -244,24 +248,47 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
         }
         else {
             debug("Connected Successfully to the Job Manager\n");
-            COMM_my_rank = COMM_read_int(socket_manager);
-            if(COMM_my_rank < 0) {
+            rank_rcv = COMM_read_int(socket_manager);
+            if(rank_rcv < 0) {
                 error("Problem getting the rank id. Disconnected from Job Manager.");
                 close(socket_manager);
                 sleep(1);
             }
             else { 
-                is_connected = 1;
                 debug("Successfully received a rank id from Job Manager.");
+
+                if(received_one==0) {
+                    COMM_my_rank = rank_rcv;
+                    is_connected = 1;
+                }
+                else {
+                    ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+                    byte_array_init(ba, 16);
+                    byte_array_pack64(ba, rank_rcv);
+                    byte_array_pack64(ba, COMM_my_rank);
+                    
+                    if(COMM_send_message(ba, MSG_SET_TASK_MANAGER_ID, socket_manager) == 0) {
+                        debug("Successfully sent request to change ID.");
+                        is_connected = 1;
+                    }
+                    else {
+                        error("Problem sending request to change ID.");
+                        close(socket_manager);
+                        sleep(1);
+                    }
+                    
+                    byte_array_free(ba);
+                    free(ba);
+                }
+                
             }
         }
     }
 
+
+
     return 0;
 }
-
-
-
 
 // Connect to VM task manager with address provided by job manager. 
 int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
@@ -326,7 +353,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     if(is_connected == 1) {
         // Add new connection to the list, assign rank id and send to the client (if the manager).
         if(COMM_my_rank == (int)JOB_MANAGER) {
-            COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, &id_send); 
+            COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, VM_TASK_MANAGER, &id_send); 
             byte_array_clear(ba);
             byte_array_pack64(ba, id_send);
             COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
@@ -679,7 +706,7 @@ int COMM_setup_job_manager_network() {
     
     // Start list of variables
     COMM_addrlen = sizeof(address);                                      
-    COMM_ip_list = LIST_add_ip_address(COMM_ip_list, "127.0.0.1", PORT_MANAGER, -1, NULL);
+    COMM_ip_list = LIST_add_ip_address(COMM_ip_list, "127.0.0.1", PORT_MANAGER, -1, (int) JOB_MANAGER, NULL);
     COMM_my_rank = (int)JOB_MANAGER;
     COMM_run_num = 0;
     COMM_alive = 1;
@@ -880,7 +907,7 @@ void COMM_create_new_connection() {
     
     // Add new connection to the list, assign rank id and send to the client (if the manager).
     if(COMM_my_rank == (int)JOB_MANAGER) {
-        COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, &id_send); 
+        COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(address.sin_addr), ntohs(address.sin_port), rcv_socket, (int)TASK_MANAGER, &id_send); 
         COMM_send_int(rcv_socket,id_send);
     }
 

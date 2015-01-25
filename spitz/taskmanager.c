@@ -24,7 +24,12 @@
 
 extern __thread int workerid;
 
+// received_one indicates if actual node received at least one task. 
+// This is used to reuse the id (and info) when a node reconnects to the JM.
+// If the node gets disconnected with received_one = 0, it will get a new id.
+int received_one;
 
+// Get the number of cores using system functions. 
 int get_number_of_cores() {
 #ifdef WIN32
     SYSTEM_INFO sysinfo;
@@ -49,6 +54,7 @@ int get_number_of_cores() {
 #endif
 }
 
+// Function responsible for the workers on current TM node.
 void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
@@ -77,7 +83,7 @@ void *worker(void *ptr)
         sem_post(&d->sem);
 
         byte_array_unpack64(&task, &task_id);
-        debug("[worker] Got a TASK %d", task_id);
+        debug("[worker] Received TASK %d", task_id);
         
         _byte_array_pack64(&task, (uint64_t) task_id);          // Put it back, might use in execute_pit.
         result = malloc(sizeof(*result));
@@ -180,6 +186,8 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
     return 0;
 }
 
+// Responsible for the thread that manages the Task Manager: receiving tasks,
+// Sending results, requesting new tasks and etc.
 void task_manager(struct thread_data *d)
 {
     int alive = 1;                                                  // Indicate if it still alive.
@@ -216,6 +224,10 @@ void task_manager(struct thread_data *d)
 
         switch (type) {
             case MSG_TASK:
+                // Received at least one, mark to reuse id if connection problem occurs.
+                if(received_one ==0 ) {
+                    received_one = 1;
+                }
                 debug("waiting task buffer to free some space");
                 sem_wait(&d->sem);
                 byte_array_init(&task, ba->len);
@@ -265,7 +277,7 @@ void task_manager(struct thread_data *d)
             }
             else {
                 tasks -= flushed_tasks; 
-                debug("I have sent %d tasks\n", tasks);
+                debug("I have sent %d tasks\n", flushed_tasks);
             }
             
         }

@@ -389,9 +389,10 @@ void start_vm_task_manager(int argc, char *argv[]) {
 
 int main(int argc, char *argv[])
 {
-    //enum actor type=atoi(argv[1]);                                  // Get the actor type by parameter.
+    //enum actor type=atoi(argv[1]);                                  
     struct sigaction sa;
-    COMM_set_actor_type(argv[1]);
+    COMM_set_actor_type(argv[1]);                                   // Get the actor type by parameter.
+    received_one = 0;                                               // New node, received nothing.
     
     if((type!=JOB_MANAGER)&&(type!=COMMITTER)&&(type!=TASK_MANAGER)&&(type!=MONITOR)&&(type!=VM_TASK_MANAGER)) {
         error("Wrong type specified in argv[1], try again.");

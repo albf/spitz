@@ -25,26 +25,27 @@ enum actor {
 
 // Enuns the types of possible messages.
 enum message_type {
-    MSG_READY,              // Task Manager to Job Manager
-    MSG_TASK,               // A task, Job Manager to Task Manager.
-    MSG_RESULT,             // A result, Task Manager to Committer.	
-    MSG_KILL,	            // Kill message, when there is nothing to send.
+    MSG_READY,                // Task Manager to Job Manager
+    MSG_TASK,                 // A task, Job Manager to Task Manager.
+    MSG_RESULT,               // A result, Task Manager to Committer.	
+    MSG_KILL,	              // Kill message, when there is nothing to send.
     MSG_DONE,
-    MSG_GET_COMMITTER,	    // Task Manager to Job Manager 
-    MSG_GET_PATH,	    // Task Manager to Job Manager
-    MSG_GET_RUNNUM,         // Task Manager/Committer to Job Manager
-    MSG_GET_ALIVE,          // Task Manager to JobManager
-    MSG_SET_COMMITTER,	    // Committer to Job Manager and Committer to VM Task Manager
-    MSG_NEW_CONNECTION,     // Task Manager/Committer to Job Manager/Commiter
-    MSG_CLOSE_CONNECTION,   // Task Manager/Committer to Job Manager/Commiter
-    MSG_STRING,             // Send a string, char *, from one node to another.
-    MSG_EMPTY,              // When nothing was received, used for error proposes.
-    MSG_GET_BINARY,         // Used to request and get the binary
-    MSG_GET_HASH,           // Used to request the md5 hash of the binary.
-    MSG_GET_STATUS,         // Used to request status of all connected nodes.
-    MSG_GET_NUM_TASKS,      // Used to request the number of tasks registered for in the JM.
-    MSG_SET_MONITOR,        // Monitor to JobManager
-    MSG_SET_JOB_MANAGER,    // Job Manager to VM Task Manager
+    MSG_GET_COMMITTER,	      // Task Manager to Job Manager 
+    MSG_GET_PATH,	      // Task Manager to Job Manager
+    MSG_GET_RUNNUM,           // Task Manager/Committer to Job Manager
+    MSG_GET_ALIVE,            // Task Manager to JobManager
+    MSG_SET_COMMITTER,	      // Committer to Job Manager and Committer to VM Task Manager
+    MSG_NEW_CONNECTION,       // Task Manager/Committer to Job Manager/Commiter
+    MSG_CLOSE_CONNECTION,     // Task Manager/Committer to Job Manager/Commiter
+    MSG_STRING,               // Send a string, char *, from one node to another.
+    MSG_EMPTY,                // When nothing was received, used for error proposes.
+    MSG_GET_BINARY,           // Used to request and get the binary
+    MSG_GET_HASH,             // Used to request the md5 hash of the binary.
+    MSG_GET_STATUS,           // Used to request status of all connected nodes.
+    MSG_GET_NUM_TASKS,        // Used to request the number of tasks registered for in the JM.
+    MSG_SET_MONITOR,          // Monitor to JobManager
+    MSG_SET_JOB_MANAGER,      // Job Manager to VM Task Manager
+    MSG_SET_TASK_MANAGER_ID,  // Task Manager to Job Manager, to restore ID. 
     MSG_NEW_VM_TASK_MANAGER   // Monitor to JobManager, JobManager to Committer.
 };
 

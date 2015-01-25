@@ -61,4 +61,6 @@ void *worker(void *ptr);
 int flush_results(struct thread_data *d, int min_results, enum blocking b);
 void task_manager(struct thread_data *d);
 
+extern int received_one;
+
 #endif /* __SPITZ_TASKMANAGER_H__ */
