@@ -48,7 +48,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
-    int aux; uint64_t aux64;                                          // Auxiliary, used to cast variables. 
+    int aux; uint64_t aux64;                                        // Auxiliary, used to cast variables. 
+    int64_t bufferr;                                                // buffer used for received int64_t values 
     
     struct task *clean;                                             // Auxiliary pointer used to free memory. 
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
@@ -83,6 +84,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     // Information about the completed task.
     size_t tid, task_id = 0;
     int tm_id;
+
+    // Used for id recovery.
+    int rank_rcv;
+    int rank_original;
 
     while (1) {
         COMM_wait_request(&type, &origin_socket, ba); 
@@ -134,7 +139,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 }
                 break;
             case MSG_DONE:;
-                int64_t bufferr; 
                 byte_array_unpack64(ba, &bufferr);
                 tid = (int)bufferr;
                 byte_array_unpack64(ba, &bufferr);
@@ -199,6 +203,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
             case MSG_SET_MONITOR:
                 COMM_register_monitor(origin_socket); 
+                break;
+            case MSG_SET_TASK_MANAGER_ID:
+                byte_array_unpack64(ba, &bufferr);
+                rank_rcv = (int)bufferr;
+                byte_array_unpack64(ba, &bufferr);
+                rank_original = (int)bufferr;
+                COMM_ip_list = LIST_update_id(COMM_ip_list, rank_rcv, rank_original);
                 break;
             case MSG_GET_ALIVE:
                 COMM_send_int(origin_socket, COMM_alive);
