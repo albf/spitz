@@ -41,6 +41,7 @@ void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt
 void LIST_free_data (struct LIST_data * data_pointer);
 
 // Other requests
+int check_VM_nodes(struct LIST_data * data_pointer);
 int LIST_get_id (struct LIST_data * data_pointer, char * adr, int prt);
 int LIST_get_total_nodes (struct LIST_data * data_pointer);
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);

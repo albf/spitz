@@ -291,6 +291,7 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
 }
 
 // Connect to VM task manager with address provided by job manager. 
+// Returns 0 if success and < 0 otherwise. 
 int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int c_port;
     char * token;
