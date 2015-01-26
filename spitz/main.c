@@ -356,14 +356,12 @@ int main(int argc, char *argv[])
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
     }
+    if(type == VM_TASK_MANAGER) {
+        COMM_setup_vm_network();        
+        COMM_vm_connection(1,1);
+    }
     else {
-        if (type == VM_TASK_MANAGER) {
-            COMM_setup_vm_network();        
-        }
-
-        else {
-            COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
-        }
+        COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
         
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
