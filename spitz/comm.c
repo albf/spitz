@@ -200,8 +200,11 @@ int COMM_read_int(int sock) {
     return result;
 }
 
+// Estabilish connection with job manager, used by any Task Manager.
 int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
     int con_ret;
+    struct byte_array * ba; 
+    int old_id = COMM_get_rank_id();
     
     if ((type == TASK_MANAGER) || (type == COMMITTER) || (type == MONITOR)) {
         con_ret = COMM_connect_to_job_manager_local(ip_adr, retries);
@@ -212,9 +215,23 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
 
     // If it is a task manager, connection was okay and received_one = 1, try to restore id.
     if (((type == TASK_MANAGER) || (type == VM_TASK_MANAGER)) && (con_ret == 0) && (received_one > 0)) {
+        ba = (struct byte_array *) malloc (sizeof(struct byte_array));        
+        byte_array_init(ba, 16);
+
+        _byte_array_pack64(ba, (uint64_t) COMM_get_rank_id());          // Pack current_id 
+        _byte_array_pack64(ba, (uint64_t) old_id);                      // Pack old_id 
         
+        con_ret = COMM_send_message(ba, MSG_SET_TASK_MANAGER_ID, socket_manager);
+        if(con_ret < 0) {
+            error("Error sending request for restoring ID to Job Manager.");
+            COMM_close_connection((socket_manager);
+        }
         
+        byte_array_free(ba);
+        free(ba);
     }
+    
+    return con_ret;
 }
 
 // Waits for Job Manager and/or Committer connection. Requests help for making committer connection.
@@ -327,7 +344,7 @@ int COMM_vm_connection(int waitJM, char waitCM) {
 
 // Establishes a connection with the job manager. 
 // If retries == NULL -> Retries indefinitely. If retries > 0, try "retries" times. Else, don't try.
-// Returns 0 if everything is okay, < 0 otherwise. 
+// Returns 0 if everything is okay, < 0 otherwise. Works only for local nodes. 
 int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
     struct sockaddr_in address;
     int is_connected = 0;
