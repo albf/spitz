@@ -50,6 +50,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
     int aux; uint64_t aux64;                                        // Auxiliary, used to cast variables. 
     int64_t bufferr;                                                // buffer used for received int64_t values 
+
+    // VM restore management.
+    int counter=0;                                                  // Counts requests to restore VMs Task Managers.
+    int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
+    int total_restores=0;                                           // Amount of nodes restored.
     
     struct task *clean;                                             // Auxiliary pointer used to free memory. 
     struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
@@ -245,6 +250,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 info("Message received incomplete or a problem occurred.");
                 break;
             case MSG_NEW_VM_TASK_MANAGER:
+                if(is_there_any_vm == 0) {
+                    is_there_any_vm = 1;
+                }
+
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
                 //COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
@@ -283,7 +292,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
         }
         
-        // If there is only the JobManager and the Committer
+        // If computation is over, closes all sockets and exits. 
         if (is_finished==1){
             info("Sending kill to committer");
             COMM_connect_to_committer(NULL);
@@ -295,6 +304,15 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             COMM_close_all_connections(); 
             
             break;
+        }
+        else {
+            if (is_there_any_vm == 1){
+                counter++;
+                if(counter>=RESTORE_RATE) {
+                    total_restores = check_VM_nodes(COMM_ip_list); 
+                    counter=0;
+                }
+            }
         }
     }
 

@@ -22,6 +22,8 @@
 #ifndef __SPITZ_JOB_MANAGER_H__
 #define __SPITZ_JOB_MANAGER_H__
 
+#define RESTORE_RATE 10
+
 #include <barray.h>
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);
