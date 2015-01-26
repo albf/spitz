@@ -78,6 +78,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     struct byte_array * ba_hash = (struct byte_array *) malloc (sizeof(struct byte_array));
     byte_array_init(ba_hash, 0);
     byte_array_compute_hash(ba_hash, ba_binary);
+
+    // Connected_ip array used to find VM info to send to Committer. Used for VM connection.
+    struct connected_ip * vm_node;
+    char port[10];                              // port of node.
     
     void *user_data = ctor((argc), (argv));
 
@@ -235,6 +239,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 byte_array_init(ba, n);
                 byte_array_pack8v(ba, v, n);
                 COMM_send_message(ba, MSG_STRING, origin_socket);
+                free(v);
                 break;
             case MSG_EMPTY:
                 info("Message received incomplete or a problem occurred.");
@@ -242,8 +247,30 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_NEW_VM_TASK_MANAGER:
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
-                COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
+                //COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 COMM_connect_to_vm_task_manager(&retries, ba);
+                break;
+            case MSG_SEND_VM_TO_COMMITTER:
+                // xxx.xxx.xxx.xxx|yyyyyyyy\0
+                v = malloc(sizeof(char)*25);
+                v[0] = '\0';
+                vm_node = LIST_search_socket(COMM_ip_list, origin_socket); 
+
+                // add address to string
+                v = strcat(v, vm_node->address);
+                v = strcat(v, "|");
+
+                // cast ptr->port to string port and join with string.
+                sprintf(port, "%d", vm_node->port);
+                v = strcat(v, port);
+
+                // find size of string and initialize the byte array.
+                n = (size_t) (strlen(v)+1); 
+                byte_array_init(ba, n);
+
+                // packs the string and try to connect.
+                byte_array_pack8v(ba, v, n);  
+                COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 break;
             case MSG_GET_NUM_TASKS:
                 aux = atoi(argv[0]);

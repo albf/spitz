@@ -224,7 +224,7 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
         con_ret = COMM_send_message(ba, MSG_SET_TASK_MANAGER_ID, socket_manager);
         if(con_ret < 0) {
             error("Error sending request for restoring ID to Job Manager.");
-            COMM_close_connection((socket_manager);
+            COMM_close_connection(socket_manager);
         }
         
         byte_array_free(ba);
