@@ -46,15 +46,19 @@ enum message_type {
     MSG_SET_MONITOR,          // Monitor to JobManager
     MSG_SET_JOB_MANAGER,      // Job Manager to VM Task Manager
     MSG_SET_TASK_MANAGER_ID,  // Task Manager to Job Manager, to restore ID. 
-    MSG_NEW_VM_TASK_MANAGER   // Monitor to JobManager, JobManager to Committer.
+    MSG_NEW_VM_TASK_MANAGER,  // Monitor to JobManager, JobManager to Committer.
+    MSG_SEND_VM_TO_COMMITTER  // VM request to JobManager help to connect to Committer.
 };
 
 /* Functions based in Client/Server architecture */
 
 // Client functions.
 int COMM_connect_to_committer(int * retries);
+int COMM_connect_to_committer_local(int * retries);
 int COMM_connect_to_job_manager(char ip_adr[], int * retries);
+int COMM_connect_to_job_manager_local(char ip_adr[], int * retries);
 int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba);
+int COMM_vm_connection(int waitJM, char waitCM);
 int COMM_setup_vm_network();
 
 // Both, check by id what's the case.

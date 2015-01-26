@@ -200,9 +200,135 @@ int COMM_read_int(int sock) {
     return result;
 }
 
+int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
+    int con_ret;
+    
+    if ((type == TASK_MANAGER) || (type == COMMITTER) || (type == MONITOR)) {
+        con_ret = COMM_connect_to_job_manager_local(ip_adr, retries);
+    }
+    else if(type==VM_TASK_MANAGER) {
+        con_ret = COMM_vm_connection(1,0); 
+    }
+
+    // If it is a task manager, connection was okay and received_one = 1, try to restore id.
+    if (((type == TASK_MANAGER) || (type == VM_TASK_MANAGER)) && (con_ret == 0) && (received_one > 0)) {
+        
+        
+    }
+}
+
+// Waits for Job Manager and/or Committer connection. Requests help for making committer connection.
+// Will always return 0 for now, as it waits forever.
+int COMM_vm_connection(int waitJM, char waitCM) {
+    int is_there_jm=0;                                              // Indicates if the job manager is set.
+    int is_there_cm=0;                                              // Indicates if committer is set.
+    enum message_type type;                                         // Type of received message.
+    uint64_t socket_cl;                                             // Closing socket.
+    int origin_socket;                                              // Socket that sent the request.
+    char * v;                                                       // Used as auxiliary. 
+    int64_t bufferr;                                                // Buffer used to receive id. 
+   
+    // May be looking only for JM or for CM
+    if(waitJM == 0) {
+        is_there_jm = 1;
+    }
+
+    if(waitCM == 0) {
+        is_there_cm = 1;
+    }
+
+    // Data structure to exchange message between processes. 
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    byte_array_init(ba, 10);
+
+    // If only looking for committer, try to request connection help from Job Manager.
+    if((is_there_jm == 1) && (is_there_cm == 0)) {
+         if( COMM_send_message(NULL, MSG_SEND_VM_TO_COMMITTER, socket_manager) < 0 ) {
+            error("Problem requesting Committer connection to Job Manager.");
+            close(socket_manager);
+            is_there_jm = 0;
+        }
+        else {
+            debug("Successfully requested Committer connection to Job Manager.");
+        }
+    }
+
+    // Will only stop waiting when both connections are alive.
+    while ((is_there_jm == 0) || (is_there_cm ==0)) {
+        COMM_wait_request(&type, &origin_socket, ba); 
+         
+        switch (type) {
+            case MSG_SET_JOB_MANAGER:
+                socket_manager = origin_socket;
+                byte_array_unpack64(ba, &bufferr);
+                COMM_my_rank = (int)bufferr;
+                if(COMM_my_rank < 0) {
+                    error("Problem getting the rank id. Disconnected from Job Manager.");
+                    close(socket_manager);
+                }
+                else {
+                    debug("Successfully received a rank id from Job Manager.");
+
+                    // If there isn't committer, send request. 
+                    if(is_there_cm == 0) {
+                        if( COMM_send_message(NULL, MSG_SEND_VM_TO_COMMITTER, socket_manager) < 0 ) {
+                            error("Problem requesting Committer connection to Job Manager.");
+                            close(socket_manager);
+                        }
+                        else {
+                            debug("Successfully requested Committer connection to Job Manager.");
+                            is_there_jm = 1;               
+                        }
+                    }
+
+                    // If there is committer, just accept job manager.
+                    else {
+                        is_there_jm = 1;
+                    }
+                }
+                break;
+            case MSG_SET_COMMITTER:
+                socket_committer = origin_socket;
+                is_there_cm = 1;
+                break;
+            case MSG_EMPTY:
+                info("Message received incomplete or a problem occurred.");
+                break;
+            case MSG_NEW_CONNECTION:
+                COMM_create_new_connection();
+                break;
+            case MSG_CLOSE_CONNECTION:
+                _byte_array_unpack64(ba, &socket_cl);
+
+                if(socket_cl == socket_committer) {
+                    is_there_cm = 0;
+                }
+                if(socket_cl == socket_manager) {
+                    is_there_jm = 0;
+                }                
+                
+                COMM_close_connection((int)socket_cl);
+                break;
+            default:
+                break;
+        }
+        
+        // If both are set. 
+        if ((is_there_jm==1)&&(is_there_cm==1)){
+            break;
+        }
+    }
+    // Free memory allocated in byte arrays.
+    byte_array_free(ba);
+    free(ba);
+    
+    return 0;
+} 
+
 // Establishes a connection with the job manager. 
 // If retries == NULL -> Retries indefinitely. If retries > 0, try "retries" times. Else, don't try.
-int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
+// Returns 0 if everything is okay, < 0 otherwise. 
+int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
     struct sockaddr_in address;
     int is_connected = 0;
     int retries_left;
@@ -285,8 +411,6 @@ int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
         }
     }
 
-
-
     return 0;
 }
 
@@ -305,7 +429,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     // Verify if retries is valid.
     if(retries != NULL) {
         if(*retries <= 0) {
-            error("Retries value not valid in connect_to_committer function.");
+            error("Retries value not valid in connect_to_vm_task_manager function.");
             return -1;
         }
          
@@ -384,8 +508,18 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     return 0;
 }
 
-// Get committer with the job manager and establish a connection.
+// Connect with committer using any task manager.
 int COMM_connect_to_committer(int * retries) {
+    if ((type == TASK_MANAGER) || (type == COMMITTER) || (type == MONITOR)) {
+        COMM_connect_to_committer_local(retries);
+    }
+    else if(type==VM_TASK_MANAGER) {
+        COMM_vm_connection(0,1); 
+    }
+}
+
+// Get committer with the job manager and establish a connection. Local (non-VM) version.
+int COMM_connect_to_committer_local(int * retries) {
     int is_connected = 0;
     int retries_left;
     

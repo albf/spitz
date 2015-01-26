@@ -327,66 +327,6 @@ void start_slave_processes(int argc, char *argv[])
     free(ba_hash_jm);
 }
 
-void start_vm_task_manager(int argc, char *argv[]) {
-    int is_there_jm=0;                                              // Indicates if the job manager is set.
-    int is_there_cm=0;                                              // Indicates if committer is set.
-    enum message_type type;                                         // Type of received message.
-    uint64_t socket_cl;                                             // Closing socket.
-    int origin_socket;                                              // Socket that sent the request.
-    char * v;                                                       // Used as auxiliary. 
-    int64_t bufferr;                                                // Buffer used to receive id. 
-    
-    // Data structure to exchange message between processes. 
-    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
-    byte_array_init(ba, 10);
-
-    while ((is_there_jm == 0) || (is_there_cm ==0)) {
-        COMM_wait_request(&type, &origin_socket, ba); 
-         
-        switch (type) {
-            case MSG_SET_JOB_MANAGER:
-                socket_manager = origin_socket;
-                byte_array_unpack64(ba, &bufferr);
-                COMM_my_rank = (int)bufferr;
-                if(COMM_my_rank < 0) {
-                    error("Problem getting the rank id. Disconnected from Job Manager.");
-                    close(socket_manager);
-                }
-                else {
-                    debug("Successfully received a rank id from Job Manager.");
-                    is_there_jm = 1;               
-                }
-                break;
-            case MSG_SET_COMMITTER:
-                socket_committer = origin_socket;
-                is_there_cm = 1;
-                break;
-            case MSG_EMPTY:
-                info("Message received incomplete or a problem occurred.");
-                break;
-            case MSG_NEW_CONNECTION:
-                COMM_create_new_connection();
-                break;
-            case MSG_CLOSE_CONNECTION:
-                _byte_array_unpack64(ba, &socket_cl);
-                COMM_close_connection((int)socket_cl);
-                break;
-            default:
-                break;
-        }
-        
-        // If both are set. 
-        if ((is_there_jm==1)&&(is_there_cm==1)){
-            break;
-        }
-    }
-    // Free memory allocated in byte arrays.
-    byte_array_free(ba);
-    free(ba);
-
-    start_slave_processes(argc,argv);
-} 
-
 int main(int argc, char *argv[])
 {
     //enum actor type=atoi(argv[1]);                                  
@@ -416,11 +356,15 @@ int main(int argc, char *argv[])
     if(type==JOB_MANAGER) {
         COMM_setup_job_manager_network(argc , argv);
     }
-    else if (type == VM_TASK_MANAGER) {
-        COMM_setup_vm_network();        
-    }
     else {
-        COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
+        if (type == VM_TASK_MANAGER) {
+            COMM_setup_vm_network();        
+        }
+
+        else {
+            COMM_addr_manager = strcpy(malloc((strlen(argv[2])+1)*sizeof(char)), argv[2]);
+        }
+        
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
@@ -479,15 +423,12 @@ int main(int argc, char *argv[])
     if (type == JOB_MANAGER) {
         start_master_process(argc, argv, so);
     }
-    else if((type == TASK_MANAGER) || (type == COMMITTER)) {
+    else if((type == TASK_MANAGER) || (type == COMMITTER) || (type == VM_TASK_MANAGER)) {
         start_slave_processes(argc, argv);
     }
     else if (type == MONITOR) {
         monitor(argc, argv); 
     }
-    else if(type == VM_TASK_MANAGER) {
-        start_vm_task_manager(argc, argv);         
-    } 
 
     free(COMM_addr_manager);
     return 0;
