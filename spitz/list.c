@@ -79,6 +79,12 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
             iter = data_pointer->list_pointer;
             
             while (holes_counter > 0) {
+                if(iter->next == NULL) {
+                    // If list got empty for some reason with holes_counter=0
+                    error("Inconsistent list: couldn't find a hole but holes_counter>0");
+                    data_pointer->holes = 0; 
+                    return LIST_add_ip_address (data_pointer, adr, prt, socket, type, rank);
+                }
                 if(iter->id != ((iter->next->id)+1)) {
                     if(holes_counter > 1) {
                         iter = iter ->next;
