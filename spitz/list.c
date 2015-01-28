@@ -76,8 +76,10 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         }
         else {                  // Add worker with holes
             holes_counter = data_pointer->holes;
+            data_pointer->holes = data_pointer->holes - 1;  // Updates holes counter.
             iter = data_pointer->list_pointer;
             
+            // Find the first (oldest) hole.
             while (holes_counter > 0) {
                 if(iter->next == NULL) {
                     // If list got empty for some reason with holes_counter=0
@@ -97,6 +99,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
                 }
             }
 
+            // And put the new node in the hole.
             ptr->next = iter->next;
             iter->next = ptr;
             ptr->id = iter->id - 1;
@@ -141,7 +144,16 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
     }
    
     // First check for the head.
-    if((strcmp((const char *)adr, (const char *)data_pointer->list_pointer->address)==0)&&(prt == data_pointer->list_pointer->port)){ 
+    ptr = data_pointer->list_pointer;
+    if((strcmp((const char *)adr, (const char *)ptr->address)==0)&&(prt == ptr->port)){ 
+        // If it is here and there is any holes, check again, might break.
+        if(ptr->next != NULL) {
+            // Fix the holes number in the head.
+            if((ptr->next->id)!=((ptr->id)-1) ) {
+                data_pointer->holes = (data_pointer->holes) - ((ptr->id)-1-(ptr->next->id));
+            }
+        }
+        
         free(data_pointer->list_pointer->address);
     	ptr = data_pointer->list_pointer->next;
         free(data_pointer->list_pointer);
