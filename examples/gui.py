@@ -221,6 +221,7 @@ class MonitorData:
 
 				stdin,stdout,stderr = ssh.exec_command('cd spitz/examples; make test4')
 				self.VMrows[index][3] = "YES"
+				self.VMrows[index][4] = "Stop"
 			
 			except socket.gaierror as e1:
 				Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
@@ -531,15 +532,13 @@ def buttonVMAction(*args, **kwargs):
 	
 	if(action == "Try Again"):
 		if(Data.VMTryAgain(index) == "YES"):
-			Screen.buildVMListScreen()
+			Data.makeVMListLayout(Data.VMListLayout)	
 	elif(action == "Start"):
 		if(Data.launchVMnode(2, index) == True):
-			print "YYYYYYYYYYYYYYY"
-			Screen.buildVMListScreen()
+			Data.makeVMListLayout(Data.VMListLayout)	
 	elif(action == "Stop"):
 		if(Data.stopVMnode(index) == True):
-			print "XXXXXXXXXXXXXXXXXXXXXXXXXXX"
-			Screen.buildVMListScreen()
+			Data.makeVMListLayout(Data.VMListLayout)	
 	else:
 		Data.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
 	
