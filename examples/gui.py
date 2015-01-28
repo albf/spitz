@@ -219,7 +219,7 @@ class MonitorData:
 				else:
 					raise Exception('Spitz file(s) missing') '''
 
-				stdin,stdout,stderr = self.ssh.exec_command('cd spitz/examples; make test4')
+				stdin,stdout,stderr = ssh.exec_command('cd spitz/examples; make test4')
 				self.VMrows[index][3] = "YES"
 			
 			except socket.gaierror as e1:
@@ -246,6 +246,41 @@ class MonitorData:
 			#self.p.kill()
 			self.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
 			return True
+		return False	
+
+	# Stop SPITZ instance running in a VM node. 
+	def stopVMnode(self, index):
+		reach = "YES"
+		address = self.VMrows[index][1] 
+
+		# Connect to SSH and stop SPITZ in the choosed VM
+		ssh = paramiko.SSHClient()
+		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+		if(address != "localhost"):
+			try:
+				ssh.connect(address,
+					username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
+					password=str(Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+
+				# Make ssh command to stop SPITZ. 
+				ssh.exec_command('pkill -f spitz')
+
+				self.VMrows[index][3] = "NO"
+				self.VMrows[index][4] = "Start"
+				self.makeCommandLayout(Data.CommandLayout, "Spitz stopped in " + str(address) + ".")
+				return True
+			
+			except socket.gaierror as e1:
+				Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ". Try updating the list.")
+				reach = "NO"
+			except socket.error as e2:
+				Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ". Try updating the list.")
+				reach = "NO"
+			except paramiko.AuthenticationException as e3:
+				Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ". Try updating the list.")
+				reach = "NO"
+
 		return False	
 
 	# Using the last status received, parse the list string.
@@ -499,7 +534,14 @@ def buttonVMAction(*args, **kwargs):
 			Screen.buildVMListScreen()
 	elif(action == "Start"):
 		if(Data.launchVMnode(2, index) == True):
+			print "YYYYYYYYYYYYYYY"
 			Screen.buildVMListScreen()
+	elif(action == "Stop"):
+		if(Data.stopVMnode(index) == True):
+			print "XXXXXXXXXXXXXXXXXXXXXXXXXXX"
+			Screen.buildVMListScreen()
+	else:
+		Data.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
 	
 ''' ----- 
     ScreenBank
