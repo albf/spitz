@@ -97,4 +97,7 @@ extern int COMM_my_rank;
 extern struct LIST_data * COMM_ip_list;
 extern enum actor type;
 
+// Debug
+extern int COMM_client_socket[max_clients];    // used to stock the sockets.
+
 #endif	/* COMM_H */

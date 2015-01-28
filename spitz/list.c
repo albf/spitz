@@ -522,7 +522,7 @@ int check_VM_nodes(struct LIST_data * data_pointer) {
     v[0] = '\0';
 
     while (ptr!= NULL) {
-        if((ptr->type==(int)MSG_NEW_VM_TASK_MANAGER) && (ptr->connected == 0)) {
+        if((ptr->type==(int)VM_TASK_MANAGER) && (ptr->connected == 0)) {
             // add address to string
             v = strcat(v, ptr->address);
             v = strcat(v, "|");

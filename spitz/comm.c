@@ -465,7 +465,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 
     //Create socket
     socket_node = socket(AF_INET , SOCK_STREAM , 0);
-    if (socket_committer == -1) {
+    if (socket_node == -1) {
         error("Could not create socket");
         return -2;
     }
