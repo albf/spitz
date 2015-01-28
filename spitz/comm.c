@@ -780,10 +780,10 @@ int COMM_setup_vm_network() {
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons( PORT_VM );
     
-    //bind the socket to localhost port PORT_MANAGER
+    //bind the socket to localhost port PORT_VM
     if (bind(COMM_master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
-        error("Bind in setup_job_manager failed\n");
+        error("Bind in setup_vm_network failed\n");
         return -1;
     }
     debug("Listener on port %d \n", PORT_VM);
@@ -1051,6 +1051,7 @@ void COMM_create_new_connection() {
   
     if ((rcv_socket = accept(COMM_master_socket, (struct sockaddr *)&address, (socklen_t*)&COMM_addrlen))<0) {
 	    error("Problem accepting connection, ERRNO: %s\n", strerror(errno));
+            sleep(1);
         return;
     }
   

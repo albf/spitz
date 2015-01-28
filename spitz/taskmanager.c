@@ -136,6 +136,18 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
     }
 
     if (len > min_results && b == NONBLOCKING) {
+
+        close(socket_manager);
+        int tm_retries = 3;
+        if(COMM_connect_to_job_manager(COMM_addr_manager, &tm_retries)!=0) {
+            info("Couldn't reconnect to the Job Manager. Closing Task Manager.");
+        }
+        else {
+            info("Reconnected to the Job Manager.");
+        }
+ 
+
+        
         aux = n->next;
         n->next = NULL;
         n = aux;

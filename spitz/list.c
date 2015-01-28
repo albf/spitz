@@ -541,13 +541,15 @@ int check_VM_nodes(struct LIST_data * data_pointer) {
                 debug("Reconnected successfully with VM node with id %d.", ptr->id);
                 total ++;
             }
+
+            // free memory used in byte_array
+            byte_array_free(ba);
         }
         ptr = ptr->next;
     }
 
     // Free memory used.
     free(v);
-    byte_array_free(ba);
     free(ba);
 
     return total;
