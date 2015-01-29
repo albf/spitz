@@ -442,6 +442,14 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int retries_left;
     int id_send; 
     int i;
+
+    // Non-Blocking socket.
+    struct sockaddr_in addr; 
+    long arg; 
+    fd_set myset; 
+    struct timeval tv; 
+    int valopt; 
+    socklen_t lon; 
     
     // Verify if retries is valid.
     if(retries != NULL) {
@@ -469,6 +477,17 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         error("Could not create socket");
         return -2;
     }
+
+    // Set, for now, as a non-blocking socket
+    if((arg = fcntl(socket_node, F_GETFL, NULL)) < 0) { 
+        error("Error in fcntl(soc, F_GETFL,NULL).");
+        return -4;
+    } 
+    arg |= O_NONBLOCK; 
+    if( fcntl(socket_node, F_SETFL, arg) < 0) { 
+        error("Error in fcntl(soc, F_SETFL,NULL).");
+        return -5;
+    } 
     
     //Connect to remote server
     while(is_connected == 0 ) {
@@ -480,19 +499,49 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
             retries_left --;
         }
         
+        // Using non-blocking socket, try to connect.
         if (connect(socket_node, (struct sockaddr *)&node_address, sizeof(node_address)) < 0) { 
-            error("Could not connect to the Vm Task Manager. Trying again.\n");
+            if(errno == EINPROGRESS) {
+                // Use select with timeout
+                tv.tv_sec = 5;
+                tv.tv_usec = 0;
+                FD_ZERO(&myset); 
+                FD_SET(socket_node, &myset); 
+                if (select(socket_node+1, NULL, &myset, NULL, &tv) > 0) { 
+                    lon = sizeof(int); 
+                    getsockopt(socket_node, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon); 
+                    // valopt should be zero if connection was successful.
+                    if (!valopt) { 
+                        is_connected = 1;
+                    } 
+                } 
+            }
+        }
+        // Instant connection? Shouldn't occur.
+        else { 
+            is_connected = 1; 
+        }
+
+        if(is_connected == 0) {
+            if(retries_left == 0) {
+                error("Could not connect to the Vm Task Manager. No retries left.\n");
+            }
             if(retries_left != 0) {
+                error("Could not connect to the Vm Task Manager. Trying again.\n");
                 sleep(1); 
             }
         }
-        else { 
+        else {
             debug("Connected Successfully to the VM Task Manager\n");
-            is_connected = 1; 
         }
     }   
 
     if(is_connected == 1) {
+        // Set socket to blocking mode.
+        arg = fcntl(socket_node, F_GETFL, NULL); 
+        arg &= (~O_NONBLOCK); 
+        fcntl(socket_node, F_SETFL, arg);
+        
         // Add new connection to the list, assign rank id and send to the client (if the manager).
         if(COMM_my_rank == (int)JOB_MANAGER) {
             COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, VM_TASK_MANAGER, &id_send); 
