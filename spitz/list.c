@@ -61,7 +61,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
         LIST_search_id(data_pointer, 1)->connected=0;
         return data_pointer;
     }
-    
+   
     else {
         if(data_pointer->holes == 0) {   // Add worker without holes
             ptr->next = data_pointer->list_pointer;

@@ -9,6 +9,7 @@ from kivy.config import Config
 from kivy.uix.label import Label
 from kivy.uix.settings import Settings
 from kivy.config import ConfigParser
+from kivy.uix.scrollview import ScrollView 
 from operator import itemgetter
 import json
 import subprocess
@@ -70,11 +71,15 @@ class MonitorData:
 		jm_ip = str(Screen.AppInstance.config.get('example', 'jm_address'))
 		num_tasks = str(Screen.AppInstance.config.get('example', 'num_tasks'))
 
+		
+		if hasattr(self, "p"):
+			self.p.kill()
+
 		# Run a spitz instance as a subprocess.
 		self.p = subprocess.Popen(["./spitz", "3", jm_ip, lib_path, num_tasks],
-			     stdout=subprocess.PIPE,
-			     stdin=subprocess.PIPE,
-			     cwd="/home/alexandre/Codes/spitz/examples")
+			stdout=subprocess.PIPE,
+			stdin=subprocess.PIPE,
+			cwd="/home/alexandre/Codes/spitz/examples")
 
 	# Connect to Azure and get information about all services with SPITZ in their name.
 	# Check if it's on and if there is a spitz instance running.
@@ -557,6 +562,7 @@ class ScreenBank:
 		# Create main and middle layout
 		self.layout = GridLayout(cols = 1, row_force_default=False, height = 600, width = 800)	
 		self.MiddleLayout = GridLayout(cols=1, size_hint_y=11)
+		self.MiddleScroll = ScrollView(size_hint=(1, None), size=(Data.factor*400, Data.factor*500), bar_width=4)
 
 		self.settings_json = json.dumps([
 		    {'type': 'string',
@@ -662,7 +668,12 @@ class ScreenBank:
 	# Build the log screen, justu pdating the middle layout.
 	def buildLogScreen(self):
 		self.MiddleLayout.clear_widgets()
-		self.MiddleLayout.add_widget(Data.LogWidget)
+		self.MiddleScroll.clear_widgets()
+		Data.LogWidget.size_hint_y = None
+		Data.LogWidget.height = max( (len(Data.LogWidget._lines)+1) * Data.LogWidget.line_height, self.MiddleScroll.size[1])
+		self.MiddleScroll.do_scroll_x = False
+		self.MiddleScroll.add_widget(Data.LogWidget)
+		self.MiddleLayout.add_widget(self.MiddleScroll)
 
 	# Build the Settings screen.
 	def buildSettingsScreen(self):
@@ -742,4 +753,10 @@ def test():
 	Data = MonitorData(1, 10)
 	Screen = ScreenBank() 	
 
-	MyApp().run()
+	try:
+		MyApp().run()
+	except:
+		print "Problem running MyApp().run()"
+		if hasattr(Data, "p"):
+			Data.p.kill()
+			print "Subprocess killed"

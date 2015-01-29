@@ -523,6 +523,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         }
 
         if(is_connected == 0) {
+            close(socket_node);
             if(retries_left == 0) {
                 error("Could not connect to the Vm Task Manager. No retries left.\n");
             }
