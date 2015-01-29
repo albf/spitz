@@ -394,32 +394,32 @@ class MonitorData:
 	def makeHeaderLayout(self, layout):
 		layout.clear_widgets()
 
-		btnP = Button(text="Update", size_hint_x=None, width = self.factor*125)
-		btnP.bind(on_press = buttonUpdate)
-		layout.add_widget(btnP)
+		self.btnP = Button(text="Update", size_hint_x=None, width = self.factor*125)
+		self.btnP.bind(on_press = buttonUpdate)
+		layout.add_widget(self.btnP)
 
 		btnSep = Button(text="", size_hint_x=None, width = self.factor*50)
 		layout.add_widget(btnSep)
 
-		btnLi = ToggleButton(text="List", group='menu', size_hint_x=None, width = self.factor*125, state='down')
-		btnLi.bind(on_press = buttonList)
-		layout.add_widget(btnLi)
+		self.btnLi = ToggleButton(text="List", group='menu', size_hint_x=None, width = self.factor*125, state='down')
+		self.btnLi.bind(on_press = buttonList)
+		layout.add_widget(self.btnLi)
 
-		btnV = ToggleButton(text="VM Launcher", group='menu', size_hint_x=None, width = self.factor*125)
-		btnV.bind(on_press = buttonVM)
-		layout.add_widget(btnV)
+		self.btnV = ToggleButton(text="VM Launcher", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnV.bind(on_press = buttonVM)
+		layout.add_widget(self.btnV)
 
-		btnS = ToggleButton(text="Statistics", group='menu', size_hint_x=None, width = self.factor*125)
-		#btnS.bind(on_press = buttonS)
-		layout.add_widget(btnS)
+		self.btnSta = ToggleButton(text="Statistics", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnSta.bind(on_press = buttonStatistics)
+		layout.add_widget(self.btnSta)
 
-		btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
-		btnL.bind(on_press = buttonLog)
-		layout.add_widget(btnL)
+		self.btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnL.bind(on_press = buttonLog)
+		layout.add_widget(self.btnL)
 
-		btnS = Button(text="Settings", size_hint_x=None, width = self.factor*125)
-		btnS.bind(on_press = buttonSettings)
-		layout.add_widget(btnS)
+		self.btnS = Button(text="Settings", size_hint_x=None, width = self.factor*125)
+		self.btnS.bind(on_press = buttonSettings)
+		layout.add_widget(self.btnS)
 
 	def makeCommandLayout(self, layout, itext):
 		layout.clear_widgets()
@@ -453,8 +453,13 @@ class MonitorData:
     Handlers of the main screen.
     ----- '''
 
+def checkToggleButton(button):
+	if(button.state == 'normal'):
+		button.state = 'down' 
+
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
+	checkToggleButton(Data.btnV)
 	Data.index = 0				# Reset the current index.
 	if(Data.IsVMsListed == False):
 		Data.connectToCloudProvider()
@@ -522,12 +527,17 @@ def buttonSettings(instance):
 	Screen.buildSettingsScreen()
 
 def buttonLog(instane):
+	checkToggleButton(Data.btnL)
 	Data.makeLogLayout()
 	Screen.buildLogScreen()
 
 def buttonList(instance):
+	checkToggleButton(Data.btnLi)
 	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
+
+def buttonStatistics(instance):
+	checkToggleButton(Data.btnSta)
 
 def buttonVMAction(*args, **kwargs):
 	index = args[0]
@@ -665,7 +675,7 @@ class ScreenBank:
 		self.MiddleLayout.add_widget(Data.VMListLayout)
 		self.MiddleLayout.add_widget(Data.VMNavigationLayout)
 
-	# Build the log screen, justu pdating the middle layout.
+	# Build the log screen, just updating the middle layout.
 	def buildLogScreen(self):
 		self.MiddleLayout.clear_widgets()
 		self.MiddleScroll.clear_widgets()
