@@ -34,9 +34,15 @@ struct jm_thread_data {
     struct request_FIFO * request_list; // FIFO of request, to manage client requests. 
     pthread_mutex_t lock;               // lock responsible for the FIFO of requests.
     sem_t num_requests;                 // number of pending requests to deal with. 
-    int task_counter;
+    int task_counter;                   // Current/Next task.
+    pthread_mutex_t tc_lock;            // lock responsible for task_counter.
+    int all_generated;                  // Indicates (0=No, 1=Yes) if all tasks were already generated.
+    int is_finished;                    // Indicates if it's finished. 
+    pthread_mutex_t tl_lock;            // lock responsible for task_list.
+    struct task_list * tasks;             // List of already genreated tasks.
 };
 
+// Regular first in first out list. 
 struct request_FIFO{
     struct request_elem * first;           // Points to oldest added element.
     struct request_elem * last;            // Points to newest added element.
@@ -46,6 +52,19 @@ struct request_elem {
     struct byte_array * ba;             // Byte array of message received.
     enum message_type type;             // Type of message received. 
     struct request_elem * next;            // Pointer to next task.
+};
+
+// Special FIFO list, will repeat after ended. Will not remove when accessed (no pop).
+struct task_list {
+   struct task *home;
+   struct task *mark;
+   struct task *head;
+};
+
+struct task {
+    size_t id;
+    struct byte_array data;
+    struct task *next;
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);

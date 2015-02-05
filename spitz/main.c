@@ -62,7 +62,13 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // starts semaphores
     pthread_mutex_init(&td.lock, NULL);
     sem_init(&td.num_requests, 0, 0);
-    
+
+    // Start task counter and lock.
+    td.task_counter = 0;
+    pthread_mutex_init(&td.tc_lock, NULL);    
+    td.all_generated = 0;                                           // No, not all tasks was generated at start. 
+    td.is_finished = 0;
+
     job_manager(argc, argv, so, final_result);
     free(lib_path);
 }

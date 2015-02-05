@@ -31,14 +31,10 @@
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
-struct task {
-    size_t id;
-    struct byte_array data;
-    struct task *next;
-};
+
 
 // Push a task into the thread FIFO.
-void push_task(struct jm_thread_data * td, struct byte_array * ba, enum message_type type) {
+void push_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type) {
     struct request_elem * new_elem = (struct request_elem *) malloc (sizeof(struct request_elem));
     struct request_FIFO * FIFO = td->request_list;
    
@@ -66,7 +62,7 @@ void push_task(struct jm_thread_data * td, struct byte_array * ba, enum message_
 }
 
 // Pop a task from the task FIFO list. Need to free memory in the future.
-struct request_elem * pop_task(struct jm_thread_data * td) {
+struct request_elem * pop_request(struct jm_thread_data * td) {
     struct request_elem * ret;
     
     // Wait for new functions;
@@ -79,6 +75,117 @@ struct request_elem * pop_task(struct jm_thread_data * td) {
     
     // Let the FIFO go.
     pthread_mutex_unlock(&td->lock);
+    return ret;
+}
+
+// Add task to the task list. No repeated tasks will be generated with current algorithm.
+void * add_task(struct jm_thread_data *td, struct task *node) {
+    pthread_mutex_lock(&td->tl_lock);
+    
+    if(td->tasks->home == NULL) {
+        td->tasks->home = node;
+        td->tasks->head = node;
+        td->tasks->mark = node;
+    }
+    else {
+        td->tasks->head->next = node;
+        td->tasks->head = node;
+    }
+
+    // Let the FIFO go.
+    pthread_mutex_unlock(&td->tl_lock);
+}
+
+// Get next task from task list. Return NULL if list is empty.
+struct task * next_task (struct jm_thread_data * td) {
+    struct task * ret;
+
+    // Check if list is null, if it is computation is over.
+    if(td->tasks->mark == NULL) {
+        td->is_finished = 1;
+        return NULL;        
+    }
+
+    else {
+        pthread_mutex_lock(&td->tl_lock);
+        
+        // Get the marked one and make it iterate.
+        ret = td->tasks->mark;
+        td->tasks->mark = td->tasks->mark->next;
+
+        // Check if it should loop the FIFO.
+        if(!td->tasks->mark) {
+           td->tasks->mark = td->tasks->home; 
+        }
+
+        // Let the FIFO go.
+        pthread_mutex_unlock(&td->tl_lock);
+    }
+}
+
+// Remove task with the id provided if it exists.
+void remove_task (struct jm_thread_data * td, int tid) {
+    struct task *iter, *prev, *clean;              // Pointers to iterate through FIFO. 
+    
+    pthread_mutex_lock(&td->tl_lock);
+
+    iter = td->tasks->home;
+    prev = NULL;
+
+    // search for the task that finished
+    while (iter->id != tid) {
+        prev = iter;
+        iter = iter->next;
+    }
+
+    // if there is a previous in the list. 
+    if(prev) {
+        clean = iter;
+        prev->next = iter->next;
+    }
+    // If not, iter = home.
+    else {
+        clean = td->tasks->home; 
+        td->tasks->home = td->tasks->home->next;
+    }
+
+    // If it's the head, updates it.
+    if(iter == td->tasks->head) {
+        td->tasks->head = prev;
+    }
+
+    // If equals to mark, iterate.
+    if(iter == td->tasks->mark) {
+        td->tasks->mark = td->tasks->mark->next;
+        
+        if(!td->tasks->mark) {
+           td->tasks->mark = td->tasks->home; 
+        }
+    }
+
+    // Can clean for now, committer will send only one message.:w
+    free(clean); 
+
+    // Let the FIFO go.
+    pthread_mutex_unlock(&td->tl_lock);
+    
+}
+
+// Get the next id used for generating the next task. Returns -1 if all tasks were generated already. 
+int next_task_num(struct jm_thread_data *td) {
+    int ret;
+
+    // if all tasks were generated, just stops.
+    if(td->all_generated > 0) {
+        return -1;
+    }
+
+    // Get current task and just add one.
+    pthread_mutex_lock(&td->tc_lock);
+    ret = td->task_counter;
+    td->task_counter++;
+    pthread_mutex_unlock(&td->tc_lock);
+    
     return ret;
 }
 
@@ -150,6 +257,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             case MSG_READY:
                 byte_array_clear(ba);
                 byte_array_pack64(ba, task_id);
+                // try to generate task.
                 if (tgen(user_data, ba)) {
                     node = malloc(sizeof(*node));
                     node->id = task_id;
@@ -177,6 +285,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                     
                     COMM_send_message(ba, MSG_TASK, origin_socket);
                     task_id++;
+                // If couldn't generate, try to send a repeated one.
                 } else if (mark != NULL) {
                     COMM_send_message(&mark->data, MSG_TASK, origin_socket);
                     debug("Replicating task %d", mark->id);
@@ -185,7 +294,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                         mark = home;
                     }
                 } 
-                // will enter here if ended at least once
+                // If still coulnd't find, computation was finished.
+                // Will enter here if ended at least once
                 else {        
                     debug("Sending KILL to rank %d", rank);
                     COMM_send_message(ba, MSG_KILL, origin_socket);
