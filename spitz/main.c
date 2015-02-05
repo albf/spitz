@@ -76,7 +76,13 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.tasks->mark = NULL;
     td.tasks->head = NULL;
 
-    job_manager(argc, argv, so, final_result);
+    td.handle = dlopen(so, RTLD_LAZY); 
+    if (!td.handle) {
+        error("Could not open %s", so);
+        return;
+    }
+
+    job_manager(argc, argv, so, final_result, &td);
     free(lib_path);
 }
 

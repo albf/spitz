@@ -40,9 +40,9 @@ struct tm_thread_data {
     pthread_mutex_t rlock;
     sem_t tcount;                       // number of tasks available
     sem_t sem;
-    char running;
+    char running;                       // Indicate if running.
     struct result_node *results;
-    void *handle;
+    void *handle;                       // Used to find user-defined functions.
     int argc;
     char **argv;
     int is_blocking_flush;              // 1 if in blocking flush, 0 if not. 

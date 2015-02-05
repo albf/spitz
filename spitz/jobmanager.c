@@ -34,7 +34,7 @@ typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
 
 // Push a task into the thread FIFO.
-void push_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {
+void append_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {
     struct request_elem * new_elem = (struct request_elem *) malloc (sizeof(struct request_elem));
     struct request_FIFO * FIFO = td->request_list;
    
@@ -72,7 +72,9 @@ struct request_elem * pop_request(struct jm_thread_data * td) {
   
     // Get task and remove the first one.
     ret = td->request_list->first;
-    td->request_list->first = td->request_list->first->next;
+    if(ret != NULL) {
+        td->request_list->first = td->request_list->first->next;
+    }
     
     // Let the FIFO go.
     pthread_mutex_unlock(&td->lock);
@@ -193,11 +195,29 @@ int next_task_num(struct jm_thread_data *td) {
 // Function reponsible for the workers on JM.
 void * jm_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
+    struct request_elem * my_request;
+    spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
+
+    int tid;
+    int task_generated;
+
+    while (1) {
+        my_request = pop_request(td);
+        if(my_request == NULL) {
+            return NULL;
+        }
+        
+        tid = next_task_num(td);
+        if (tid >= 0) {
+            
+        }
+        
+    }
 }
 
 
 // Function responsible for the behavior of the job manager.
-void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
+void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td)
 {
     int is_finished=0, rank=(int)TASK_MANAGER;                      // Indicates if the work is finished.
     enum message_type type;                                         // Type of received message.
@@ -220,17 +240,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
     struct task *node;                                              // Pointer of new task.
     
-    void *ptr = dlopen(so, RTLD_LAZY);                              // Open the binary file.
-    if (!ptr) {
-        error("Could not open %s", so);
-        return;
-    }
+    void * ptr = td->handle;                                        // Open the binary file.
     
     spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");        // Loads the user functions.
     spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
     // Data structure to exchange message between processes. 
-    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+    struct byte_array * ba; 
     byte_array_init(ba, 10);
 
     // Binary Array used to store the binary, the .so. 
@@ -258,12 +274,14 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int rank_original;
 
     while (1) {
+        ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
             case MSG_READY:
                 byte_array_clear(ba);
                 byte_array_pack64(ba, task_id);
+                
                 // try to generate task.
                 if (tgen(user_data, ba)) {
                     node = malloc(sizeof(*node));
@@ -452,6 +470,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
             default:
                 break;
+        }
+
+        if(!(type == MSG_READY)) {
+            free(ba);
         }
         
         // If computation is over, closes all sockets and exits. 

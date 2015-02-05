@@ -39,7 +39,8 @@ struct jm_thread_data {
     int all_generated;                  // Indicates (0=No, 1=Yes) if all tasks were already generated.
     int is_finished;                    // Indicates if it's finished. 
     pthread_mutex_t tl_lock;            // lock responsible for task_list.
-    struct task_list * tasks;             // List of already genreated tasks.
+    struct task_list * tasks;           // List of already genreated tasks.
+    void *handle;                       // Used to find user-defined funnctions.
 };
 
 // Regular first in first out list. 
@@ -68,6 +69,6 @@ struct task {
     struct task *next;
 };
 
-void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);
+void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
 
 #endif /* __SPITZ_JOB_MANAGER_H__ */
