@@ -30,21 +30,22 @@
 #include <semaphore.h>
 
 struct jm_thread_data {
-    int * socket_table [2];
-    struct task_FIFO * tasks_list; 
-    pthread_mutex_t lock;               // lock responsible for the FIFO of tasks
+    int * socket_table [2];             // Table of sockets, to manage what each thread are doing.
+    struct request_FIFO * request_list; // FIFO of request, to manage client requests. 
+    pthread_mutex_t lock;               // lock responsible for the FIFO of requests.
     sem_t num_requests;                 // number of pending requests to deal with. 
+    int task_counter;
 };
 
-struct task_FIFO {
-    struct task_elem * first;           // Points to oldest added element.
-    struct task_elem * last;            // Points to newest added element.
+struct request_FIFO{
+    struct request_elem * first;           // Points to oldest added element.
+    struct request_elem * last;            // Points to newest added element.
 };
 
-struct task_elem {
+struct request_elem {
     struct byte_array * ba;             // Byte array of message received.
     enum message_type type;             // Type of message received. 
-    struct task_elem * next;            // Pointer to next task.
+    struct request_elem * next;            // Pointer to next task.
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);

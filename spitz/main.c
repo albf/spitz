@@ -55,9 +55,13 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.socket_table[1] = (int *) malloc (sizeof(int) * JM_EXTRA_THREADS);
 
     // start task fifo list. 
-    td.tasks_list = (struct task_FIFO *) malloc (sizeof(struct task_FIFO));
-    td.tasks_list->first = NULL; 
-    td.tasks_list->last = NULL;
+    td.request_list = (struct request_FIFO *) malloc (sizeof(struct request_FIFO));
+    td.request_list->first = NULL; 
+    td.request_list->last = NULL;
+    
+    // starts semaphores
+    pthread_mutex_init(&td.lock, NULL);
+    sem_init(&td.num_requests, 0, 0);
     
     job_manager(argc, argv, so, final_result);
     free(lib_path);

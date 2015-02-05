@@ -37,6 +37,51 @@ struct task {
     struct task *next;
 };
 
+// Push a task into the thread FIFO.
+void push_task(struct jm_thread_data * td, struct byte_array * ba, enum message_type type) {
+    struct request_elem * new_elem = (struct request_elem *) malloc (sizeof(struct request_elem));
+    struct request_FIFO * FIFO = td->request_list;
+   
+    // Allocate new element.
+    new_elem->ba = ba;
+    new_elem->type = type;
+    new_elem->next = NULL;
+
+    // Only one thread poke the FIFO.
+    pthread_mutex_lock(&td->lock);
+        
+    if(FIFO->first== NULL) {
+        FIFO->first = new_elem;
+        FIFO->last = new_elem;
+        new_elem->next = NULL;
+    }
+    else {
+        FIFO->last->next = new_elem;
+        FIFO->last = new_elem;
+    }
+
+    // Let the FIFO go and mark that one task was added.
+    pthread_mutex_unlock(&td->lock);
+    sem_post(&td->num_requests);
+}
+
+// Pop a task from the task FIFO list. Need to free memory in the future.
+struct request_elem * pop_task(struct jm_thread_data * td) {
+    struct request_elem * ret;
+    
+    // Wait for new functions;
+    sem_wait(&td->num_requests);
+    pthread_mutex_lock(&td->lock);
+  
+    // Get task and remove the first one.
+    ret = td->request_list->first;
+    td->request_list->first = td->request_list->first->next;
+    
+    // Let the FIFO go.
+    pthread_mutex_unlock(&td->lock);
+    return ret;
+}
+
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
