@@ -25,6 +25,26 @@
 #define RESTORE_RATE 10
 
 #include <barray.h>
+#include <comm.h>
+#include <semaphore.h>
+
+struct jm_thread_data {
+    int * socket_table [2];
+    task_FIFO tasks_list; 
+};
+
+struct task_FIFO {
+    struct task_elem * first;           // Points to oldest added element.
+    struct task_elem * last;            // Points to newest added element.
+    pthread_mutex_t lock;              // lock responsible for the FIFO of tasks
+    sem_t num_requests;                 // number of pending requests to deal with. 
+};
+
+struct task_elem {
+    struct byte_array * ba;             // Byte array of message received.
+    enum message_type type;             // Type of message received. 
+    struct task_elem * next;            // Pointer to next task.
+};
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result);
 

@@ -33,7 +33,7 @@ struct result_node {
     struct result_node *next;
 };
 
-struct thread_data {
+struct tm_thread_data {
     int id;
     struct cfifo f;
     pthread_mutex_t tlock;              // lock responsible for the fifo of tasks
@@ -58,8 +58,8 @@ enum blocking {
 
 int get_number_of_cores();
 void *worker(void *ptr);
-int flush_results(struct thread_data *d, int min_results, enum blocking b);
-void task_manager(struct thread_data *d);
+int flush_results(struct tm_thread_data *d, int min_results, enum blocking b);
+void task_manager(struct tm_thread_data *d);
 
 extern int received_one;
 

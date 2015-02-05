@@ -91,7 +91,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     void *user_data = ctor((argc), (argv));
 
     // Information about the completed task.
-    size_t tid, task_id = 0;
+    int tid, task_id = 0;
     int tm_id;
 
     // Used for id recovery.

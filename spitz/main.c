@@ -46,6 +46,8 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
+    jm_thread_data td;
+    
     job_manager(argc, argv, so, final_result);
     free(lib_path);
 }
@@ -259,7 +261,7 @@ void start_slave_processes(int argc, char *argv[])
             pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
             
             
-            struct thread_data d;
+            struct tm_thread_data d;
             struct result_node * aux;
             
             cfifo_init(&d.f, sizeof(struct byte_array), FIFOSZ);

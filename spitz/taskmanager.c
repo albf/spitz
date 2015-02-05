@@ -59,7 +59,7 @@ void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
     size_t task_id;
-    struct thread_data *d = ptr;
+    struct tm_thread_data *d = ptr;
     struct byte_array task;
     struct result_node *result;
 
@@ -122,7 +122,7 @@ void *worker(void *ptr)
 
 /* Send results to the committer, blocking or not.
  * Returns the number of tasks sent or -1 if found a connection problem. */
-int flush_results(struct thread_data *d, int min_results, enum blocking b)
+int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
 {
     int len = 0;
     struct result_node *aux, *n = d->results;
@@ -206,7 +206,7 @@ int flush_results(struct thread_data *d, int min_results, enum blocking b)
 
 // Responsible for the thread that manages the Task Manager: receiving tasks,
 // Sending results, requesting new tasks and etc.
-void task_manager(struct thread_data *d)
+void task_manager(struct tm_thread_data *d)
 {
     int alive = 1;                                                  // Indicate if it still alive.
     enum message_type type;                                         // Type of received message.
