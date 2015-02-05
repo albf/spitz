@@ -23,6 +23,7 @@
 #define __SPITZ_JOB_MANAGER_H__
 
 #define RESTORE_RATE 10
+#define JM_EXTRA_THREADS 1 
 
 #include <barray.h>
 #include <comm.h>
@@ -30,14 +31,14 @@
 
 struct jm_thread_data {
     int * socket_table [2];
-    task_FIFO tasks_list; 
+    struct task_FIFO * tasks_list; 
+    pthread_mutex_t lock;               // lock responsible for the FIFO of tasks
+    sem_t num_requests;                 // number of pending requests to deal with. 
 };
 
 struct task_FIFO {
     struct task_elem * first;           // Points to oldest added element.
     struct task_elem * last;            // Points to newest added element.
-    pthread_mutex_t lock;              // lock responsible for the FIFO of tasks
-    sem_t num_requests;                 // number of pending requests to deal with. 
 };
 
 struct task_elem {

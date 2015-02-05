@@ -44,9 +44,20 @@ int NTHREADS = 1;
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
+    int i;
+    
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
-    jm_thread_data td;
+    struct jm_thread_data td;
+
+    // start socket table matrice. 
+    td.socket_table[0] = (int *) malloc (sizeof(int) * JM_EXTRA_THREADS);
+    td.socket_table[1] = (int *) malloc (sizeof(int) * JM_EXTRA_THREADS);
+
+    // start task fifo list. 
+    td.tasks_list = (struct task_FIFO *) malloc (sizeof(struct task_FIFO));
+    td.tasks_list->first = NULL; 
+    td.tasks_list->last = NULL;
     
     job_manager(argc, argv, so, final_result);
     free(lib_path);
