@@ -62,12 +62,19 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // starts semaphores
     pthread_mutex_init(&td.lock, NULL);
     sem_init(&td.num_requests, 0, 0);
+    pthread_mutex_init(&td.tc_lock, NULL);    
+    pthread_mutex_init(&td.tl_lock, NULL);    
 
     // Start task counter and lock.
     td.task_counter = 0;
-    pthread_mutex_init(&td.tc_lock, NULL);    
     td.all_generated = 0;                                           // No, not all tasks was generated at start. 
     td.is_finished = 0;
+
+    // Start tasks list.
+    td.tasks = (struct task_list *) malloc (sizeof (struct task_list));
+    td.tasks->home = NULL;
+    td.tasks->mark = NULL;
+    td.tasks->head = NULL;
 
     job_manager(argc, argv, so, final_result);
     free(lib_path);

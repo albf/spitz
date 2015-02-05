@@ -34,13 +34,14 @@ typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
 
 // Push a task into the thread FIFO.
-void push_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type) {
+void push_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {
     struct request_elem * new_elem = (struct request_elem *) malloc (sizeof(struct request_elem));
     struct request_FIFO * FIFO = td->request_list;
    
     // Allocate new element.
     new_elem->ba = ba;
     new_elem->type = type;
+    new_elem->socket = socket;
     new_elem->next = NULL;
 
     // Only one thread poke the FIFO.
@@ -66,7 +67,7 @@ struct request_elem * pop_request(struct jm_thread_data * td) {
     struct request_elem * ret;
     
     // Wait for new functions;
-    sem_wait(&td->num_requests);
+    sem_wait(&td->num_requests);        // Important : let sem_wait before mutex_lock
     pthread_mutex_lock(&td->lock);
   
     // Get task and remove the first one.
@@ -188,6 +189,12 @@ int next_task_num(struct jm_thread_data *td) {
     
     return ret;
 }
+
+// Function reponsible for the workers on JM.
+void * jm_worker(void * ptr) {
+    struct jm_thread_data * td = ptr;
+}
+
 
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result)

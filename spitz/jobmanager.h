@@ -51,7 +51,8 @@ struct request_FIFO{
 struct request_elem {
     struct byte_array * ba;             // Byte array of message received.
     enum message_type type;             // Type of message received. 
-    struct request_elem * next;            // Pointer to next task.
+    int socket;
+    struct request_elem * next;         // Pointer to next task.
 };
 
 // Special FIFO list, will repeat after ended. Will not remove when accessed (no pop).
