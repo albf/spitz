@@ -45,14 +45,11 @@ int NTHREADS = 1;
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     int i;
+    spitz_ctor_t ctor;
     
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
     struct jm_thread_data td;
-
-    // start socket table matrice. 
-    td.socket_table[0] = (int *) malloc (sizeof(int) * JM_EXTRA_THREADS);
-    td.socket_table[1] = (int *) malloc (sizeof(int) * JM_EXTRA_THREADS);
 
     // start task fifo list. 
     td.request_list = (struct request_FIFO *) malloc (sizeof(struct request_FIFO));
@@ -81,6 +78,10 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         error("Could not open %s", so);
         return;
     }
+
+    // initialize shared user data. 
+    ctor = dlsym(td.handle, "spits_job_manager_new"); 
+    td.user_data = ctor((argc), (argv));
 
     job_manager(argc, argv, so, final_result, &td);
     free(lib_path);

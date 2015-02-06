@@ -28,9 +28,6 @@
 #include "barray.h"
 #include "spitz.h"
 
-typedef void * (*spitz_ctor_t) (int, char **);
-typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
-
 
 
 // Push a task into the thread FIFO.
@@ -196,23 +193,42 @@ int next_task_num(struct jm_thread_data *td) {
 void * jm_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     struct request_elem * my_request;
-    spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
+    spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
 
     int tid;
     int task_generated;
 
     while (1) {
         my_request = pop_request(td);
+
         if(my_request == NULL) {
             return NULL;
         }
-        
-        tid = next_task_num(td);
-        if (tid >= 0) {
+
+        else if(my_request->type == MSG_KILL) {
+            return NULL; 
+        }
+
+        else if(my_request->type == MSG_READY) {
+            task_generated = 0;
+            byte_array_clear(my_request->ba); 
+
+            tid = next_task_num(td);
+            if (tid >= 0) {
+                byte_array_pack64(my_request->ba, tid);
+                
+                
+            }
             
         }
-        
+
+        else {
+            error("Unexpected type of message for jobmanager worker.");
+        }
+       
     }
+
+    return NULL;
 }
 
 
@@ -242,7 +258,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     
     void * ptr = td->handle;                                        // Open the binary file.
     
-    spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");        // Loads the user functions.
+    //spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");        // Loads the user functions.
     spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
     // Data structure to exchange message between processes. 
@@ -263,7 +279,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     struct connected_ip * vm_node;
     char port[10];                              // port of node.
     
-    void *user_data = ctor((argc), (argv));
+    //void *user_data = ctor((argc), (argv));
 
     // Information about the completed task.
     int tid, task_id = 0;
@@ -283,7 +299,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 byte_array_pack64(ba, task_id);
                 
                 // try to generate task.
-                if (tgen(user_data, ba)) {
+                if (tgen(td->user_data, ba)) {
                     node = malloc(sizeof(*node));
                     node->id = task_id;
                     byte_array_init(&node->data, ba->len);
@@ -509,7 +525,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     free(ba_hash);
 
     // And in user_data
-    free(user_data);
+    free(td->user_data);
 
     info("Terminating job manager");
 }

@@ -30,7 +30,7 @@
 #include <semaphore.h>
 
 struct jm_thread_data {
-    int * socket_table [2];             // Table of sockets, to manage what each thread are doing.
+    void *user_data;                    // User data, used to generate tasks.
     struct request_FIFO * request_list; // FIFO of request, to manage client requests. 
     pthread_mutex_t lock;               // lock responsible for the FIFO of requests.
     sem_t num_requests;                 // number of pending requests to deal with. 
@@ -70,5 +70,8 @@ struct task {
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
+
+typedef void * (*spitz_ctor_t) (int, char **);
+typedef int    (*spitz_tgen_t) (void *, struct byte_array *);
 
 #endif /* __SPITZ_JOB_MANAGER_H__ */
