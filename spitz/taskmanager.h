@@ -60,6 +60,7 @@ int get_number_of_cores();
 void *worker(void *ptr);
 int flush_results(struct tm_thread_data *d, int min_results, enum blocking b);
 void task_manager(struct tm_thread_data *d);
+void * jm_worker(void * ptr);
 
 extern int received_one;
 
