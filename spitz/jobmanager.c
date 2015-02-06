@@ -163,7 +163,7 @@ void remove_task (struct jm_thread_data * td, int tid) {
         }
     }
 
-    // Can clean for now, committer will send only one message.:w
+    // Can clean for now, committer will send only one message.
     free(clean); 
 
     // Let the FIFO go.
@@ -217,6 +217,15 @@ void * jm_worker(void * ptr) {
             if (tid >= 0) {
                 byte_array_pack64(my_request->ba, tid);
                 
+                // try to generate task.
+                if(tgen(td->user_data, my_request->ba)) {
+                    task_generated = 1;
+                    
+                }
+
+                else {
+                    
+                }
                 
             }
             
@@ -300,7 +309,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 
                 // try to generate task.
                 if (tgen(td->user_data, ba)) {
-                    node = malloc(sizeof(*node));
+                    node = (struct task *) malloc(sizeof(struct task));
                     node->id = task_id;
                     byte_array_init(&node->data, ba->len);
                     byte_array_pack8v(&node->data, ba->ptr, ba->len);
