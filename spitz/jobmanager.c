@@ -233,6 +233,7 @@ void * jm_worker(void * ptr) {
                         error("Couldn't find client with socket provided by main thread.");
                         return NULL;
                     }
+                    node = (struct task *) malloc (sizeof(struct task));
                     node->id = tid;
                     node->data = my_request->ba;
                     add_task(td, node);
@@ -297,7 +298,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba; 
-    byte_array_init(ba, 10);
 
     // Binary Array used to store the binary, the .so. 
     struct byte_array * ba_binary = (struct byte_array *) malloc (sizeof(struct byte_array));
@@ -325,6 +325,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
     while (1) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+        byte_array_init(ba, 10);
         COMM_wait_request(&type, &origin_socket, ba); 
         
         switch (type) {
