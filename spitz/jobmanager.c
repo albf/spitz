@@ -164,6 +164,8 @@ void remove_task (struct jm_thread_data * td, int tid) {
     }
 
     // Can clean for now, committer will send only one message.
+    byte_array_free(clean->data);
+    free(clean->data);
     free(clean); 
 
     // Let the FIFO go.
@@ -194,6 +196,9 @@ void * jm_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     struct request_elem * my_request;
     spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+    struct task *node;                                              // Pointer of new task.
+    struct connected_ip *client;
+    int rank;
 
     int tid;
     int task_generated;
@@ -213,6 +218,9 @@ void * jm_worker(void * ptr) {
             task_generated = 0;
             byte_array_clear(my_request->ba); 
 
+            client = LIST_search_socket(COMM_ip_list, my_request->socket);
+            rank = client->id;
+
             tid = next_task_num(td);
             if (tid >= 0) {
                 byte_array_pack64(my_request->ba, tid);
@@ -221,12 +229,32 @@ void * jm_worker(void * ptr) {
                 if(tgen(td->user_data, my_request->ba)) {
                     task_generated = 1;
                     
-                }
-
-                else {
+                    if(client == NULL) {
+                        error("Couldn't find client with socket provided by main thread.");
+                        return NULL;
+                    }
+                    node->id = tid;
+                    node->data = my_request->ba;
+                    add_task(td, node);
                     
+                    debug("Sending generated task %d to %d", tid, rank);
+                    LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
+                    COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
                 }
-                
+            }
+            // If couldn't generate, try to send a repeated one.
+            if(task_generated == 0) {
+                node = next_task(td);
+                if (node == NULL) {
+                    debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
+                    COMM_send_message(NULL, MSG_KILL, my_request->socket);
+                }
+                // If still coulnd't find, computation was finished.
+                // Will enter here if ended at least once
+                else {
+                    debug("Replicating task %d to rank %d",node->id,rank);
+                    COMM_send_message(node->data, MSG_TASK, my_request->socket);
+                }
             }
             
         }
@@ -234,7 +262,8 @@ void * jm_worker(void * ptr) {
         else {
             error("Unexpected type of message for jobmanager worker.");
         }
-       
+    
+        free(my_request);
     }
 
     return NULL;
@@ -244,7 +273,6 @@ void * jm_worker(void * ptr) {
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td)
 {
-    int is_finished=0, rank=(int)TASK_MANAGER;                      // Indicates if the work is finished.
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket.
     int origin_socket;                                              // Socket that sent the request.
@@ -260,10 +288,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
     int total_restores=0;                                           // Amount of nodes restored.
     
-    struct task *clean;                                             // Auxiliary pointer used to free memory. 
-    struct task *iter, *prev;                                       // Pointers to iterate through FIFO. 
-    struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
-    struct task *node;                                              // Pointer of new task.
+    //struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
     
     void * ptr = td->handle;                                        // Open the binary file.
     
@@ -305,52 +330,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         switch (type) {
             case MSG_READY:
                 byte_array_clear(ba);
-                byte_array_pack64(ba, task_id);
-                
-                // try to generate task.
-                if (tgen(td->user_data, ba)) {
-                    node = (struct task *) malloc(sizeof(struct task));
-                    node->id = task_id;
-                    byte_array_init(&node->data, ba->len);
-                    byte_array_pack8v(&node->data, ba->ptr, ba->len);
-                    rank = (LIST_search_socket(COMM_ip_list, origin_socket))->id; 
-                    debug("Sending generated task %d to %d", task_id, rank);
-                    LIST_update_tasks_info (COMM_ip_list,NULL,-1, rank, 1, 0);
-                    
-                    // node has a new task
-                    if(home == NULL) {
-                        home = node;
-                        head = node;
-                        mark = node;
-                    }
-                    
-                    else {
-                    // update the head
-                        head->next = node;
-                        head = node;
-                    }
-                    
-                    // points to nothing
-                    node->next = NULL;
-                    
-                    COMM_send_message(ba, MSG_TASK, origin_socket);
-                    task_id++;
-                // If couldn't generate, try to send a repeated one.
-                } else if (mark != NULL) {
-                    COMM_send_message(&mark->data, MSG_TASK, origin_socket);
-                    debug("Replicating task %d", mark->id);
-                    mark = mark ->next;
-                    if (!mark) {
-                        mark = home;
-                    }
-                } 
-                // If still coulnd't find, computation was finished.
-                // Will enter here if ended at least once
-                else {        
-                    debug("Sending KILL to rank %d", rank);
-                    COMM_send_message(ba, MSG_KILL, origin_socket);
-                    is_finished=1;
-                }
+                append_request(td, ba, type, origin_socket);
+               
                 break;
             case MSG_DONE:;
                 byte_array_unpack64(ba, &bufferr);
@@ -358,36 +339,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 byte_array_unpack64(ba, &bufferr);
                 tm_id = (int)bufferr;
                 
-                iter = home;
-                prev = NULL;
-
-                // search for the task that finished
-                while (iter->id != tid) {
-                    prev = iter;
-                    iter = iter->next;
-                }
-
-                // if there is a previous in the list. 
-                if (prev) {
-                    clean = iter;
-                    prev->next = iter->next;
-                }
-
-                // if not, it's the home.
-                else {
-                    clean = home;
-                    home = home->next;
-                }
-
-                // if it's the head, pick the previous one
-                if(iter == head) {
-                    head = prev;
-                }
+                remove_task(td, tid);
                 
-                free(clean);
                 debug("TASK %d is complete by %d!", tid, tm_id);
                 LIST_update_tasks_info (COMM_ip_list,NULL,-1, tm_id, 0, 1);
-                byte_array_free(&iter->data);
                 break;
             case MSG_NEW_CONNECTION:
                 COMM_create_new_connection();
@@ -440,7 +395,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 }
                 else {
                     info("Computation stopped by the committer");
-                    is_finished=1;
+                    td->is_finished = 1;
                 }
                 break;
             case MSG_GET_STATUS:
@@ -497,12 +452,12 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
         }
 
-        if(!(type == MSG_READY)) {
+        if(type != MSG_READY) {
             free(ba);
         }
         
         // If computation is over, closes all sockets and exits. 
-        if (is_finished==1){
+        if (td->is_finished==1){
             info("Sending kill to committer");
             COMM_connect_to_committer(NULL);
             COMM_send_message(ba, MSG_KILL, socket_committer);

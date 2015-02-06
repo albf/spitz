@@ -65,7 +65,7 @@ struct task_list {
 
 struct task {
     size_t id;
-    struct byte_array data;
+    struct byte_array * data;
     struct task *next;
 };
 

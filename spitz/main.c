@@ -46,7 +46,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     int i;
     spitz_ctor_t ctor;
-    
+    pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * JM_EXTRA_THREADS); 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
     struct jm_thread_data td;
@@ -82,8 +82,18 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // initialize shared user data. 
     ctor = dlsym(td.handle, "spits_job_manager_new"); 
     td.user_data = ctor((argc), (argv));
+    
+    // Create extra-thread(s)
+    for (i=0; i < JM_EXTRA_THREADS; i++) {
+        pthread_create(&t[i], NULL, jm_worker, &td);
+    }
 
     job_manager(argc, argv, so, final_result, &td);
+
+    for (i = 0; i < JM_EXTRA_THREADS; i++) {    // Join them all
+        pthread_join(t[i], NULL);
+    }
+    
     free(lib_path);
 }
 
