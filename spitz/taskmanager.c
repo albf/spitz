@@ -79,7 +79,7 @@ void *worker(void *ptr)
     sem_wait (&d->tcount);                                      // wait for the first task to arrive.
     while (d->running) {
         pthread_mutex_lock(&d->tlock);                          // Get a new task.
-        cfifo_pop(&d->f, task);
+        cfifo_pop(&d->f, &task);
         pthread_mutex_unlock(&d->tlock);
 
         // Warn the Task Manager about the new space available.
@@ -95,7 +95,7 @@ void *worker(void *ptr)
         byte_array_pack64(&result->ba, my_rank);
         execute_pit(user_data, task, &result->ba);              // Do the computation.
         byte_array_free(task);                                  // Free memory used in task and pointer.
-        //free(task);
+        free(task);                                             // For now, each pointer is allocated in master thread.
 
         pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
         result->next = d->results;
@@ -119,7 +119,7 @@ void *worker(void *ptr)
 
     //free(result);
 
-    return NULL;
+    pthread_exit(NULL);
 }
 
 /* Send results to the committer, blocking or not.
@@ -251,7 +251,7 @@ void task_manager(struct tm_thread_data *d)
                 sem_wait(&d->sem);
 
                 pthread_mutex_lock(&d->tlock);
-                cfifo_push(&d->f, ba);
+                cfifo_push(&d->f, &ba);
                 pthread_mutex_unlock(&d->tlock);
                 sem_post(&d->tcount);
                 

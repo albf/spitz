@@ -310,7 +310,7 @@ void start_slave_processes(int argc, char *argv[])
             struct tm_thread_data d;
             struct result_node * aux;
             
-            cfifo_init(&d.f, sizeof(struct byte_array), FIFOSZ);
+            cfifo_init(&d.f, sizeof(struct byte_array *), FIFOSZ);
             sem_init(&d.sem, 0, FIFOSZ);
             sem_init (&d.tcount, 0, 0);
             pthread_mutex_init(&d.tlock, NULL);
