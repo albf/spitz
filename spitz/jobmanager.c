@@ -96,7 +96,7 @@ void * add_task(struct jm_thread_data *td, struct task *node) {
     pthread_mutex_unlock(&td->tl_lock);
 }
 
-// Get next task from task list. Return NULL if list is empty.
+// Get next task iteration from task list. Return NULL if list is empty, will cycle otherwise.
 struct task * next_task (struct jm_thread_data * td) {
     struct task * ret;
 
@@ -177,15 +177,17 @@ void remove_task (struct jm_thread_data * td, int tid) {
 int next_task_num(struct jm_thread_data *td) {
     int ret;
 
-    // if all tasks were generated, just stops.
-    if(td->all_generated > 0) {
-        return -1;
-    }
-
     // Get current task and just add one.
     pthread_mutex_lock(&td->tc_lock);
     ret = td->task_counter;
     td->task_counter++;
+
+    // if all tasks were generated, just stops.
+    if(td->task_counter >= td->num_tasks_total) {
+        td->all_generated = 1;
+        return -1;
+    }
+    
     pthread_mutex_unlock(&td->tc_lock);
     
     return ret;
@@ -281,7 +283,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
-    int aux; uint64_t aux64;                                        // Auxiliary, used to cast variables. 
+    uint64_t aux64;                                                 // Auxiliary, used to cast variables. 
     int64_t bufferr;                                                // buffer used for received int64_t values 
 
     // VM restore management.
@@ -316,7 +318,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     //void *user_data = ctor((argc), (argv));
 
     // Information about the completed task.
-    int tid, task_id = 0;
+    int tid; 
     int tm_id;
 
     // Used for id recovery.
@@ -443,8 +445,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 break;
             case MSG_GET_NUM_TASKS:
-                aux = atoi(argv[0]);
-                aux64 = (uint64_t) aux;
+                aux64 = (uint64_t) td->num_tasks_total;
                 byte_array_clear(ba);
                 byte_array_pack64(ba, aux64);
                 COMM_send_message(ba,MSG_GET_NUM_TASKS,origin_socket); 

@@ -66,6 +66,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.task_counter = 0;
     td.all_generated = 0;                                           // No, not all tasks was generated at start. 
     td.is_finished = 0;
+    td.num_tasks_total = atoi(argv[0]);
 
     // Start tasks list.
     td.tasks = (struct task_list *) malloc (sizeof (struct task_list));

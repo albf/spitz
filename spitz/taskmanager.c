@@ -60,8 +60,8 @@ void *worker(void *ptr)
     int my_rank = COMM_get_rank_id(); 
     size_t task_id;
     struct tm_thread_data *d = ptr;
-    struct byte_array task;
-    struct result_node *result;
+    struct byte_array * task;
+    struct result_node * result;
 
     workerid = d->id;
 
@@ -71,27 +71,31 @@ void *worker(void *ptr)
     void (*execute_pit) (void *, struct byte_array *, struct byte_array *);
     execute_pit = dlsym(d->handle, "spits_worker_run");
 
+    void* (*worker_free) (void *);
+    worker_free = dlsym(d->handle, "spits_worker_free");
+
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
     sem_wait (&d->tcount);                                      // wait for the first task to arrive.
     while (d->running) {
         pthread_mutex_lock(&d->tlock);                          // Get a new task.
-        cfifo_pop(&d->f, &task);
+        cfifo_pop(&d->f, task);
         pthread_mutex_unlock(&d->tlock);
 
         // Warn the Task Manager about the new space available.
         sem_post(&d->sem);
 
-        byte_array_unpack64(&task, &task_id);
+        byte_array_unpack64(task, &task_id);
         debug("[worker] Received TASK %d", task_id);
         
-        _byte_array_pack64(&task, (uint64_t) task_id);          // Put it back, might use in execute_pit.
+        _byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.
         result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
         byte_array_pack64(&result->ba, my_rank);
-        execute_pit(user_data, &task, &result->ba);             // Do the computation.
-        byte_array_free(&task);
+        execute_pit(user_data, task, &result->ba);              // Do the computation.
+        byte_array_free(task);                                  // Free memory used in task and pointer.
+        //free(task);
 
         pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
         result->next = d->results;
@@ -109,8 +113,6 @@ void *worker(void *ptr)
         sem_wait (&d->tcount);                                  // wait for the next task to arrive.
     }
 
-    void* (*worker_free) (void *);
-    worker_free = dlsym(d->handle, "spits_worker_free");
     if (worker_free) {
         worker_free(user_data);
     }
@@ -131,11 +133,11 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
         len++;
     }
 
-    if (len <= min_results && b == NONBLOCKING) {
+    if (len < min_results && b == NONBLOCKING) {
         return 0;
     }
 
-    if (len > min_results && b == NONBLOCKING) {
+    else if (len >= min_results && b == NONBLOCKING) {
 
         /* DEBUG
         int i=0;
@@ -170,7 +172,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
         return len - 1;
     }
 
-    if (b == BLOCKING) {
+    else if (b == BLOCKING) {
         
         if(len<min_results) {
             // If it's blocking and not yet complete.
@@ -218,13 +220,12 @@ void task_manager(struct tm_thread_data *d)
     int tm_retries;
 
     // Data structure to exchange message between processes. 
-    struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
-    byte_array_init(ba, 100);
-
-    struct byte_array task;                                         // Used to pass tasks to other threads
+    struct byte_array * ba;
 
     info("Starting task manager main loop");
     while (alive) {
+        ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+        byte_array_init(ba, 100);
 
         debug("Sending READY message to JOB_MANAGER");
         comm_return = COMM_send_message(NULL, MSG_READY, socket_manager);
@@ -248,11 +249,9 @@ void task_manager(struct tm_thread_data *d)
                 }
                 debug("waiting task buffer to free some space");
                 sem_wait(&d->sem);
-                byte_array_init(&task, ba->len);
-                byte_array_pack8v(&task, ba->ptr, ba->len);
 
                 pthread_mutex_lock(&d->tlock);
-                cfifo_push(&d->f, &task);
+                cfifo_push(&d->f, ba);
                 pthread_mutex_unlock(&d->tlock);
                 sem_post(&d->tcount);
                 

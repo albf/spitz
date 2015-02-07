@@ -33,14 +33,15 @@ struct jm_thread_data {
     void *user_data;                    // User data, used to generate tasks.
     struct request_FIFO * request_list; // FIFO of request, to manage client requests. 
     pthread_mutex_t lock;               // lock responsible for the FIFO of requests.
-    sem_t num_requests;                 // number of pending requests to deal with. 
+    sem_t num_requests;                 // number of pending requests to deal with. task_id = 0.
+    int num_tasks_total;                // number of tasks to do in current instance. 
     int task_counter;                   // Current/Next task.
     pthread_mutex_t tc_lock;            // lock responsible for task_counter.
     int all_generated;                  // Indicates (0=No, 1=Yes) if all tasks were already generated.
     int is_finished;                    // Indicates if it's finished. 
     pthread_mutex_t tl_lock;            // lock responsible for task_list.
-    struct task_list * tasks;           // List of already genreated tasks.
-    void *handle;                       // Used to find user-defined funnctions.
+    struct task_list * tasks;           // List of already generated tasks.
+    void *handle;                       // Used to find user-defined functions.
 };
 
 // Regular first in first out list. 
