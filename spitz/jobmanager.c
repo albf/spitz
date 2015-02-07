@@ -100,15 +100,18 @@ void * add_task(struct jm_thread_data *td, struct task *node) {
 struct task * next_task (struct jm_thread_data * td) {
     struct task * ret;
 
+    // Lock the task list.
+    pthread_mutex_lock(&td->tl_lock);
+
     // Check if list is null, if it is computation is over.
     if(td->tasks->mark == NULL) {
-        td->is_finished = 1;
-        return NULL;        
+        if (td->task_counter >= td->num_tasks_total) {
+            td->is_finished = 1;
+        }
+        ret = NULL;
     }
 
     else {
-        pthread_mutex_lock(&td->tl_lock);
-        
         // Get the marked one and make it iterate.
         ret = td->tasks->mark;
         td->tasks->mark = td->tasks->mark->next;
@@ -117,10 +120,11 @@ struct task * next_task (struct jm_thread_data * td) {
         if(!td->tasks->mark) {
            td->tasks->mark = td->tasks->home; 
         }
-
-        // Let the FIFO go.
-        pthread_mutex_unlock(&td->tl_lock);
     }
+    // Let the FIFO go.
+    pthread_mutex_unlock(&td->tl_lock);
+    
+    return ret;
 }
 
 // Remove task with the id provided if it exists.
@@ -179,13 +183,16 @@ int next_task_num(struct jm_thread_data *td) {
 
     // Get current task and just add one.
     pthread_mutex_lock(&td->tc_lock);
-    ret = td->task_counter;
-    td->task_counter++;
 
-    // if all tasks were generated, just stops.
-    if(td->task_counter >= td->num_tasks_total) {
+    // if all tasks were generated or computation is over, just stops.
+    if((td->task_counter >= td->num_tasks_total)||(td->is_finished > 0)) {
         td->all_generated = 1;
-        return -1;
+        ret = -1;
+    }
+    // if there are still tasks to generate. 
+    else {
+        ret = td->task_counter;
+        td->task_counter++;
     }
     
     pthread_mutex_unlock(&td->tc_lock);
@@ -246,17 +253,25 @@ void * jm_worker(void * ptr) {
                 }
             }
             // If couldn't generate, try to send a repeated one.
-            if(task_generated == 0) {
+            while(task_generated == 0) {
                 node = next_task(td);
                 if (node == NULL) {
-                    debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
-                    COMM_send_message(NULL, MSG_KILL, my_request->socket);
+                    // Couldn't find a task but it's not finished yet.
+                    if(td->is_finished > 0) {
+                        debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
+                        COMM_send_message(NULL, MSG_KILL, my_request->socket);
+                        break;
+                    }
+                    // Couldn't find a task because the computation is finished. Wait?
+                    else {
+                        sleep(1);
+                    }
                 }
-                // If still coulnd't find, computation was finished.
-                // Will enter here if ended at least once
+                // Find a task, will replicate to another node.
                 else {
                     debug("Replicating task %d to rank %d",node->id,rank);
                     COMM_send_message(node->data, MSG_TASK, my_request->socket);
+                    break;
                 }
             }
             
@@ -269,7 +284,7 @@ void * jm_worker(void * ptr) {
         free(my_request);
     }
 
-    return NULL;
+    pthread_exit(NULL);
 }
 
 

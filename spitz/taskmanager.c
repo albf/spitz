@@ -118,7 +118,6 @@ void *worker(void *ptr)
     }
 
     //free(result);
-
     pthread_exit(NULL);
 }
 
