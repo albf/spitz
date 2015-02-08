@@ -82,6 +82,7 @@ struct request_elem * pop_request(struct jm_thread_data * td) {
 void * add_task(struct jm_thread_data *td, struct task *node) {
     pthread_mutex_lock(&td->tl_lock);
     
+    node->next = NULL;
     if(td->tasks->home == NULL) {
         td->tasks->home = node;
         td->tasks->head = node;
@@ -163,7 +164,7 @@ void remove_task (struct jm_thread_data * td, int tid) {
         if(iter == td->tasks->mark) {
             td->tasks->mark = td->tasks->mark->next;
             
-            if(!td->tasks->mark) {
+            if(td->tasks->mark == NULL) {
                td->tasks->mark = td->tasks->home; 
             }
         }
@@ -264,7 +265,7 @@ void * jm_worker(void * ptr) {
                         COMM_send_message(NULL, MSG_KILL, my_request->socket);
                         break;
                     }
-                    // Couldn't find a task because the computation is finished. Wait?
+                    // Couldn't find a task because the computation isn't finished. Wait?
                     else {
                         sleep(1);
                     }
