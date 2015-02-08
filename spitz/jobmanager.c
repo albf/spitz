@@ -219,11 +219,12 @@ void * jm_worker(void * ptr) {
         my_request = pop_request(td);
 
         if(my_request == NULL) {
-            return NULL;
+            break;
         }
 
         else if(my_request->type == MSG_KILL) {
-            return NULL; 
+            debug("[jm_worker] Received kill.");
+            break; 
         }
 
         else if(my_request->type == MSG_READY) {
@@ -304,6 +305,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     uint64_t aux64;                                                 // Auxiliary, used to cast variables. 
     int64_t bufferr;                                                // buffer used for received int64_t values 
     struct timeval tv;                                              // Timeout for select.
+    int i;                                                          // Iterator
 
     // VM restore management.
     int counter=0;                                                  // Counts requests to restore VMs Task Managers.
@@ -485,7 +487,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         if (td->is_finished==1){
             info("Sending kill to committer");
             COMM_connect_to_committer(NULL);
-            COMM_send_message(ba, MSG_KILL, socket_committer);
+            COMM_send_message(NULL, MSG_KILL, socket_committer);
 
             //info("Fetching final result");
             //COMM_read_message(final_result, &type, socket_committer);
@@ -503,6 +505,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 }
             }
         }
+    }
+
+    // Send kill to all threads.
+    for (i = 0; i < JM_EXTRA_THREADS; i++) {    
+        append_request(td, NULL, MSG_KILL, 0);
     }
 
     // Free memory allocated in byte arrays.
