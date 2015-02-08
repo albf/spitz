@@ -103,7 +103,7 @@ struct task * next_task (struct jm_thread_data * td) {
     // Lock the task list.
     pthread_mutex_lock(&td->tl_lock);
 
-    // Check if list is null, if it is computation is over.
+    // Check if mark is null, if it is computation is over or busy generating other questions.
     if(td->tasks->mark == NULL) {
         if (td->task_counter >= td->num_tasks_total) {
             td->is_finished = 1;
@@ -137,40 +137,42 @@ void remove_task (struct jm_thread_data * td, int tid) {
     prev = NULL;
 
     // search for the task that finished
-    while (iter->id != tid) {
+    while ((iter != NULL)&&(iter->id != tid)) {
         prev = iter;
         iter = iter->next;
     }
 
-    // if there is a previous in the list. 
-    if(prev) {
-        clean = iter;
-        prev->next = iter->next;
-    }
-    // If not, iter = home.
-    else {
-        clean = td->tasks->home; 
-        td->tasks->home = td->tasks->home->next;
-    }
-
-    // If it's the head, updates it.
-    if(iter == td->tasks->head) {
-        td->tasks->head = prev;
-    }
-
-    // If equals to mark, iterate.
-    if(iter == td->tasks->mark) {
-        td->tasks->mark = td->tasks->mark->next;
-        
-        if(!td->tasks->mark) {
-           td->tasks->mark = td->tasks->home; 
+    if(iter != NULL) {
+        // if there is a previous in the list. 
+        if(prev) {
+            clean = iter;
+            prev->next = iter->next;
         }
-    }
+        // If not, iter = home.
+        else {
+            clean = td->tasks->home; 
+            td->tasks->home = td->tasks->home->next;
+        }
 
-    // Can clean for now, committer will send only one message.
-    byte_array_free(clean->data);
-    free(clean->data);
-    free(clean); 
+        // If it's the head, updates it.
+        if(iter == td->tasks->head) {
+            td->tasks->head = prev;
+        }
+
+        // If equals to mark, iterate.
+        if(iter == td->tasks->mark) {
+            td->tasks->mark = td->tasks->mark->next;
+            
+            if(!td->tasks->mark) {
+               td->tasks->mark = td->tasks->home; 
+            }
+        }
+
+        // Can clean for now, committer will send only one message.
+        byte_array_free(clean->data);
+        free(clean->data);
+        free(clean); 
+    }
 
     // Let the FIFO go.
     pthread_mutex_unlock(&td->tl_lock);
