@@ -67,7 +67,7 @@ void committer(int argc, char *argv[], void *handle)
         
     info("Starting committer main loop");
     while (1) {
-        COMM_wait_request(&type, &origin_socket, ba);
+        COMM_wait_request(&type, &origin_socket, ba, NULL);
         
         switch (type) {
             case MSG_RESULT:

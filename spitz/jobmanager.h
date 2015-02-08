@@ -23,7 +23,9 @@
 #define __SPITZ_JOB_MANAGER_H__
 
 #define RESTORE_RATE 10
-#define JM_EXTRA_THREADS 1 
+#define JM_EXTRA_THREADS 1
+#define WAIT_REQUEST_TIMEOUT_SEC 1
+#define WAIT_REQUEST_TIMEOUT_USEC 0
 
 #include <barray.h>
 #include <comm.h>

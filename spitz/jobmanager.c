@@ -303,6 +303,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
     uint64_t aux64;                                                 // Auxiliary, used to cast variables. 
     int64_t bufferr;                                                // buffer used for received int64_t values 
+    struct timeval tv;                                              // Timeout for select.
 
     // VM restore management.
     int counter=0;                                                  // Counts requests to restore VMs Task Managers.
@@ -346,7 +347,11 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     while (1) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         byte_array_init(ba, 10);
-        COMM_wait_request(&type, &origin_socket, ba); 
+
+        // Set timeout values for wait_request.
+        tv.tv_sec = WAIT_REQUEST_TIMEOUT_SEC;
+        tv.tv_usec = WAIT_REQUEST_TIMEOUT_USEC;
+        COMM_wait_request(&type, &origin_socket, ba, &tv); 
         
         switch (type) {
             case MSG_READY:
@@ -428,7 +433,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 free(v);
                 break;
             case MSG_EMPTY:
-                info("Message received incomplete or a problem occurred.");
+                info("Nothing received: Timeout or problem in wait_request().");
                 break;
             case MSG_NEW_VM_TASK_MANAGER:
                 if(is_there_any_vm == 0) {

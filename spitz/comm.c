@@ -272,7 +272,7 @@ int COMM_vm_connection(int waitJM, char waitCM) {
 
     // Will only stop waiting when both connections are alive.
     while ((is_there_jm == 0) || (is_there_cm ==0)) {
-        COMM_wait_request(&type, &origin_socket, ba); 
+        COMM_wait_request(&type, &origin_socket, ba, NULL); 
          
         switch (type) {
             case MSG_SET_JOB_MANAGER:
@@ -920,7 +920,7 @@ int COMM_setup_job_manager_network() {
 
 // Job Manager function, returns _ in origin socket variable _ the socket that have a request to do, or -1 if doesn't have I/O
 // Returns 0 if ok, -1 if got out the select for no reason and -2 if ba is null. 
-int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba) {
+int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv) {
     int i, activity, valid_request=0;               // Indicates if a valid request was made. 
     int max_sd;                                     // Auxiliary value to select.
     int socket_found=0;                             // Indicates if the socket was found.
@@ -957,8 +957,17 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             }
         }
             
-        //wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
-        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
+        // wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
+        activity = select( max_sd + 1 , &readfds , NULL , NULL , tv);
+
+        // check for timeout
+        if((tv!= NULL) && (activity == 0)) {
+            debug("Timeout occurred! Returning to select.");
+            *origin_socket = -1;
+            *type = MSG_EMPTY;
+            return 0;
+        }
+
 	debug("Received some request from select().");       
  
         // wait until get an activity without EINTR error.
