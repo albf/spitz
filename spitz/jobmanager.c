@@ -255,6 +255,9 @@ void * jm_worker(void * ptr) {
                     LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
                 }
+                else {
+                    td->is_finished = 1;
+                }
             }
             // If couldn't generate, try to send a repeated one.
             while(task_generated == 0) {
