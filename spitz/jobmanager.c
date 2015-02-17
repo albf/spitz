@@ -219,7 +219,6 @@ void * jm_gen_worker(void * ptr) {
         }
 
         // Try to generate task.
-        byte_array_clear(td->gen_ba); 
         tid = * (td->gen_tid); 
         
         if(!(tgen(td->user_data, td->gen_ba))) {
@@ -581,9 +580,19 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         }
     }
 
-    // Send kill to all threads.
+    // Send kill to all extra threads.
     for (i = 0; i < JM_EXTRA_THREADS; i++) {    
         append_request(td, NULL, MSG_KILL, 0);
+    }
+
+    // If exist, quit the gen_thread.
+    if(GEN_PARALLEL == 0 ) {
+        pthread_mutex_lock(&td->gen_region_lock);       // Lock task generation region.
+
+        td->gen_ba = NULL; 
+        pthread_mutex_unlock(&td->jm_gen_lock);         // Release jm_gen_worker 
+
+        pthread_mutex_unlock(&td->gen_region_lock);
     }
 
     // Free memory allocated in byte arrays.
