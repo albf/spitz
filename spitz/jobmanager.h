@@ -22,10 +22,11 @@
 #ifndef __SPITZ_JOB_MANAGER_H__
 #define __SPITZ_JOB_MANAGER_H__
 
-#define RESTORE_RATE 10
-#define JM_EXTRA_THREADS 1
-#define WAIT_REQUEST_TIMEOUT_SEC 1
+#define RESTORE_RATE 10                 // Rate of JM loops/VM connection check.
+#define JM_EXTRA_THREADS 1              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
+#define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
 #define WAIT_REQUEST_TIMEOUT_USEC 0
+#define GEN_PARALLEL 1                  // Indicate if jm generation function can work in parallel. 
 
 #include <barray.h>
 #include <comm.h>
@@ -44,12 +45,19 @@ struct jm_thread_data {
     pthread_mutex_t tl_lock;            // lock responsible for task_list.
     struct task_list * tasks;           // List of already generated tasks.
     void *handle;                       // Used to find user-defined functions.
+    
+    // jm_gen_worker-related variables.
+    pthread_mutex_t gen_region_lock;    // Separate generate region on worker thread. 
+    pthread_mutex_t gen_ready_lock;     // Indicate if task generation is complete.
+    pthread_mutex_t jm_gen_lock;        // Control jm_gen_worker behaviour.
+    struct byte_array * gen_ba;         // Byte array used for generating tasks.
+    int gen_sucess;                     // =1 if generated successfully, 0 otherwise.
 };
 
 // Regular first in first out list. 
 struct request_FIFO{
-    struct request_elem * first;           // Points to oldest added element.
-    struct request_elem * last;            // Points to newest added element.
+    struct request_elem * first;        // Points to oldest added element.
+    struct request_elem * last;         // Points to newest added element.
 };
 
 struct request_elem {
@@ -73,6 +81,8 @@ struct task {
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
+void * jm_gen_worker(void * ptr);
+void * jm_worker(void * ptr);
 
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);

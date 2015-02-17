@@ -46,10 +46,20 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     int i;
     spitz_ctor_t ctor;
-    pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * JM_EXTRA_THREADS); 
+    int gen_threads;
+    pthread_t * t; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
     struct jm_thread_data td;
+
+    if(GEN_PARALLEL == 0) {
+        gen_threads = 1;
+    }
+    else {
+        gen_threads = 0;
+    }
+    
+    t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_EXTRA_THREADS + gen_threads)); 
 
     // start task fifo list. 
     td.request_list = (struct request_FIFO *) malloc (sizeof(struct request_FIFO));
@@ -61,6 +71,15 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     sem_init(&td.num_requests, 0, 0);
     pthread_mutex_init(&td.tc_lock, NULL);    
     pthread_mutex_init(&td.tl_lock, NULL);    
+
+    if(GEN_PARALLEL == 0) {
+        pthread_mutex_init(&td.gen_region_lock, NULL);    
+        pthread_mutex_init(&td.gen_ready_lock, NULL);    
+        pthread_mutex_init(&td.jm_gen_lock, NULL);    
+
+        // jm_gen_lock and gen_ready_lock start locked.
+        pthread_mutex_trylock(&td.jm_gen_lock);
+    }
 
     // Start task counter and lock.
     td.task_counter = 0;
@@ -83,12 +102,17 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // initialize shared user data. 
     ctor = dlsym(td.handle, "spits_job_manager_new"); 
     td.user_data = ctor((argc), (argv));
-    
+
     // Create extra-thread(s)
     for (i=0; i < JM_EXTRA_THREADS; i++) {
         pthread_create(&t[i], NULL, jm_worker, &td);
     }
 
+    // Create generate thread if gen is not parallel. 
+    if(GEN_PARALLEL == 0) {
+        pthread_create(&t[JM_EXTRA_THREADS], NULL, jm_gen_worker, &td);
+    }
+    
     job_manager(argc, argv, so, final_result, &td);
 
     for (i = 0; i < JM_EXTRA_THREADS; i++) {    // Join them all

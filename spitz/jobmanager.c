@@ -203,17 +203,49 @@ int next_task_num(struct jm_thread_data *td) {
     return ret;
 }
 
+// Function responsible for the generating worker.
+void * jm_gen_worker(void * ptr) {
+    struct jm_thread_data * td = ptr;
+    spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+
+    while(1) {
+        // Wait for requests.
+        pthread_mutex_lock(&td->jm_gen_lock);
+
+        // Check if gen_ba is null.
+        if(td->gen_ba == NULL) {
+            break;
+        }
+        
+        if(tgen(td->user_data, td->gen_ba)) {
+            td->gen_sucess = 1;
+            
+        }
+        else {
+            td->gen_sucess = 0;
+            
+        }
+        
+    }
+    
+    pthread_exit(NULL);
+}
+
 // Function reponsible for the workers on JM.
 void * jm_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     struct request_elem * my_request;
-    spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+    spitz_tgen_t tgen;
     struct task *node;                                              // Pointer of new task.
     struct connected_ip *client;
     int rank;
 
     int tid;
     int task_generated;
+
+    if(GEN_PARALLEL != 0) {
+        tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+    }
 
     while (1) {
         my_request = pop_request(td);
@@ -254,9 +286,6 @@ void * jm_worker(void * ptr) {
                     debug("Sending generated task %d to %d", tid, rank);
                     LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
-                }
-                else {
-                    td->is_finished = 1;
                 }
             }
             // If couldn't generate, try to send a repeated one.
