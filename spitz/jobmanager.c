@@ -207,6 +207,7 @@ int next_task_num(struct jm_thread_data *td) {
 void * jm_gen_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+    int tid;
 
     while(1) {
         // Wait for requests.
@@ -216,16 +217,17 @@ void * jm_gen_worker(void * ptr) {
         if(td->gen_ba == NULL) {
             break;
         }
+
+        // Try to generate task.
+        byte_array_clear(td->gen_ba); 
+        tid = * (td->gen_tid); 
         
-        if(tgen(td->user_data, td->gen_ba)) {
-            td->gen_sucess = 1;
-            
-        }
-        else {
-            td->gen_sucess = 0;
-            
+        if(!(tgen(td->user_data, td->gen_ba))) {
+            * (td->gen_tid) = -1;
         }
         
+        // Release waiting task.
+        pthread_mutex_unlock(&td->gen_ready_lock);
     }
     
     pthread_exit(NULL);
@@ -261,23 +263,56 @@ void * jm_worker(void * ptr) {
 
         else if(my_request->type == MSG_READY) {
             task_generated = 0;
-            byte_array_clear(my_request->ba); 
 
             client = LIST_search_socket(COMM_ip_list, my_request->socket);
-            rank = client->id;
 
-            tid = next_task_num(td);
-            if (tid >= 0) {
-                byte_array_pack64(my_request->ba, tid);
-                
-                // try to generate task.
-                if(tgen(td->user_data, my_request->ba)) {
-                    task_generated = 1;
-                    
-                    if(client == NULL) {
-                        error("Couldn't find client with socket provided by main thread.");
-                        return NULL;
+            if(client == NULL) {
+                error("Couldn't find client with socket provided by main thread. Ignoring request.");
+            } 
+
+            else {
+                rank = client->id;
+                tid = next_task_num(td);
+                byte_array_clear(my_request->ba); 
+
+                if (tid >= 0) {
+                    // Generate task, if possible in parallel. 
+                    if(GEN_PARALLEL != 0) {
+                        byte_array_pack64(my_request->ba, tid);
+
+                        // try to generate task.
+                        if(tgen(td->user_data, my_request->ba)) {
+                            task_generated = 1;
+                        }
                     }
+
+                    // Can't generate in parallel.
+                    else {
+                        byte_array_pack64(my_request->ba, tid);
+                        
+                        // Lock task generation region.
+                        pthread_mutex_lock(&td->gen_region_lock);
+
+                        // Pack task info to be generated.
+                        td->gen_tid = &tid;
+                        td->gen_ba = my_request->ba;
+
+                        // Release jm_gen_worker/
+                        pthread_mutex_unlock(&td->jm_gen_lock);
+
+                        // Wait for it to be ready.
+                        pthread_mutex_lock(&td->gen_ready_lock);
+
+                        pthread_mutex_unlock(&td->gen_region_lock);
+
+                        if(tid >= 0 ) {
+                            task_generated = 1;
+                        }
+                    }
+                }
+
+                // If task was generated, add it to queue and send it.
+                if(task_generated == 1) {
                     node = (struct task *) malloc (sizeof(struct task));
                     node->id = tid;
                     node->data = my_request->ba;
@@ -287,30 +322,37 @@ void * jm_worker(void * ptr) {
                     LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
                 }
-            }
-            // If couldn't generate, try to send a repeated one.
-            while(task_generated == 0) {
-                node = next_task(td);
-                if (node == NULL) {
-                    // Couldn't find a task but it's not finished yet.
-                    if(td->is_finished > 0) {
-                        debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
-                        COMM_send_message(NULL, MSG_KILL, my_request->socket);
-                        break;
-                    }
-                    // Couldn't find a task because the computation isn't finished. Wait?
-                    else {
-                        sleep(1);
-                    }
-                }
-                // Find a task, will replicate to another node.
                 else {
-                    debug("Replicating task %d to rank %d",node->id,rank);
-                    COMM_send_message(node->data, MSG_TASK, my_request->socket);
-                    break;
+                    // Can't generate, assume this is the end.
+                    pthread_mutex_lock(&td->tc_lock);
+                    td->num_tasks_total = td->task_counter;
+                    pthread_mutex_unlock(&td->tc_lock);
+
+                    // If couldn't generate, try to send a repeated one.
+                    while(task_generated == 0) {
+                        node = next_task(td);
+                        if (node == NULL) {
+                            // Couldn't find a task but it's not finished yet.
+                            if(td->is_finished > 0) {
+                                debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
+                                COMM_send_message(NULL, MSG_KILL, my_request->socket);
+                                break;
+                            }
+                            // Couldn't find a task because the computation isn't finished. Wait?
+                            else {
+                                sleep(1);
+                            }
+                        }
+                        // Find a task, will replicate to another node.
+                        else {
+                            debug("Replicating task %d to rank %d",node->id,rank);
+                            COMM_send_message(node->data, MSG_TASK, my_request->socket);
+                            break;
+                        }
+                    }
                 }
+
             }
-            
         }
 
         else {

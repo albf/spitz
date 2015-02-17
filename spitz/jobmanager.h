@@ -51,7 +51,7 @@ struct jm_thread_data {
     pthread_mutex_t gen_ready_lock;     // Indicate if task generation is complete.
     pthread_mutex_t jm_gen_lock;        // Control jm_gen_worker behaviour.
     struct byte_array * gen_ba;         // Byte array used for generating tasks.
-    int gen_sucess;                     // =1 if generated successfully, 0 otherwise.
+    int * gen_tid;                      // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
 };
 
 // Regular first in first out list. 
