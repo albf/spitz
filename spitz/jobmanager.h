@@ -26,7 +26,7 @@
 #define JM_EXTRA_THREADS 1              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
 #define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
 #define WAIT_REQUEST_TIMEOUT_USEC 0
-#define GEN_PARALLEL 1                  // Indicate if jm generation function can work in parallel. 
+#define GEN_PARALLEL 0                  // Indicate if jm generation function can work in parallel. 
 
 #include <barray.h>
 #include <comm.h>
