@@ -182,7 +182,7 @@ int COMM_send_int(int sock, int value) {
     int ret;
     
     sprintf(msg, "%d", value);
-    ret =  COMM_send_bytes(sock, (void *)msg, strlen(msg));
+    ret =  COMM_send_bytes(sock, (void *)msg, (strlen(msg)+1));
     free (msg);
     return ret;
 }
@@ -190,10 +190,18 @@ int COMM_send_int(int sock, int value) {
 // Read int using read bytes function
 int COMM_read_int(int sock) {
     struct byte_array ba;
-    int result, size;
+    int result, size; 
+    /*int i;
+    char * convert; */
     
     byte_array_init(&ba, 0);
     COMM_read_bytes(sock, &size, &ba);
+    /*convert = (char *) malloc ((size+1)*sizeof(char));
+
+    for(i=0; i<size; i++) {
+        convert[i] = ((char *)ba.ptr)[i];
+    }    
+    convert[size] = '\0'; */
 
     if(size == -1) {
         byte_array_free(&ba);
