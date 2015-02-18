@@ -178,8 +178,13 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 
 // Send int using send bytes function
 int COMM_send_int(int sock, int value) {
-    uint32_t send_value = (uint32_t) value;
-    return COMM_send_bytes(sock, (void *) &send_value, sizeof(uint32_t));
+    char * msg = (char *) malloc (20*sizeof(char));
+    int ret;
+    
+    sprintf(msg, "%d", value);
+    ret =  COMM_send_bytes(sock, (void *)msg, strlen(msg));
+    free (msg);
+    return ret;
 }
 
 // Read int using read bytes function
@@ -195,7 +200,7 @@ int COMM_read_int(int sock) {
         return -1; 
     }
     
-    result = *((int *)((uint32_t *) ba.ptr));
+    result = atoi((char *) ba.ptr);
     byte_array_free(&ba);
     return result;
 }
