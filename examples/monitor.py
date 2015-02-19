@@ -41,7 +41,7 @@ def COMM_read_bytes (sock):
 	received_char = '0'
 	message_size = ''
 
-	while(recived_char != '|'):
+	while(received_char != '|'):
 		received_char = sock.recv(1)	
 		if(len(received_char) == 0):
 			return None 
@@ -54,7 +54,7 @@ def COMM_read_bytes (sock):
 	msg = ''	
 
 	while(offset < msg_size):
-		rcv = sock.recv((msg_size - ofsset))
+		rcv = sock.recv((msg_size - offset))
 		if(len(rcv) <= 0):
 			return None
 		msg+=rcv
@@ -89,11 +89,11 @@ def COMM_read_message(sock):
 	return msg, msg_type
 
 def COMM_send_message(msg, msg_type, sock):
-	COMM_send_int(msg_type)
+	COMM_send_int(sock, msg_type)
 	return COMM_send_bytes(sock, msg)
 
-def COMM_connect_to_job_manager(ip, port) 
-	socket_manager.connect(ip, port)
+def COMM_connect_to_job_manager(ip, port):
+	socket_manager.connect((ip, port))
 
 
 COMM_connect_to_job_manager('localhost', 8898)
