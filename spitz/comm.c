@@ -191,7 +191,7 @@ int COMM_send_int(int sock, int value) {
 int COMM_read_int(int sock) {
     struct byte_array ba;
     int result, size; 
-    /*int i;
+    /*int i;                    // Option for not sending \n.
     char * convert; */
     
     byte_array_init(&ba, 0);

@@ -6,9 +6,6 @@ import ctypes
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect(('localhost', 8898))
 
-#def COMM_send_message(string, int_type, dest_socket):
-
-
 def COMM_cast(value):
 	try:
 		return int(value)
@@ -45,6 +42,10 @@ def COMM_send_bytes(sock, msg):
 	if(len(msg)>0):
 		sock.sendall(msg)
 	return 0
+
+def COMM_send_int(sock, value):
+	msg = str(value)
+	
 
 
 time.sleep(5)
