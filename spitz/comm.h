@@ -23,7 +23,7 @@ enum actor {
     VM_TASK_MANAGER = 4
 };
 
-// Enuns the types of possible messages.
+// Enums of possible messages. Keep this equal to the python comm.py header. 
 enum message_type {
     MSG_READY                   = 0,    // Task Manager to Job Manager
     MSG_TASK                    = 1,    // A task, Job Manager to Task Manager.
@@ -48,6 +48,10 @@ enum message_type {
     MSG_SET_TASK_MANAGER_ID     = 20,   // Task Manager to Job Manager, to restore ID. 
     MSG_NEW_VM_TASK_MANAGER     = 21,   // Monitor to JobManager, JobManager to Committer.
     MSG_SEND_VM_TO_COMMITTER    = 22    // VM request to JobManager help to connect to Committer.
+};
+
+enum status_type {
+    STATUS_GENERAL              = 1     // Get current state from all nodes (connected or not). 
 };
 
 /* Functions based in Client/Server architecture */

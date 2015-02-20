@@ -222,7 +222,7 @@ int COMM_read_int(int sock) {
     return result;
 }
 
-// Estabilish connection with job manager, used by any Task Manager.
+// Establish connection with job manager, used by any Task Manager.
 int COMM_connect_to_job_manager(char ip_adr[], int * retries) {
     int con_ret;
     struct byte_array * ba; 

@@ -541,12 +541,19 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 // packs the string and try to connect.
                 byte_array_pack8v(ba, v, n);  
                 COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
+                free(v);
                 break;
             case MSG_GET_NUM_TASKS:
-                aux64 = (uint64_t) td->num_tasks_total;
-                byte_array_clear(ba);
-                byte_array_pack64(ba, aux64);
+                // Make string with number of tasks and send it.
+                v = malloc(sizeof(char)*9);
+                v[0] = '\0';
+                sprintf (v, "%d",td->num_tasks_total);
+                n = (size_t) (strlen(v)+1);
+                byte_array_init(ba,n);
+                byte_array_pack8v(ba,v,n);
+
                 COMM_send_message(ba,MSG_GET_NUM_TASKS,origin_socket); 
+                free(v);
                 break;
             default:
                 break;

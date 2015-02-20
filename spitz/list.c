@@ -494,7 +494,7 @@ char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
     int total_nodes = LIST_get_total_nodes(data_pointer);
     struct connected_ip * pointer = data_pointer->list_pointer;
     
-    info = (char *) malloc(sizeof(char)*53*total_nodes + 1);     // \n addition
+    info = (char *) malloc(sizeof(char)*53*total_nodes + 1);     // \0 addition
     info[0] = '\0';
     
     while (pointer != NULL) {

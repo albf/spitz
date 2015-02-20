@@ -1,6 +1,7 @@
 import socket
 import time
 
+
 # Message Types 
 MSG_READY                   = 0
 MSG_TASK                    = 1
@@ -26,9 +27,11 @@ MSG_SET_TASK_MANAGER_ID     = 20
 MSG_NEW_VM_TASK_MANAGER     = 21
 MSG_SEND_VM_TO_COMMITTER    = 22
 
+
 # Global Variables
 socket_manager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 COMM_my_rank = None
+
 
 # Communication Methods 
 
@@ -94,13 +97,29 @@ def COMM_send_message(msg, msg_type, sock):
 	return COMM_send_bytes(sock, msg)
 
 def COMM_connect_to_job_manager(ip, port):
-	socket_manager.connect((ip, port))
-	COMM_my_rank = COMM_read_int(socket_manager)
+	socket_manager.connect((ip, port))			# Connect to Job Manager
+	COMM_my_rank = COMM_read_int(socket_manager)		# Receive rank
+	COMM_send_message('', MSG_SET_MONITOR, socket_manager)	# Set as a Monitor
+	return 0
+
+
+def COMM_send_vm_node(ip, port):
+	return COMM_send_message(ip+'|'+port, MSG_NEW_VM_TASK_MANAGER, socket_manager)
+
+def COMM_get_status(request):
+	COMM_send_message(str(request), MSG_GET_STATUS, socket_manager)
+	msg, msg_type = COMM_read_message(socket_manager)
+	return msg[:-1]
+
+def COMM_get_num_tasks():
+	COMM_send_message('', MSG_GET_NUM_TASKS, socket_manager)
+	msg, msg_type = COMM_read_message(socket_manager)
+	#return COMM_cast(msg)
+	return msg
 
 
 COMM_connect_to_job_manager('localhost', 8898)
-COMM_send_message('', MSG_GET_STATUS, socket_manager)
-ret = COMM_read_message(socket_manager)
+print COMM_get_status('')
+print COMM_get_num_tasks() 
 
-print ret
 time.sleep(5)
