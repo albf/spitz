@@ -28,8 +28,9 @@ MSG_SEND_VM_TO_COMMITTER    = 22
 
 # Global Variables
 socket_manager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+COMM_my_rank = None
 
-# Methods 
+# Communication Methods 
 
 def COMM_cast(value):
 	try:
@@ -94,6 +95,7 @@ def COMM_send_message(msg, msg_type, sock):
 
 def COMM_connect_to_job_manager(ip, port):
 	socket_manager.connect((ip, port))
+	COMM_my_rank = COMM_read_int(socket_manager)
 
 
 COMM_connect_to_job_manager('localhost', 8898)

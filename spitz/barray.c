@@ -81,7 +81,7 @@ void byte_array_resize(struct byte_array *ba, size_t cap)
 	ba->iptr = ba->ptr;
 	if (ba->len > cap) {
 		ba->len = cap;
-    }
+        }
 }
 
 void byte_array_clear(struct byte_array *ba)
@@ -95,7 +95,7 @@ void byte_array_print(struct byte_array *ba)
 	size_t i;
 	for (i=0; i < ba->len; i++) {
 		printf("%02X ", ba->ptr[i]);
-    }
+        }
 	printf("\n");
 }
 

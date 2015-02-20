@@ -43,7 +43,7 @@ int COMM_get_committer(int * retries);
 int COMM_request_committer();
 
 // Communication
-int COMM_read_bytes(int sock, int * size, struct byte_array * ba);;
+int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_terminator);
 int COMM_send_bytes(int sock, void * bytes, int size);
 int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
@@ -95,7 +95,7 @@ int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_so
         return -2;
     }
     
-    read_return = COMM_read_bytes(rcv_socket, NULL, ba);
+    read_return = COMM_read_bytes(rcv_socket, NULL, ba, 0);
     if(read_return < 0) {
         error("Problem reading message content.");
         *type = MSG_EMPTY;
@@ -128,14 +128,16 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
 }
 
 // Read unknown type and size from socket.
-int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
+// Sock: Sending Socket         ;       size: If not null, returns the size of received message.
+// ba : Destination.            ;       null_terminator: if 1, put a null terminator in the end.
+int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_terminator) {
     char message_size[20], received_char='0';
     int total_rcv, offset=0, msg_size;
 
     while(received_char!='|') {
         total_rcv = read(sock, &received_char, 1);
 
-        if(total_rcv <= 0) {        // check if received zero bytes or an error.
+        if(total_rcv <= 0) {            // check if received zero bytes or an error.
             if(size != NULL) {
                 *size = -1;
             }
@@ -154,8 +156,14 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
 
     msg_size = atoi(message_size);
     offset = 0;
-    byte_array_resize(ba, msg_size);
-    ba->len = msg_size, ba->iptr = ba->ptr;
+    
+    if(null_terminator > 0) {           // Check if should reserve space for null terminator. 
+        byte_array_resize(ba, msg_size+1);
+        (ba->ptr) [msg_size] = '\0';
+    }
+    else {
+        byte_array_resize(ba, msg_size);
+    }
     
     if(size != NULL) {
     	* size = msg_size;    
@@ -163,8 +171,9 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba) {
         
     while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
+        ba->len += total_rcv;
 
-        if(total_rcv <= 0) {        // check if received zero bytes or an error.
+        if(total_rcv <= 0) {            // check if received zero bytes or an error.
             if(size != NULL) {
                 *size = -1;
             }
@@ -182,8 +191,8 @@ int COMM_send_int(int sock, int value) {
     int ret;
     
     sprintf(msg, "%d", value);
-    ret =  COMM_send_bytes(sock, (void *)msg, (strlen(msg)+1));
-    free (msg);
+    ret =  COMM_send_bytes(sock, (void *)msg, strlen(msg));     // Don't send \0.
+    free (msg);                                                 // Reason: avoid sending 1 byte and python issues with \0
     return ret;
 }
 
@@ -191,11 +200,11 @@ int COMM_send_int(int sock, int value) {
 int COMM_read_int(int sock) {
     struct byte_array ba;
     int result, size; 
-    /*int i;                    // Option for not sending \n.
+    /*int i;                    // Option for not sending \0.
     char * convert; */
     
     byte_array_init(&ba, 0);
-    COMM_read_bytes(sock, &size, &ba);
+    COMM_read_bytes(sock, &size, &ba, 1);
     /*convert = (char *) malloc ((size+1)*sizeof(char));
 
     for(i=0; i<size; i++) {
