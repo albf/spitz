@@ -37,6 +37,7 @@
 #include "spitz.h"
 
 #define SPITZ_VERSION "0.1.0"
+#define NON_BUFFERED_STDOUT 1  
 
 int LOG_LEVEL = 0;
 int FIFOSZ = 10;
@@ -411,10 +412,12 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    setvbuf(stdout, (char *) NULL, _IOLBF, 0);                      // Make line buffered stdout.
-    setvbuf(stderr, (char *) NULL, _IOLBF, 0);                      // Make line buffered stdout.
+    if(NON_BUFFERED_STDOUT > 0) {
+        setvbuf(stdout, (char *) NULL, _IOLBF, 0);                  // Make line buffered stdout.
+        setvbuf(stderr, (char *) NULL, _IOLBF, 0);                  // Make line buffered stdout.
+    }
 
-    error("SPITZ Started, actor number: %d", (int) type);
+    info("SPITZ Started, actor number: %d", (int) type);
     
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);
@@ -438,10 +441,10 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
-        if(type==COMMITTER) { 		                            // The committer sets itself in the jm
+        if(type==COMMITTER) { 		                            // The committer sets itself in the Job Manager
             COMM_setup_committer_network();
         }
-        else if(type==TASK_MANAGER) {                	            // Task Managers get the committer
+        else if(type==TASK_MANAGER) {                	            // Task Managers get and connect to the committer
             COMM_connect_to_committer(NULL);
         }
     }
