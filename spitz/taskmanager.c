@@ -88,7 +88,7 @@ void *worker(void *ptr)
         byte_array_unpack64(task, &task_id);
         debug("[worker] Received TASK %d", task_id);
         
-        _byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.
+        //_byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.
         result = malloc(sizeof(*result));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.

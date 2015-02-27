@@ -1,4 +1,4 @@
- '''
+'''
  * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
  *
  * This file is part of spitz.
@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
- '''
+'''
 
 import kivy
 from kivy.uix.gridlayout import GridLayout
