@@ -41,6 +41,7 @@ from azure import *
 from azure.servicemanagement import *
 from functools import partial
 import atexit
+from comm import *
 
 ''' ----- 
     MonitorData 
@@ -73,32 +74,6 @@ class MonitorData:
 		self.VMlastIndex= -1 
 		self.VMlastOrder = -1
 
-		# Layout that represents the list.
-		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
-		self.NavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
-
-		# Layout that represents the VMlist..
-		self.VMListLayout = GridLayout(cols=len(self.VMcolumns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
-		self.VMNavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
-
-		# Layout that represents the log
-		self.LogWidget = TextInput(multiline=True)
-
-	# Starts monitor C process.
-	def runMonitorProcess(self):
-		lib_path = str(Screen.AppInstance.config.get('example', 'lib_path'))
-		jm_ip = str(Screen.AppInstance.config.get('example', 'jm_address'))
-		num_tasks = str(Screen.AppInstance.config.get('example', 'num_tasks'))
-
-		
-		if hasattr(self, "p"):
-			self.p.kill()
-
-		# Run a spitz instance as a subprocess.
-		self.p = subprocess.Popen(["./spitz", "3", jm_ip, lib_path, num_tasks],
-			stdout=subprocess.PIPE,
-			stdin=subprocess.PIPE,
-			cwd="/home/alexandre/Codes/spitz/examples")
 
 	# Connect to Azure and get information about all services with SPITZ in their name.
 	# Check if it's on and if there is a spitz instance running.
@@ -335,137 +310,6 @@ class MonitorData:
 		# i = 6 completed
 
 		#percentage = (self.total_compl / float(100))*100
-
-
-	# Makes the layout of the list, adding the columns name, the ordering handlers and the actual page.
-	def makeListLayout(self, layout):	
-		layout.clear_widgets()
-		for col in range(len(self.columns)):
-			btnO = Button(text=self.columns[col], size_hint_x=None, width=self.wid[col])
-			btnO.bind(on_press=buttonOrder)
-			layout.add_widget(btnO)
-		
-		upper = min(len(self.rows), (self.index + 1)*self.npp)
-		#print "upper: "+str(upper)
-		for i in range(self.index*self.npp, upper):
-			for j in range(len(self.wid)):
-				layout.add_widget(Button(text=str(self.rows[i][j]), size_hint_x=None, width=self.wid[j]))
-		self.ListLayout = layout
-
-	# Makes the buttons to navigate. Add the handler and text if there is any.
-	def makeNavigationLayout(self, layout):
-		layout.clear_widgets()
-		if(self.index > 0):
-			btnP = Button(text="Previous", size_hint_x=None, width = self.factor*400)
-			btnP.bind(on_press = buttonPrev)
-			layout.add_widget(btnP)
-		else:
-			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
-
-		if(len(self.rows)>(self.index + 1)*self.npp):
-			btnN = Button(text="Next", size_hint_x=None, width = self.factor*400)
-			btnN.bind(on_press = buttonNext)
-			layout.add_widget(btnN)
-		else:
-			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
-		self.NavigationLayout = layout
-
-	# Makes the layout of the VM list, adding the columns name, the ordering handlers and the actual page.
-	def makeVMListLayout(self, layout):	
-		layout.clear_widgets()
-		for col in range(len(self.VMcolumns)):
-			btnO = Button(text=self.VMcolumns[col], size_hint_x=None, width=self.VMwid[col])
-			btnO.bind(on_press=buttonVMOrder)
-			layout.add_widget(btnO)
-		
-		upper = min(len(self.VMrows), (self.index + 1)*self.npp)
-		#print "upper: "+str(upper)
-		for i in range(self.index*self.npp, upper):
-			for j in range(len(self.VMwid)-1):
-				layout.add_widget(Button(text=str(self.VMrows[i][j]), size_hint_x=None, width=self.VMwid[j]))
-
-			# Button responsible for VM action, as it has different index and action, calls partial functions.
-			btnA = Button(text=str(self.VMrows[i][len(self.VMwid)-1]), size_hint_x=None, width=self.VMwid[-1])
-			print i
-			btnA.bind(on_press=partial(buttonVMAction, i, btnA.text))
-			layout.add_widget(btnA)
-		self.VMListLayout = layout
-
-	# Makes the buttons to navigate the VM list. Add the handler and text if there is any.
-	def makeVMNavigationLayout(self, layout):
-		layout.clear_widgets()
-		if(self.index > 0):
-			btnP = Button(text="Previous", size_hint_x=None, width = self.factor*400)
-			btnP.bind(on_press = VMbuttonPrev)
-			layout.add_widget(btnP)
-		else:
-			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
-
-		if(len(self.rows)>(self.index + 1)*self.npp):
-			btnN = Button(text="Next", size_hint_x=None, width = self.factor*400)
-			btnN.bind(on_press = VMbuttonNext)
-			layout.add_widget(btnN)
-		else:
-			layout.add_widget(Button(text="", size_hint_x=None, width = self.factor*400))
-		self.VMNavigationLayout = layout
-
-	# Makes the header layout, with the commands.
-	def makeHeaderLayout(self, layout):
-		layout.clear_widgets()
-
-		self.btnP = Button(text="Update", size_hint_x=None, width = self.factor*125)
-		self.btnP.bind(on_press = buttonUpdate)
-		layout.add_widget(self.btnP)
-
-		btnSep = Button(text="", size_hint_x=None, width = self.factor*50)
-		layout.add_widget(btnSep)
-
-		self.btnLi = ToggleButton(text="List", group='menu', size_hint_x=None, width = self.factor*125, state='down')
-		self.btnLi.bind(on_press = buttonList)
-		layout.add_widget(self.btnLi)
-
-		self.btnV = ToggleButton(text="VM Launcher", group='menu', size_hint_x=None, width = self.factor*125)
-		self.btnV.bind(on_press = buttonVM)
-		layout.add_widget(self.btnV)
-
-		self.btnSta = ToggleButton(text="Statistics", group='menu', size_hint_x=None, width = self.factor*125)
-		self.btnSta.bind(on_press = buttonStatistics)
-		layout.add_widget(self.btnSta)
-
-		self.btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
-		self.btnL.bind(on_press = buttonLog)
-		layout.add_widget(self.btnL)
-
-		self.btnS = Button(text="Settings", size_hint_x=None, width = self.factor*125)
-		self.btnS.bind(on_press = buttonSettings)
-		layout.add_widget(self.btnS)
-
-	def makeCommandLayout(self, layout, itext):
-		layout.clear_widgets()
-		self.commandWidget = TextInput(multiline=False)
-		self.commandWidget.readonly = True	
-		self.commandWidget.text = itext
-
-		pb = ProgressBar(max=1000)	
-		pb.value = (self.total_compl*1000)/(int(self.TotalTasks))
-
-		layout.add_widget(self.commandWidget)
-		layout.add_widget(pb)
-	
-		#Get current time and add the message to the log pile.	
-		logmessage = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-		logmessage = logmessage + " >>> " + itext 
-		self.log = self.log + "\n" + logmessage
-
-	# Redraw list using current values of nodes.	
-	def reDrawList(self):
-		self.makeListLayout(self.ListLayout)
-		self.makeNavigationLayout(self.NavigationLayout)
-
-
-	def makeLogLayout(self):
-		self.LogWidget.readonly = True
-		self.LogWidget.text = self.log
 			
 
 ''' ----- 
@@ -482,22 +326,22 @@ def buttonVM(instance):
 	Data.index = 0				# Reset the current index.
 	if(Data.IsVMsListed == False):
 		Data.connectToCloudProvider()
-		Data.makeVMListLayout(Data.VMListLayout)
-		Data.makeVMNavigationLayout(Data.VMNavigationLayout)
+		Screen.makeVMListLayout(Data)
+		Screen.makeVMNavigationLayout(Data)
 
 	Screen.buildVMListScreen()
 
 # Handler of the Prev button, return to the previous page.		
 def buttonPrev(instance):
 	Data.index = Data.index - 1
-	Data.makeListLayout(Data.ListLayout)
-	Data.makeNavigationLayout(Data.NavigationLayout)	
+	Screen.makeListLayout(Data)
+	Screen.makeNavigationLayout(Data)	
 
 # Handler of the Next button, go to the next page.		
 def buttonNext(instance):
 	Data.index = Data.index + 1
-	Data.makeListLayout(Data.ListLayout)
-	Data.makeNavigationLayout(Data.NavigationLayout)	
+	Screen.makeListLayout(Data)
+	Screen.makeNavigationLayout(Data)	
 
 # Handler responsible for ordering the list (using one of the columns).
 def buttonOrder(instance):
@@ -514,7 +358,7 @@ def buttonOrder(instance):
 		Data.lastOrder = 1
 		Data.rows = sorted(Data.rows, key=itemgetter(index))
 
-	Data.makeListLayout(Data.ListLayout)
+	Screen.makeListLayout(Data)
 
 # Handler responsible for ordering the list (using one of the columns).
 def buttonVMOrder(instance):
@@ -531,15 +375,15 @@ def buttonVMOrder(instance):
 		Data.VMlastOrder = 1
 		Data.VMrows = sorted(Data.VMrows, key=itemgetter(index))
 
-	Data.makeVMListLayout(Data.VMListLayout)
+	Screen.makeVMListLayout(Data)
 
 # Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):
 	Data.getStatusMessage(1)
 	Data.getNumberOfTasks(3)
 	Data.fillRows(Data.ln)
-	Data.makeCommandLayout(Data.CommandLayout, Data.ln) 
-	Data.reDrawList()
+	Screen.makeCommandLayout(Data.CommandLayout, Data.ln) 
+	Screen.reDrawList(Data)
 
 def buttonSettings(instance):
 	#Screen.layout.clear_widgets()
@@ -547,7 +391,7 @@ def buttonSettings(instance):
 
 def buttonLog(instane):
 	checkToggleButton(Data.btnL)
-	Data.makeLogLayout()
+	Screen.makeLogLayout()
 	Screen.buildLogScreen()
 
 def buttonList(instance):
@@ -566,15 +410,15 @@ def buttonVMAction(*args, **kwargs):
 	
 	if(action == "Try Again"):
 		if(Data.VMTryAgain(index) == "YES"):
-			Data.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data.VMListLayout)	
 	elif(action == "Start"):
 		if(Data.launchVMnode(2, index) == True):
-			Data.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data.VMListLayout)	
 	elif(action == "Stop"):
 		if(Data.stopVMnode(index) == True):
-			Data.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data.VMListLayout)	
 	else:
-		Data.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
+		Screen.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
 	
 ''' ----- 
     ScreenBank
@@ -661,12 +505,25 @@ class ScreenBank:
 		     'section': 'example',
 		     'key': 'certificate_path'}])
 
+		# Layout that represents the list.
+		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
+		self.NavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+
+		# Layout that represents the VMlist..
+		self.VMListLayout = GridLayout(cols=len(self.VMcolumns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
+		self.VMNavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+
+		# Layout that represents the log
+		self.LogWidget = TextInput(multiline=True)
+
+		# Layout that represents the main Header
+		self.HeaderLayout = GridLayout(cols=7, row_default_height=Data.factor*15)
+
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self):
 		# Make header layout and add to the main.
-		HeaderLayout = GridLayout(cols=7, row_default_height=Data.factor*15)
-		Data.makeHeaderLayout(HeaderLayout)
-		self.layout.add_widget(HeaderLayout)
+		self.makeHeaderLayout(HeaderLayout)
+		self.layout.add_widget(self.HeaderLayout)
 
 		# Make list rows and add it to the middle layout 
 		self.MiddleLayout.add_widget(Data.ListLayout)
@@ -676,8 +533,8 @@ class ScreenBank:
 		self.layout.add_widget(self.MiddleLayout)
 
 		# Make Console Layout and add it to the main layout 
-		Data.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
-		Data.makeCommandLayout(Data.CommandLayout, 'Welcome to SPITZ Monitor')
+		self.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
+		self.makeCommandLayout(Data.CommandLayout, 'Welcome to SPITZ Monitor')
 		self.layout.add_widget(Data.CommandLayout)
 
 		Data.reDrawList()
@@ -709,16 +566,150 @@ class ScreenBank:
 		MyApp.open_settings(self.AppInstance)
 		#self.layout.add_widget(self.sett)
 
+	# Makes the layout of the list, adding the columns name, the ordering handlers and the actual page.
+	def makeListLayout(self, Data):	
+		layout = self.ListLayout
+		layout.clear_widgets()
+		for col in range(len(Data.columns)):
+			btnO = Button(text=Data.columns[col], size_hint_x=None, width=Data.wid[col])
+			btnO.bind(on_press=buttonOrder)
+			layout.add_widget(btnO)
+		
+		upper = min(len(Data.rows), (Data.index + 1)*Data.npp)
+		#print "upper: "+str(upper)
+		for i in range(Data.index*Data.npp, upper):
+			for j in range(len(Data.wid)):
+				layout.add_widget(Button(text=str(Data.rows[i][j]), size_hint_x=None, width=Data.wid[j]))
+		self.ListLayout = layout
+
+	# Makes the buttons to navigate. Add the handler and text if there is any.
+	def makeNavigationLayout(self, Data):
+		layout = self.NavigationLayout
+		layout.clear_widgets()
+		if(Data.index > 0):
+			btnP = Button(text="Previous", size_hint_x=None, width = Data.factor*400)
+			btnP.bind(on_press = buttonPrev)
+			layout.add_widget(btnP)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = Data.factor*400))
+
+		if(len(Data.rows)>(Data.index + 1)*Data.npp):
+			btnN = Button(text="Next", size_hint_x=None, width = Data.factor*400)
+			btnN.bind(on_press = buttonNext)
+			layout.add_widget(btnN)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = Data.factor*400))
+		self.NavigationLayout = layout
+
+	# Makes the layout of the VM list, adding the columns name, the ordering handlers and the actual page.
+	def makeVMListLayout(self, Data):	
+		layout = self.VMListLayout
+		layout.clear_widgets()
+		for col in range(len(Data.VMcolumns)):
+			btnO = Button(text=Data.VMcolumns[col], size_hint_x=None, width=Data.VMwid[col])
+			btnO.bind(on_press=buttonVMOrder)
+			layout.add_widget(btnO)
+		
+		upper = min(len(Data.VMrows), (Data.index + 1)*Data.npp)
+		#print "upper: "+str(upper)
+		for i in range(Data.index*Data.npp, upper):
+			for j in range(len(Data.VMwid)-1):
+				layout.add_widget(Button(text=str(Data.VMrows[i][j]), size_hint_x=None, width=Data.VMwid[j]))
+
+			# Button responsible for VM action, as it has different index and action, calls partial functions.
+			btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-1]), size_hint_x=None, width=Data.VMwid[-1])
+			print i
+			btnA.bind(on_press=partial(buttonVMAction, i, btnA.text))
+			layout.add_widget(btnA)
+		self.VMListLayout = layout
+
+	# Makes the buttons to navigate the VM list. Add the handler and text if there is any.
+	def makeVMNavigationLayout(self, Data):
+		layout = self.VMNavigationLayout
+		layout.clear_widgets()
+		if(Data.index > 0):
+			btnP = Button(text="Previous", size_hint_x=None, width = Data.factor*400)
+			btnP.bind(on_press = VMbuttonPrev)
+			layout.add_widget(btnP)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = Data.factor*400))
+
+		if(len(Data.rows)>(Data.index + 1)*Data.npp):
+			btnN = Button(text="Next", size_hint_x=None, width = Data.factor*400)
+			btnN.bind(on_press = VMbuttonNext)
+			layout.add_widget(btnN)
+		else:
+			layout.add_widget(Button(text="", size_hint_x=None, width = Data.factor*400))
+		self.VMNavigationLayout = layout
+
+	# Makes the header layout, with the commands.
+	def makeHeaderLayout(self):
+		layout = self.HeaderLayout
+		layout.clear_widgets()
+
+		self.btnP = Button(text="Update", size_hint_x=None, width = self.factor*125)
+		self.btnP.bind(on_press = buttonUpdate)
+		layout.add_widget(self.btnP)
+
+		btnSep = Button(text="", size_hint_x=None, width = self.factor*50)
+		layout.add_widget(btnSep)
+
+		self.btnLi = ToggleButton(text="List", group='menu', size_hint_x=None, width = self.factor*125, state='down')
+		self.btnLi.bind(on_press = buttonList)
+		layout.add_widget(self.btnLi)
+
+		self.btnV = ToggleButton(text="VM Launcher", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnV.bind(on_press = buttonVM)
+		layout.add_widget(self.btnV)
+
+		self.btnSta = ToggleButton(text="Statistics", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnSta.bind(on_press = buttonStatistics)
+		layout.add_widget(self.btnSta)
+
+		self.btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnL.bind(on_press = buttonLog)
+		layout.add_widget(self.btnL)
+
+		self.btnS = Button(text="Settings", size_hint_x=None, width = self.factor*125)
+		self.btnS.bind(on_press = buttonSettings)
+		layout.add_widget(self.btnS)
+
+	def makeCommandLayout(self, Data, itext):
+		layout = self.CommandLayout
+		layout.clear_widgets()
+		self.commandWidget = TextInput(multiline=False)
+		self.commandWidget.readonly = True	
+		self.commandWidget.text = itext
+
+		pb = ProgressBar(max=1000)	
+		pb.value = (Data.total_compl*1000)/(int(Data.TotalTasks))
+
+		layout.add_widget(self.commandWidget)
+		layout.add_widget(pb)
+	
+		#Get current time and add the message to the log pile.	
+		logmessage = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+		logmessage = logmessage + " >>> " + itext 
+		Data.log = self.log + "\n" + logmessage
+
+	# Redraw list using current values of nodes.	
+	def reDrawList(self, Data):
+		self.makeListLayout(Data)
+		self.makeNavigationLayout(Data)
+
+	def makeLogLayout(self, Data):
+		self.LogWidget.readonly = True
+		self.LogWidget.text = Data.log
+
+
 
 class MyApp(App):
 	use_kivy_settings = False
 
 	# Responsible for building the program.
 	def build(self):
-		# Start the monitor process.
-		Data.runMonitorProcess()
-		#Data.connectToCloudProvider()
-
+		# Just build start screen. 
+			
 		# Layout that will design the screen.
 		Screen.buildMainScreen()
 
@@ -777,15 +768,3 @@ if __name__ == "__main__":
 	Screen = ScreenBank() 	
 
 	MyApp().run()
-
-def test():
-	Data = MonitorData(1, 10)
-	Screen = ScreenBank() 	
-
-	try:
-		MyApp().run()
-	except:
-		print "Problem running MyApp().run()"
-		if hasattr(Data, "p"):
-			Data.p.kill()
-			print "Subprocess killed"
