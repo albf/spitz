@@ -231,18 +231,19 @@ class MonitorData:
 
 		# Second part, send info to the monitor. 
 		if(reach == "YES"):
-			self.p.stdin.write(str(task)+"\n")
-			ip = str(socket.gethostbyname(address)) + "|11006" 
-			self.p.stdin.write(ip+"\n")
-			while 1:
-				self.ln = self.p.stdout.readline()
-				print "MESSAGE: " + str(self.ln)
-				if self.ln.startswith("[STATUS"):
-					break	
-
-			#self.p.kill()
-			screen.makeCommandLayout(self, "Spitz instance running in " + str(address) + ".")
-			return True
+			ret = COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
+							Screen.AppInstance.config.get('example', 'jm_port'))
+			
+			if ret == 0:
+				ret = COMM_send_vm_node(str(address))
+				if ret == 0:
+					Screen.makeCommandLayout(self, "Spitz instance running in " + str(address) + ".")
+					return True
+				else:
+					Screen.makeCommandLayout(self, "Problem sendin vm_node to Job Manager" + str(address) + ".")
+			else:
+				Screen.makeCommandLayout(self, "Can't connect to Job Manager." + str(address) + ".")
+	
 		return False	
 
 	# Stop SPITZ instance running in a VM node. 
@@ -407,13 +408,13 @@ def buttonVMAction(*args, **kwargs):
 	
 	if(action == "Try Again"):
 		if(Data.VMTryAgain(index) == "YES"):
-			Screen.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data)	
 	elif(action == "Start"):
 		if(Data.launchVMnode(2, index) == True):
-			Screen.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data)	
 	elif(action == "Stop"):
 		if(Data.stopVMnode(index) == True):
-			Screen.makeVMListLayout(Data.VMListLayout)	
+			Screen.makeVMListLayout(Data)	
 	else:
 		Screen.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
 	

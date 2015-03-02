@@ -20,6 +20,11 @@
 import socket
 import time
 
+# Port info
+PORT_MANAGER 	= 8898
+PORT_COMMITTER 	= 10007
+PORT_VM 	= 11006
+
 # Message Types 
 MSG_READY                   = 0
 MSG_TASK                    = 1
@@ -44,7 +49,6 @@ MSG_SET_JOB_MANAGER         = 19
 MSG_SET_TASK_MANAGER_ID     = 20
 MSG_NEW_VM_TASK_MANAGER     = 21
 MSG_SEND_VM_TO_COMMITTER    = 22
-
 
 # Global Variables
 socket_manager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -151,8 +155,8 @@ def COMM_connect_to_job_manager(ip, port):
 		return -1
 
 # Send VM identification to Job Manager.
-def COMM_send_vm_node(ip, port):
-	return COMM_send_message(ip+'|'+port, MSG_NEW_VM_TASK_MANAGER, socket_manager)
+def COMM_send_vm_node(ip):
+	return COMM_send_message(ip+'|'+str(PORT_VM), MSG_NEW_VM_TASK_MANAGER, socket_manager)
 
 # Get status string. Used to fill the table of status.
 def COMM_get_status(request):
