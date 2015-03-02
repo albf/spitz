@@ -129,7 +129,9 @@ class MonitorData:
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
-			Data.makeCommandLayout(Data.CommandLayout, "Couldn't connect with Azure, is your credentials right?") 
+			Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
+		except socket.gaierror as SGE:
+			Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
 
 	# Test if an unreachable VM is, now, reachable. Also checks for SPITZ intance if it's on. 
 	def VMTryAgain(self, index):
