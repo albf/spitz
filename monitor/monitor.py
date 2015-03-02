@@ -103,16 +103,16 @@ class MonitorData:
 						if len(pid) != 0:
 							isThereSpitz = "YES"
 					except socket.gaierror as e1:
-						Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+						Screen.makeCommandLayout(Data, "Couldn't find " + str(address) + ".")
 						reach = "NO"
 					except socket.error as e2:
-						Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+						Screen.makeCommandLayout(Data, "Connection refused in " + str(address) + ".")
 						reach = "NO"
 					except paramiko.AuthenticationException as e3:
-						Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+						Screen.makeCommandLayout(Data, "Wrong credentials for " + str(address) + ".")
 						reach = "NO"
 					except:
-						Data.makeCommandLayout(Data.CommandLayout, "unexpected error connecting to " + str(address) + ".")
+						Screen.makeCommandLayout(Data, "unexpected error connecting to " + str(address) + ".")
 						reach = "NO"
 
 					action = "Try Again"
@@ -132,6 +132,8 @@ class MonitorData:
 			Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
 		except socket.gaierror as SGE:
 			Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
+		except ssl.SSLError as SLE:
+			Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
 
 	# Test if an unreachable VM is, now, reachable. Also checks for SPITZ intance if it's on. 
 	def VMTryAgain(self, index):
@@ -152,16 +154,16 @@ class MonitorData:
 			if len(pid) != 0:
 				isThereSpitz = "YES"
 		except socket.gaierror as e1:
-			Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+			Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
 			reach = "NO"
 		except socket.error as e2:
-			Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+			Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
 			reach = "NO"
 		except paramiko.AuthenticationException as e3:
-			Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+			Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
 			reach = "NO"
 		except:
-			Data.makeCommandLayout(Data.CommandLayout, "unexpected error connecting to " + str(address) + ".")
+			Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
 			reach = "NO"
 
 		if(reach=="YES"):
@@ -218,13 +220,13 @@ class MonitorData:
 				self.VMrows[index][4] = "Stop"
 			
 			except socket.gaierror as e1:
-				Data.makeCommandLayout(Data.CommandLayout, "Couldn't find " + str(address) + ".")
+				Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
 				reach = "NO"
 			except socket.error as e2:
-				Data.makeCommandLayout(Data.CommandLayout, "Connection refused in " + str(address) + ".")
+				Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
 				reach = "NO"
 			except paramiko.AuthenticationException as e3:
-				Data.makeCommandLayout(Data.CommandLayout, "Wrong credentials for " + str(address) + ".")
+				Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
 				reach = "NO"
 
 		# Second part, send info to the monitor. 
@@ -239,7 +241,7 @@ class MonitorData:
 					break	
 
 			#self.p.kill()
-			self.makeCommandLayout(Data.CommandLayout, "Spitz instance running in " + str(address) + ".")
+			screen.makeCommandLayout(self, "Spitz instance running in " + str(address) + ".")
 			return True
 		return False	
 
