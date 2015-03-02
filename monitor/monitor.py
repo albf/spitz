@@ -427,8 +427,9 @@ def buttonVMAction(*args, **kwargs):
 # Class that stores the main layout and build the different screens of the program.
 class ScreenBank:
 	# Initialize the class.
-	def __init__(self):
+	def __init__(self, Data):
 		#Define window size.
+		self.factor = Data.factor
 		Config.set('graphics', 'width', Data.factor*800) 
 		Config.set('graphics', 'height', Data.factor*600)
 
@@ -506,12 +507,12 @@ class ScreenBank:
 		     'key': 'certificate_path'}])
 
 		# Layout that represents the list.
-		self.ListLayout = GridLayout(cols=len(self.columns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
-		self.NavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+		self.ListLayout = GridLayout(cols=len(Data.columns), row_default_height=Data.factor*30, row_force_default = True, rows=(Data.npp + 1) , size_hint_y=10)
+		self.NavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
 
 		# Layout that represents the VMlist..
-		self.VMListLayout = GridLayout(cols=len(self.VMcolumns), row_default_height=factor*30, row_force_default = True, rows=(self.npp + 1) , size_hint_y=10)
-		self.VMNavigationLayout = GridLayout(cols=2, row_default_height=factor*15)
+		self.VMListLayout = GridLayout(cols=len(Data.VMcolumns), row_default_height=Data.factor*30, row_force_default = True, rows=(Data.npp + 1) , size_hint_y=10)
+		self.VMNavigationLayout = GridLayout(cols=2, row_default_height=Data.factor*15)
 
 		# Layout that represents the log
 		self.LogWidget = TextInput(multiline=True)
@@ -520,13 +521,13 @@ class ScreenBank:
 		self.HeaderLayout = GridLayout(cols=7, row_default_height=Data.factor*15)
 
 	# Build the main screen, with header, list, navigation and command.
-	def buildMainScreen(self):
+	def buildMainScreen(self, Data):
 		# Make header layout and add to the main.
-		self.makeHeaderLayout(HeaderLayout)
+		self.makeHeaderLayout()
 		self.layout.add_widget(self.HeaderLayout)
 
 		# Make list rows and add it to the middle layout 
-		self.MiddleLayout.add_widget(Data.ListLayout)
+		self.MiddleLayout.add_widget(self.ListLayout)
 
 		# Build list screen and add Middle Layout to the main layout.
 		self.buildListScreen()
@@ -534,31 +535,31 @@ class ScreenBank:
 
 		# Make Console Layout and add it to the main layout 
 		self.CommandLayout = GridLayout(cols=1, row_default_height=Data.factor*30, row_force_default=True)
-		self.makeCommandLayout(Data.CommandLayout, 'Welcome to SPITZ Monitor')
-		self.layout.add_widget(Data.CommandLayout)
+		self.makeCommandLayout(Data, 'Welcome to SPITZ Monitor')
+		self.layout.add_widget(self.CommandLayout)
 
-		Data.reDrawList()
+		self.reDrawList(Data)
 
 	# Build the list screen, just updating the middle layout.
 	def buildListScreen(self):
 		self.MiddleLayout.clear_widgets()
-		self.MiddleLayout.add_widget(Data.ListLayout)
-		self.MiddleLayout.add_widget(Data.NavigationLayout)
+		self.MiddleLayout.add_widget(self.ListLayout)
+		self.MiddleLayout.add_widget(self.NavigationLayout)
 
 	# Build the list screen, just updating the middle layout.
 	def buildVMListScreen(self):
 		self.MiddleLayout.clear_widgets()
-		self.MiddleLayout.add_widget(Data.VMListLayout)
-		self.MiddleLayout.add_widget(Data.VMNavigationLayout)
+		self.MiddleLayout.add_widget(self.VMListLayout)
+		self.MiddleLayout.add_widget(self.VMNavigationLayout)
 
 	# Build the log screen, just updating the middle layout.
 	def buildLogScreen(self):
 		self.MiddleLayout.clear_widgets()
 		self.MiddleScroll.clear_widgets()
 		Data.LogWidget.size_hint_y = None
-		Data.LogWidget.height = max( (len(Data.LogWidget._lines)+1) * Data.LogWidget.line_height, self.MiddleScroll.size[1])
+		Data.LogWidget.height = max( (len(self.LogWidget._lines)+1) * self.LogWidget.line_height, self.MiddleScroll.size[1])
 		self.MiddleScroll.do_scroll_x = False
-		self.MiddleScroll.add_widget(Data.LogWidget)
+		self.MiddleScroll.add_widget(self.LogWidget)
 		self.MiddleLayout.add_widget(self.MiddleScroll)
 
 	# Build the Settings screen.
@@ -690,7 +691,7 @@ class ScreenBank:
 		#Get current time and add the message to the log pile.	
 		logmessage = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 		logmessage = logmessage + " >>> " + itext 
-		Data.log = self.log + "\n" + logmessage
+		Data.log = Data.log + "\n" + logmessage
 
 	# Redraw list using current values of nodes.	
 	def reDrawList(self, Data):
@@ -711,7 +712,7 @@ class MyApp(App):
 		# Just build start screen. 
 			
 		# Layout that will design the screen.
-		Screen.buildMainScreen()
+		Screen.buildMainScreen(Data)
 
 		return Screen.layout
 
@@ -765,6 +766,6 @@ class MyApp(App):
 # Main part.
 if __name__ == "__main__":
 	Data = MonitorData(1, 10)
-	Screen = ScreenBank() 	
+	Screen = ScreenBank(Data) 	
 
 	MyApp().run()
