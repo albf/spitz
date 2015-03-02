@@ -75,7 +75,12 @@ def COMM_read_bytes (sock):
 	message_size = ''
 
 	while(received_char != '|'):
-		received_char = sock.recv(1)	
+		try:
+			received_char = sock.recv(1)	
+		except socket.error:
+			print "socket error in COMM_read_bytes"
+			return None
+
 		if(len(received_char) == 0):
 			return None 
 
@@ -87,7 +92,12 @@ def COMM_read_bytes (sock):
 	msg = ''	
 
 	while(offset < msg_size):
-		rcv = sock.recv((msg_size - offset))
+		try:
+			rcv = sock.recv((msg_size - offset))
+		except socket.error:
+			print "socket error in COMM_read_bytes"
+			return None
+
 		if(len(rcv) <= 0):
 			return None
 		msg+=rcv
@@ -97,9 +107,18 @@ def COMM_read_bytes (sock):
 		
 # Send msg to socket provided.
 def COMM_send_bytes(sock, msg):
-	sock.sendall((str(len(msg)) + '|'))
+	try:
+		sock.sendall((str(len(msg)) + '|'))
+	except socket.error:
+		print "socket error in COMM_send_bytes"
+		return -1
+
 	if(len(msg)>0):
-		sock.sendall(msg)
+		try:
+			sock.sendall(msg)
+		except socket.error:
+			print "socket error in COMM_send_bytes"
+			return -1
 	return 0
 
 # Read int from socket. Convert before returning.
@@ -117,6 +136,7 @@ def COMM_send_int(sock, value):
 
 # Read mesage from socket. Return tuple with message and its kind.
 def COMM_read_message(sock):
+	global COMM_is_connected
 	msg_type = COMM_read_int(sock)
 
 	if msg_type is None:
@@ -132,8 +152,16 @@ def COMM_read_message(sock):
 
 # Send message using socket provided. Both send and read are compatible with c-code.
 def COMM_send_message(msg, msg_type, sock):
-	COMM_send_int(sock, msg_type)
-	return COMM_send_bytes(sock, msg)
+	global COMM_is_connected
+
+	if(COMM_send_int(sock, msg_type)<0):
+		COMM_is_connected = False
+		return -1
+	else:
+		if (COMM_send_bytes(sock, msg)<0):
+			COMM_is_connected = False
+			return -1
+	return 0
 
 # Connect, if not already connected, to job_manager and received rank. Register as monitor.
 def COMM_connect_to_job_manager(ip, port):
