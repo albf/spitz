@@ -49,6 +49,7 @@ MSG_SEND_VM_TO_COMMITTER    = 22
 # Global Variables
 socket_manager = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 COMM_my_rank = None
+COMM_is_connected = False
 
 
 # Communication Methods 
@@ -58,7 +59,11 @@ def COMM_cast(value):
 	try:
 		return int(value)
 	except ValueError:
-		return int(float(value))
+		try:
+			return int(float(value))
+		except ValueError:
+			print "ERROR: Can't cast value provided: " + str(value)
+			return None
 
 # Read unknown number of bytes from socket provided.
 def COMM_read_bytes (sock):
@@ -111,9 +116,14 @@ def COMM_read_message(sock):
 	msg_type = COMM_read_int(sock)
 
 	if msg_type is None:
+		COMM_is_connected = False
 		return None, None
 
 	msg = COMM_read_bytes(sock)
+
+	if msg is None:
+		COMM_is_connected = False
+	
 	return msg, msg_type
 
 # Send message using socket provided. Both send and read are compatible with c-code.
@@ -121,12 +131,24 @@ def COMM_send_message(msg, msg_type, sock):
 	COMM_send_int(sock, msg_type)
 	return COMM_send_bytes(sock, msg)
 
-# Connect to job_manager and received rank. Register as monitor.
+# Connect, if not already connected, to job_manager and received rank. Register as monitor.
 def COMM_connect_to_job_manager(ip, port):
-	socket_manager.connect((ip, port))			# Connect to Job Manager
-	COMM_my_rank = COMM_read_int(socket_manager)		# Receive rank
-	COMM_send_message('', MSG_SET_MONITOR, socket_manager)	# Set as a Monitor
-	return 0
+	global COMM_is_connected
+
+	if COMM_is_connected == True:
+		return 0
+
+	print "Connecting to JM with address: " + ip + ":" + port
+	try:
+		socket_manager.connect((ip, COMM_cast(port)))		# Connect to Job Manager
+		COMM_my_rank = COMM_read_int(socket_manager)		# Receive rank
+		COMM_send_message('', MSG_SET_MONITOR, socket_manager)	# Set as a Monitor
+		COMM_is_connected = True
+		return 0
+	except socket.error, msg:
+		COMM_is_connected = False
+		print "Couldn't connect to job manager with address provided"
+		return -1
 
 # Send VM identification to Job Manager.
 def COMM_send_vm_node(ip, port):
@@ -138,12 +160,11 @@ def COMM_get_status(request):
 	msg, msg_type = COMM_read_message(socket_manager)
 	return msg[:-1]
 
-# Return number of tasks in current run.
+# Return number of tasks in current run. Return after cast.
 def COMM_get_num_tasks():
 	COMM_send_message('', MSG_GET_NUM_TASKS, socket_manager)
 	msg, msg_type = COMM_read_message(socket_manager)
-	#return COMM_cast(msg)
-	return msg
+	return COMM_cast(msg[:-1])
 
 
 # Examples of use.

@@ -174,26 +174,19 @@ class MonitorData:
 
 	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
-		
-		self.p.stdin.write(str(task)+"\n")
-		while 1:
-			self.ln = self.p.stdout.readline()
-			print "MESSAGE: " + str(self.ln)
-			if self.ln.startswith("[STATUS"):
-				return 
+		COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
+						Screen.AppInstance.config.get('example', 'jm_port'))
+
+		self.ln = COMM_get_status('')
+		print self.ln
 
 	# Get number of tasks from the Job Manager
 	def getNumberOfTasks(self, task):
+		COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
+						Screen.AppInstance.config.get('example', 'jm_port'))
 		
-		self.p.stdin.write(str(task)+"\n")
-		while 1:
-			line = self.p.stdout.readline()
-			print "MESSAGE: " + str(line)
-			if line.startswith("[STATUS"):
-				self.TotalTasks = int(line[13:])
-				#print self.TotalTasks	
-				return 
-
+		self.TotalTasks = COMM_get_num_tasks()
+		print "Received number of tasks: " + str(self.TotalTasks)
 
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	def launchVMnode(self, task, index):
@@ -289,7 +282,7 @@ class MonitorData:
 		self.total_compl = 0
 		del self.rows[:]		
 
-		status = status[13:]
+		#status = status[13:]
 		lnlist = status.split(';')
 		for item in lnlist:
 			self.rows.append(item.split('|'))
@@ -322,7 +315,7 @@ def checkToggleButton(button):
 
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	checkToggleButton(Data.btnV)
+	checkToggleButton(Screen.btnV)
 	Data.index = 0				# Reset the current index.
 	if(Data.IsVMsListed == False):
 		Data.connectToCloudProvider()
@@ -382,7 +375,7 @@ def buttonUpdate(instance):
 	Data.getStatusMessage(1)
 	Data.getNumberOfTasks(3)
 	Data.fillRows(Data.ln)
-	Screen.makeCommandLayout(Data.CommandLayout, Data.ln) 
+	Screen.makeCommandLayout(Data, Data.ln) 
 	Screen.reDrawList(Data)
 
 def buttonSettings(instance):
@@ -390,17 +383,17 @@ def buttonSettings(instance):
 	Screen.buildSettingsScreen()
 
 def buttonLog(instane):
-	checkToggleButton(Data.btnL)
-	Screen.makeLogLayout()
+	checkToggleButton(Screen.btnL)
+	Screen.makeLogLayout(Data)
 	Screen.buildLogScreen()
 
 def buttonList(instance):
-	checkToggleButton(Data.btnLi)
+	checkToggleButton(Screen.btnLi)
 	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
 
 def buttonStatistics(instance):
-	checkToggleButton(Data.btnSta)
+	checkToggleButton(Screen.btnSta)
 
 def buttonVMAction(*args, **kwargs):
 	index = args[0]
@@ -444,6 +437,11 @@ class ScreenBank:
 		     'desc': 'Address of the JM.',
 		     'section': 'example',
 		     'key': 'jm_address'},
+		    {'type': 'numeric',
+		     'title': 'Job Manager Port',
+		     'desc': 'Port of the JM.',
+		     'section': 'example',
+		     'key': 'jm_port'},
 		    {'type': 'path',
 		     'title': 'Library Path',
 		     'desc': 'File with user functions.',
@@ -556,8 +554,8 @@ class ScreenBank:
 	def buildLogScreen(self):
 		self.MiddleLayout.clear_widgets()
 		self.MiddleScroll.clear_widgets()
-		Data.LogWidget.size_hint_y = None
-		Data.LogWidget.height = max( (len(self.LogWidget._lines)+1) * self.LogWidget.line_height, self.MiddleScroll.size[1])
+		self.LogWidget.size_hint_y = None
+		self.LogWidget.height = max( (len(self.LogWidget._lines)+1) * self.LogWidget.line_height, self.MiddleScroll.size[1])
 		self.MiddleScroll.do_scroll_x = False
 		self.MiddleScroll.add_widget(self.LogWidget)
 		self.MiddleLayout.add_widget(self.MiddleScroll)
@@ -725,6 +723,7 @@ class MyApp(App):
 		print 'BUILD CONFIG'
 		self.config.setdefaults('example', {
 		     'jm_address' : '127.0.0.1',
+		     'jm_port' : '8898',
 		     'lib_path' : 'prime.so',
 		     'num_tasks' : '100',
 		     'vm_ip' : '127.0.0.1',
