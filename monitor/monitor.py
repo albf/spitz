@@ -125,7 +125,7 @@ class MonitorData:
 					print self.VMrows	
 
 			# Debug for running a VM TM locally.
-			self.VMrows.append(["Debug", "localhost", 1, 1, "Start"])
+			self.VMrows.append(["Debug", "127.0.0.1", 1, 1, "Start"])
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
@@ -201,7 +201,7 @@ class MonitorData:
 		ssh = paramiko.SSHClient()
 		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-		if(address != "localhost"):
+		if(address != "localhost") and (address != "127.0.0.1"):
 			try:
 				ssh.connect(address,
 					username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
@@ -255,7 +255,7 @@ class MonitorData:
 		ssh = paramiko.SSHClient()
 		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-		if(address != "localhost"):
+		if(address != "localhost") and (address != "127.0.0.1"):
 			try:
 				ssh.connect(address,
 					username=str(Screen.AppInstance.config.get('example', 'ssh_login')), 
