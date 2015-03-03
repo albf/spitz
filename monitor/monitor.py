@@ -82,6 +82,10 @@ class MonitorData:
 		certificate_path = str(Screen.AppInstance.config.get('example', 'certificate_path'))
  		sms = ServiceManagementService(subscription_id, certificate_path)
 
+		# May be an update, clean before doing anything.
+		if len(self.VMrows) > 0:
+			self.VMrows = []
+
 		try:
 			result = sms.list_hosted_services()
 			for hosted_service in result:
@@ -178,19 +182,26 @@ class MonitorData:
 
 	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
-		COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
-						Screen.AppInstance.config.get('example', 'jm_port'))
+		if COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
+							Screen.AppInstance.config.get('example', 'jm_port')) >= 0:
 
-		self.ln = COMM_get_status('')
+			self.ln = COMM_get_status('')
+			if self.ln != None:
+				return 0
 		print self.ln
+		return -1 
 
 	# Get number of tasks from the Job Manager
 	def getNumberOfTasks(self, task):
-		COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
+		ret = COMM_connect_to_job_manager(Screen.AppInstance.config.get('example', 'jm_address'),
 						Screen.AppInstance.config.get('example', 'jm_port'))
 		
-		self.TotalTasks = COMM_get_num_tasks()
-		print "Received number of tasks: " + str(self.TotalTasks)
+		if ret >= 0 :
+			ret = self.TotalTasks = COMM_get_num_tasks()
+		if ret >= 0 :
+			print "Received number of tasks: " + str(self.TotalTasks)
+		else:
+			Screen.makeCommandLayout(self, "Connection problem, couldn't get the number of tasks.") 
 
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	def launchVMnode(self, task, index):
@@ -314,13 +325,9 @@ class MonitorData:
     Handlers of the main screen.
     ----- '''
 
-def checkToggleButton(button):
-	if(button.state == 'normal'):
-		button.state = 'down' 
-
 # Handler of the VM button, will launch an VM task manager.
 def buttonVM(instance):
-	checkToggleButton(Screen.btnV)
+	Screen.screenChange(Screen.btnV, "VMLauncher")
 	Data.index = 0				# Reset the current index.
 	if(Data.IsVMsListed == False):
 		Data.connectToCloudProvider()
@@ -377,28 +384,33 @@ def buttonVMOrder(instance):
 
 # Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):
-	Data.getStatusMessage(1)
-	Data.getNumberOfTasks(3)
-	Data.fillRows(Data.ln)
-	Screen.makeCommandLayout(Data, Data.ln) 
-	Screen.reDrawList(Data)
+	if Screen.ScreenName == "List":
+		if (Data.getStatusMessage(1) >= 0) and (Data.getNumberOfTasks(3) >= 0):
+			Data.fillRows(Data.ln)
+			Screen.makeCommandLayout(Data, Data.ln) 
+			Screen.reDrawList(Data)
+		else:
+			Screen.makeCommandLayout(Data, "Problem getting status information from Job Manager. Is the address and port correct?")
+	elif Screen.ScreenName == "VMLauncher":
+		Data.IsVMsListed = False
+		buttonVM(None) 
 
 def buttonSettings(instance):
 	#Screen.layout.clear_widgets()
 	Screen.buildSettingsScreen()
 
 def buttonLog(instane):
-	checkToggleButton(Screen.btnL)
+	Screen.screenChange(Screen.btnL, "Log")
 	Screen.makeLogLayout(Data)
 	Screen.buildLogScreen()
 
 def buttonList(instance):
-	checkToggleButton(Screen.btnLi)
+	Screen.screenChange(Screen.btnLi, "List")
 	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
 
 def buttonStatistics(instance):
-	checkToggleButton(Screen.btnSta)
+	Screen.screenChange(Screen.btnSta, "Statistics")
 
 def buttonVMAction(*args, **kwargs):
 	index = args[0]
@@ -522,6 +534,9 @@ class ScreenBank:
 
 		# Layout that represents the main Header
 		self.HeaderLayout = GridLayout(cols=7, row_default_height=Data.factor*15)
+
+		# Name of current screen
+		self.ScreenName = "List"
 
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self, Data):
@@ -670,7 +685,7 @@ class ScreenBank:
 		self.btnSta.bind(on_press = buttonStatistics)
 		layout.add_widget(self.btnSta)
 
-		self.btnL = ToggleButton(text="Logs", group='menu', size_hint_x=None, width = self.factor*125)
+		self.btnL = ToggleButton(text="Log", group='menu', size_hint_x=None, width = self.factor*125)
 		self.btnL.bind(on_press = buttonLog)
 		layout.add_widget(self.btnL)
 
@@ -704,6 +719,11 @@ class ScreenBank:
 	def makeLogLayout(self, Data):
 		self.LogWidget.readonly = True
 		self.LogWidget.text = Data.log
+
+	def screenChange(self, value, name):
+		self.ScreenName = name
+		if(value.state == 'normal'):
+			value.state = 'down' 
 
 
 

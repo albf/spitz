@@ -188,9 +188,16 @@ def COMM_send_vm_node(ip):
 
 # Get status string. Used to fill the table of status.
 def COMM_get_status(request):
-	COMM_send_message(str(request), MSG_GET_STATUS, socket_manager)
-	msg, msg_type = COMM_read_message(socket_manager)
-	return msg[:-1]
+	msg = None
+	ret = COMM_send_message(str(request), MSG_GET_STATUS, socket_manager)
+	if ret >= 0 :
+		msg, msg_type = COMM_read_message(socket_manager)
+	
+	if msg == None :
+		return None
+
+	else :
+		return msg[:-1]
 
 # Return number of tasks in current run. Return after cast.
 def COMM_get_num_tasks():
