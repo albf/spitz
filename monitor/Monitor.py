@@ -26,5 +26,4 @@ import Runner
 if __name__ == "__main__":
 	Runner.Data = MonitorData(1, 10)
 	Runner.Screen = ScreenBankGUI(Runner.Data) 	
-
 	Runner.MyApp().run()

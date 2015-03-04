@@ -28,11 +28,13 @@ from kivy.uix.label import Label
 from kivy.uix.settings import Settings
 from kivy.config import ConfigParser
 from kivy.uix.scrollview import ScrollView 
+from kivy.app import App
 from operator import itemgetter
 import json
 from functools import partial
 from ScreenBank import *
 from Handlers import *
+import Runner
 	
 ''' ----- 
     ScreenBankGUI
@@ -186,7 +188,7 @@ class ScreenBankGUI(ScreenBank):
 
 	# Build the Settings screen.
 	def buildSettingsScreen(self):
-		MyApp.open_settings(self.AppInstance)
+		Runner.MyApp.open_settings(self.AppInstance)
 		#self.layout.add_widget(self.sett)
 
 	# Makes the layout of the list, adding the columns name, the ordering handlers and the actual page.
@@ -329,65 +331,3 @@ class ScreenBankGUI(ScreenBank):
 		if(value.state == 'normal'):
 			value.state = 'down' 
 
-
-
-class MyApp(App):
-	use_kivy_settings = False
-
-	# Responsible for building the program.
-	def build(self):
-		# Just build start screen. 
-			
-		# Layout that will design the screen.
-		Screen.buildMainScreen(Data)
-
-		return Screen.layout
-
-	# Run when closing. Send a quit message and print the sucess (or not) message.
-	def on_stop(self):
-		Data.getStatusMessage(0)
-		print Data.ln
-
-	def build_config(self, config):
-		print 'BUILD CONFIG'
-		self.config.setdefaults('example', {
-		     'jm_address' : '127.0.0.1',
-		     'jm_port' : '8898',
-		     'lib_path' : 'prime.so',
-		     'num_tasks' : '100',
-		     'vm_ip' : '127.0.0.1',
-		     'vm_prt' : '11006',
-		     'ssh_login' : 'user',
-		     'ssh_pass' : 'pass',
-		     'ssh_pf_bool' : True,
-		     'ssh_pf_login' : 'user',
-		     'ssh_pf_pass' : 'pass',
-		     'subscription_id' : 'id',
-		     'certificate_path' : '/',
-		})
-
-		Screen.AppInstance = self
-
-		#Screen.sett = self.settings
-		#Screen.sett.on_close = buttonSettingsClose
-		#jsondata = Screen.settings_json 
-		#Screen.sett.add_json_panel('SPITZ Virtual Machine',self.config, data=jsondata)
-		#Data.config = self.config
-
-
-	def build_settings(self, settings):
-		print 'BUILD SETTINGS'
-
-		jsondata = Screen.settings_json 
-		settings.add_json_panel('Spitz Parameters',self.config, data=jsondata)
-
-		jsondata = Screen.settings_json2 
-		settings.add_json_panel('Virtual Machine',self.config, data=jsondata)
-	
-		jsondata = Screen.settings_json3 
-		settings.add_json_panel('Port Fowarding',self.config, data=jsondata)
-
-		jsondata = Screen.settings_json4 
-		settings.add_json_panel('Cloud Provider',self.config, data=jsondata)
-		#self.open_settings()	
-		
