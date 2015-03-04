@@ -42,6 +42,9 @@ from azure.servicemanagement import *
 from functools import partial
 import atexit
 from comm import *
+import abc
+from ScreenBank import *
+from ScreenBankGUI import *
 
 ''' ----- 
     MonitorData 
@@ -332,7 +335,8 @@ def buttonVM(instance):
 	if(Data.IsVMsListed == False):
 		Data.connectToCloudProvider()
 		Screen.makeVMListLayout(Data)
-		Screen.makeVMNavigationLayout(Data)
+		if(Data.IsVMsListed == True):
+			Screen.makeVMNavigationLayout(Data)
 
 	Screen.buildVMListScreen()
 
@@ -408,6 +412,7 @@ def buttonList(instance):
 	Screen.screenChange(Screen.btnLi, "List")
 	Data.index = 0				# Reset the current index.
 	Screen.buildListScreen()
+	buttonUpdate(None)
 
 def buttonStatistics(instance):
 	Screen.screenChange(Screen.btnSta, "Statistics")
@@ -431,11 +436,11 @@ def buttonVMAction(*args, **kwargs):
 		Screen.makeCommandLayout(Data.CommandLayout, "Error: Don't know what this comand is, check python code")
 	
 ''' ----- 
-    ScreenBank
+    ScreenBankGUI
     ----- '''
 
 # Class that stores the main layout and build the different screens of the program.
-class ScreenBank:
+class ScreenBankGUI2(ScreenBank):
 	# Initialize the class.
 	def __init__(self, Data):
 		#Define window size.
@@ -790,6 +795,6 @@ class MyApp(App):
 # Main part.
 if __name__ == "__main__":
 	Data = MonitorData(1, 10)
-	Screen = ScreenBank(Data) 	
+	Screen = ScreenBankGUI(Data) 	
 
 	MyApp().run()
