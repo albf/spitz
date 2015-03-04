@@ -104,12 +104,12 @@ def buttonSettings(instance):
 	Runner.Screen.buildSettingsScreen()
 
 def buttonLog(instane):
-	Runner.Screen.screenChange(Screen.btnL, "Log")
+	Runner.Screen.screenChange(Runner.Screen.btnL, "Log")
 	Runner.Screen.makeLogLayout(Runner.Data)
 	Runner.Screen.buildLogScreen()
 
 def buttonList(instance):
-	Runner.Screen.screenChange(Screen.btnLi, "List")
+	Runner.Screen.screenChange(Runner.Screen.btnLi, "List")
 	Runner.Data.index = 0				# Reset the current index.
 	Runner.Screen.buildListScreen()
 	buttonUpdate(None)

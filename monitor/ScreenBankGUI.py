@@ -19,7 +19,6 @@
 
 import kivy
 from kivy.uix.gridlayout import GridLayout
-from kivy.app import App
 from kivy.uix.button import Button
 from kivy.uix.togglebutton import ToggleButton
 from kivy.uix.textinput import TextInput
