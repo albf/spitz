@@ -238,14 +238,26 @@ class ScreenBankGUI(ScreenBank):
 		upper = min(len(Data.VMrows), (Data.index + 1)*Data.npp)
 		#print "upper: "+str(upper)
 		for i in range(Data.index*Data.npp, upper):
-			for j in range(len(Data.VMwid)-1):
-				layout.add_widget(Button(text=str(Data.VMrows[i][j]), size_hint_x=None, width=Data.VMwid[j]))
+			# Create buttons. Actions buttons has actions.
+			for j in range(len(Data.VMwid)):
+				if j == len(Data.VMwid)-1:
+					# Button responsible for VM action, as it has different index and action, calls partial functions.
+					btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-1]), size_hint_x=None, width=Data.VMwid[-1])
+					print i
+					btnA.bind(on_press=partial(buttonSpitzAction, i, btnA.text))
+					layout.add_widget(btnA)
 
-			# Button responsible for VM action, as it has different index and action, calls partial functions.
-			btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-1]), size_hint_x=None, width=Data.VMwid[-1])
-			print i
-			btnA.bind(on_press=partial(buttonVMAction, i, btnA.text))
-			layout.add_widget(btnA)
+				elif j == len(Data.VMwid)-3:
+					# Button responsible for VM action, as it has different index and action, calls partial functions.
+					btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-3]), size_hint_x=None, width=Data.VMwid[-3])
+					print i
+					btnA.bind(on_press=partial(buttonAzureAction, i, btnA.text))
+					layout.add_widget(btnA)
+
+				else:
+					layout.add_widget(Button(text=str(Data.VMrows[i][j]), size_hint_x=None, width=Data.VMwid[j]))
+
+
 		self.VMListLayout = layout
 
 	# Makes the buttons to navigate the VM list. Add the handler and text if there is any.

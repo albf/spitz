@@ -117,7 +117,25 @@ def buttonList(instance):
 def buttonStatistics(instance):
 	Runner.Screen.screenChange(Screen.btnSta, "Statistics")
 
-def buttonVMAction(*args, **kwargs):
+def buttonSpitzAction(*args, **kwargs):
+	index = args[0]
+	action = args[1]
+	print index
+	print action
+	
+	if(action == "Try Again"):
+		if(Runner.Data.VMTryAgain(index) == "YES"):
+			Runner.Screen.makeVMListLayout(Runner.Data)	
+	elif(action == "Start"):
+		if(Runner.Data.launchVMnode(2, index) == True):
+			Runner.Screen.makeVMListLayout(Runner.Data)	
+	elif(action == "Stop"):
+		if(Runner.Data.stopVMnode(index) == True):
+			Runner.Screen.makeVMListLayout(Runner.Data)	
+	else:
+		Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")
+	
+def buttonAzureAction(*args, **kwargs):
 	index = args[0]
 	action = args[1]
 	print index
