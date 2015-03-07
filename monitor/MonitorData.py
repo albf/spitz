@@ -24,6 +24,7 @@ import paramiko
 import socket
 from azure import *
 from azure.servicemanagement import *
+import ssl
 from Comm import *
 import Runner
 
@@ -52,9 +53,10 @@ class MonitorData:
 
 		# VM Variables.
 		self.IsVMsListed = False	# Indicate if VMs are listed alredy.
-		self.VMcolumns = ['Name', 'Location', 'Reachable', 'Spitz', 'Action'] 
-		self.VMwid = [factor*200, factor*200, factor*100, factor*100, factor*200] 
+		self.VMcolumns = ['Name', 'Location', 'Status','Action', 'Spitz', 'Action'] 
+		self.VMwid = [factor*200, factor*100, factor*125,factor*125, factor*125, factor*125] 
 		self.VMrows = []
+		self.VMrowsInfo =[]		# stores service names: [service_name, deployment_name, instance_name]
 		self.VMlastIndex= -1 
 		self.VMlastOrder = -1
 
@@ -62,6 +64,7 @@ class MonitorData:
 	# Connect to Azure and get information about all services with SPITZ in their name.
 	# Check if it's on and if there is a spitz instance running.
 	def connectToCloudProvider(self):
+		# Get credentials and instanciate SMS
 		subscription_id = str(Runner.Screen.AppInstance.config.get('example', 'subscription_id'))
 		certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
  		sms = ServiceManagementService(subscription_id, certificate_path)
@@ -71,49 +74,79 @@ class MonitorData:
 			self.VMrows = []
 
 		try:
+			# Get service list
 			result = sms.list_hosted_services()
 			for hosted_service in result:
 				print hosted_service.service_name
+				# Get only services with SPITZ in its name.
 				if "spitz" in str(hosted_service.service_name).lower() :
 					address = str(hosted_service.service_name) + ".cloudapp.net"
 					sshs = paramiko.SSHClient()
 					sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-					reach = "YES"					
-					isThereSpitz = "NO"
-	
-					try:
-						sshs.connect(address,
-							 username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
-							 password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+					status = "None"					
+					isThereSpitz = "-"
+					isThereInstance = 0
+					a_action = "-"
+					s_action = "-"
+					instance_name = ""
 
-						stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
-						pid = stdouts.readlines()
-						if len(pid) != 0:
-							isThereSpitz = "YES"
-					except socket.gaierror as e1:
-						Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
-						reach = "NO"
-					except socket.error as e2:
-						Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
-						reach = "NO"
-					except paramiko.AuthenticationException as e3:
-						Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
-						reach = "NO"
-					except:
-						Runner.Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
-						reach = "NO"
+					# Get deployment information.
+					d_result = sms.get_deployment_by_slot(hosted_service.service_name,'Production')
+					deployment_name = d_result.name
 
-					action = "Try Again"
-					if (reach == "YES") and (isThereSpitz=="YES"):
-						action = "Stop"
-					elif (reach == "YES") and (isThereSpitz=="NO"):
-						action = "Start"
+					# Get instance information.
+					for instance in d_result.role_instance_list:
+						instance_name = instance.instance_name
+						isThereInstance = 1
+						status = instance.instance_status
+						break
 
-					self.VMrows.append([hosted_service.service_name, address, reach, isThereSpitz, action])
+					print "Status: "+status
+
+					# If there is no instance, something is wrong.
+					if isThereInstance == 0:
+						Runner.Screen.makeCommandLayout(self, "No instance in following service: " + address)
+						status = "No Instance"
+
+					# If the VM is ok and running, try to establish a SSH connection.
+					elif (status != "StoppedVM") and (status!= "StoppedDeallocated"):
+						a_action = "Stop"
+						s_action = "Try Again"
+						try:
+							sshs.connect(address,
+								 username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
+								 password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+
+							stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
+							pid = stdouts.readlines()
+							if len(pid) != 0:
+								isThereSpitz = "YES"
+								s_action = "Restart"
+							else:
+								isThereSpitz = "NO"
+								s_action = "Start"
+						except socket.gaierror as e1:
+							Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
+							status = "No SSH access."
+						except socket.error as e2:
+							Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
+							status = "SSH refused."
+						except paramiko.AuthenticationException as e3:
+							Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
+							status = "SSH denied."
+						except:
+							Runner.Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
+							status = "SSH issue."
+					# If it's ok, but down, offer the possibility to start it.
+					else:
+						a_action = "Start"
+
+					# Append service.
+					self.VMrows.append([hosted_service.service_name, address, status, a_action, isThereSpitz, s_action])
 					print self.VMrows	
 
 			# Debug for running a VM TM locally.
-			self.VMrows.append(["Debug", "127.0.0.1", 1, 1, "Start"])
+			self.VMrows.append(["Debug", "127.0.0.1", "Local", "-", "Yes", "Start"])
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
