@@ -118,6 +118,7 @@ def buttonStatistics(instance):
 	Runner.Screen.screenChange(Screen.btnSta, "Statistics")
 
 def buttonSpitzAction(*args, **kwargs):
+	# Debug
 	index = args[0]
 	action = args[1]
 	print index
@@ -136,19 +137,20 @@ def buttonSpitzAction(*args, **kwargs):
 		Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")
 	
 def buttonAzureAction(*args, **kwargs):
+	# Debug
 	index = args[0]
 	action = args[1]
 	print index
 	print action
 	
-	if(action == "Try Again"):
-		if(Runner.Data.VMTryAgain(index) == "YES"):
-			Runner.Screen.makeVMListLayout(Runner.Data)	
-	elif(action == "Start"):
-		if(Runner.Data.launchVMnode(2, index) == True):
+	if(action == "Start"):
+		if(Runner.Data.updateVMs([index], "Start") == True):
+			# If could start the node, update the list and the screen.
+			Runner.Data.connectToCloudProvider()
 			Runner.Screen.makeVMListLayout(Runner.Data)	
 	elif(action == "Stop"):
-		if(Runner.Data.stopVMnode(index) == True):
+		if(Runner.Data.updateVMs([index], "Stop") == True):
+			Runner.Data.connectToCloudProvider()
 			Runner.Screen.makeVMListLayout(Runner.Data)	
 	else:
 		Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")

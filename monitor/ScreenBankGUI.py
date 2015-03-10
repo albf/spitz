@@ -243,14 +243,12 @@ class ScreenBankGUI(ScreenBank):
 				if j == len(Data.VMwid)-1:
 					# Button responsible for VM action, as it has different index and action, calls partial functions.
 					btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-1]), size_hint_x=None, width=Data.VMwid[-1])
-					print i
 					btnA.bind(on_press=partial(buttonSpitzAction, i, btnA.text))
 					layout.add_widget(btnA)
 
 				elif j == len(Data.VMwid)-3:
 					# Button responsible for VM action, as it has different index and action, calls partial functions.
 					btnA = Button(text=str(Data.VMrows[i][len(Data.VMwid)-3]), size_hint_x=None, width=Data.VMwid[-3])
-					print i
 					btnA.bind(on_press=partial(buttonAzureAction, i, btnA.text))
 					layout.add_widget(btnA)
 

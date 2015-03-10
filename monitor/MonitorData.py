@@ -54,9 +54,9 @@ class MonitorData:
 		# VM Variables.
 		self.IsVMsListed = False	# Indicate if VMs are listed alredy.
 		self.VMcolumns = ['Name', 'Location', 'Status','Action', 'Spitz', 'Action'] 
-		self.VMwid = [factor*200, factor*100, factor*125,factor*125, factor*125, factor*125] 
+		self.VMwid = [factor*75, factor*175, factor*175,factor*125, factor*125, factor*125] 
 		self.VMrows = []
-		self.VMrowsInfo =[]		# stores service names: [service_name, deployment_name, instance_name]
+		self.VMrowsInfo =[]		# stores service names: [service_name, deployment_name, instance_name, azure status]
 		self.VMlastIndex= -1 
 		self.VMlastOrder = -1
 
@@ -72,6 +72,7 @@ class MonitorData:
 		# May be an update, clean before doing anything.
 		if len(self.VMrows) > 0:
 			self.VMrows = []
+			self.VMrowsInfo = []
 
 		try:
 			# Get service list
@@ -84,6 +85,7 @@ class MonitorData:
 					sshs = paramiko.SSHClient()
 					sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 					status = "None"					
+					original_status = status
 					isThereSpitz = "-"
 					isThereInstance = 0
 					a_action = "-"
@@ -99,6 +101,8 @@ class MonitorData:
 						instance_name = instance.instance_name
 						isThereInstance = 1
 						status = instance.instance_status
+						original_status = status
+
 						break
 
 					print "Status: "+status
@@ -143,10 +147,11 @@ class MonitorData:
 
 					# Append service.
 					self.VMrows.append([hosted_service.service_name, address, status, a_action, isThereSpitz, s_action])
-					print self.VMrows	
+					self.VMrowsInfo.append([hosted_service.service_name, deployment_name, instance_name, original_status])
 
 			# Debug for running a VM TM locally.
 			self.VMrows.append(["Debug", "127.0.0.1", "Local", "-", "Yes", "Start"])
+			self.VMrowsInfo.append(["Debug", "Debug", "Debug", "Debug"])
 			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
@@ -156,16 +161,85 @@ class MonitorData:
 		except ssl.SSLError as SLE:
 			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
 
-	# Test if an unreachable VM is, now, reachable. Also checks for SPITZ intance if it's on. 
+	# Update one or more VMs. Ids must be passed in a list by indexes [index1, index2, index3 ... ].
+	# Valid action strings : Start, Stop
+	def updateVMs(self, indexes, action):
+		services_names = []
+
+		# Mount list of names
+		for index in indexes:
+			services_names.append(self.VMrows[index][0])
+
+		print "Services_names"
+		print services_names
+
+		# Get credentials and instanciate SMS
+		subscription_id = str(Runner.Screen.AppInstance.config.get('example', 'subscription_id'))
+		certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
+ 		sms = ServiceManagementService(subscription_id, certificate_path)
+
+		# May be an update, clean before doing anything.
+		if len(self.VMrows) > 0:
+			self.VMrows = []
+			self.VMrowsInfo = []
+
+		try:
+			# Get service list
+			result = sms.list_hosted_services()
+			for hosted_service in result:
+				print hosted_service.service_name
+				if(hosted_service.service_name not in services_names):
+					continue
+
+				print "Passed filter"
+
+				address = str(hosted_service.service_name) + ".cloudapp.net"
+				instance_name = ""
+				isThereInstance = 0
+
+				# Get deployment information.
+				d_result = sms.get_deployment_by_slot(hosted_service.service_name,'Production')
+				deployment_name = d_result.name
+
+				# Get instance information.
+				for instance in d_result.role_instance_list:
+					instance_name = instance.instance_name
+					isThereInstance = 1
+					status = instance.instance_status
+					original_status = status
+					break
+
+				# If there is no instance, something is wrong.
+				if isThereInstance == 0:
+					Runner.Screen.makeCommandLayout(self, "No instance in following service: " + address)
+				# Start the VM 
+				elif action == "Start":
+					sms.start_role(hosted_service.service_name, d_result.name, instance_name)
+				# Or stop the VM 
+				elif action == "Stop":
+					sms.shutdown_role(hosted_service.service_name, d_result.name, instance_name, post_shutdown_action='StoppedDeallocated')
+
+		except WindowsAzureError as WAE:
+			Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
+			return False
+		except socket.gaierror as SGE:
+			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
+			return False
+		except ssl.SSLError as SLE:
+			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
+			return False
+
+	# Test if an unreachable VM is, now, reachable (using SSH). Also checks for SPITZ intance if it's on. 
 	def VMTryAgain(self, index):
 		address = self.VMrows[index][1] 
 		print address
 		sshs = paramiko.SSHClient()
 		sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-		reach = "YES"					
+		status = self.VMrowsInfo[3]
 		isThereSpitz = "NO"
 
 		try:
+			s_action = "Try Again"
 			sshs.connect(address,
 				 username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
 				 password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
@@ -174,28 +248,32 @@ class MonitorData:
 			pid = stdouts.readlines()
 			if len(pid) != 0:
 				isThereSpitz = "YES"
+				s_action = "Restart"
+			else:
+				isThereSpitz = "NO"
+				s_action = "Start"
+
 		except socket.gaierror as e1:
 			Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
-			reach = "NO"
+			status = "No SSH access."
 		except socket.error as e2:
 			Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
-			reach = "NO"
+			status = "SSH refused."
 		except paramiko.AuthenticationException as e3:
 			Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
-			reach = "NO"
+			status = "SSH denied."
 		except:
 			Runner.Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
-			reach = "NO"
+			status = "SSH issue."
 
-		if(reach=="YES"):
-			self.VMrows[index][2] = reach
-			self.VMrows[index][3] = isThereSpitz
-			if(isThereSpitz == "YES"):
-				self.VMrows[index][4] = "Stop"
-			else:
-				self.VMrows[index][4] = "Start"
+		self.VMrows[i][2] = status
+		self.VMrows[i][4] = isThereSpitz 
+		self.VMrows[i][5] = s_action
 
-		return reach
+		if isThereSpitz == "YES":
+			return True
+		else:
+			return False 
 
 	# Send a request to the monitor and get the answer.
 	def getStatusMessage(self, task):
