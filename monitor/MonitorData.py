@@ -300,7 +300,13 @@ class MonitorData:
 			return -1
 
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
-	def launchVMnode(self, task, index):
+	# Kill : Kill existing if true ; Start : start new process if true ; Send : send data to JM if true.
+	# Note, invalid combination : true, false, true.
+	def launchVMnode(self, index, kill, update, start, send):
+		if (kill == True) and (start == False) and (send == True):
+			Runner.Screen.makeCommandLayout(self, "Invalid combination in MonitorData.launchVMnode.")
+			return False
+
 		reach = "YES"
 		address = self.VMrows[index][1] 
 
@@ -322,9 +328,16 @@ class MonitorData:
 				else:
 					raise Exception('Spitz file(s) missing') '''
 
-				stdin,stdout,stderr = ssh.exec_command('cd spitz/examples; make test4')
-				self.VMrows[index][3] = "YES"
-				self.VMrows[index][4] = "Stop"
+				if kill == True:
+					stdin,stdout,stderr = ssh.exec_command('killall spitz')
+
+				if update == True:
+					stdin,stdout,stderr = ssh.exec_command('cd spitz; git push')
+
+				if start == True:
+					stdin,stdout,stderr = ssh.exec_command('cd spitz/examples; make test4')
+					self.VMrows[index][4] = "YES"
+					self.VMrows[index][5] = "Restart"
 			
 			except socket.gaierror as e1:
 				Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
@@ -337,7 +350,7 @@ class MonitorData:
 				reach = "NO"
 
 		# Second part, send info to the monitor. 
-		if(reach == "YES"):
+		if (reach == "YES") and (send == True):
 			ret = COMM_connect_to_job_manager(Runner.Screen.AppInstance.config.get('example', 'jm_address'),
 							Runner.Screen.AppInstance.config.get('example', 'jm_port'))
 			
@@ -351,41 +364,6 @@ class MonitorData:
 			else:
 				Runner.Screen.makeCommandLayout(self, "Can't connect to Job Manager." + str(address) + ".")
 	
-		return False	
-
-	# Stop SPITZ instance running in a VM node. 
-	def stopVMnode(self, index):
-		reach = "YES"
-		address = self.VMrows[index][1] 
-
-		# Connect to SSH and stop SPITZ in the choosed VM
-		ssh = paramiko.SSHClient()
-		ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-		if(address != "localhost") and (address != "127.0.0.1"):
-			try:
-				ssh.connect(address,
-					username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')), 
-					password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
-
-				# Make ssh command to stop SPITZ. 
-				ssh.exec_command('pkill -f spitz')
-
-				self.VMrows[index][3] = "NO"
-				self.VMrows[index][4] = "Start"
-				self.makeCommandLayout(self, "Spitz stopped in " + str(address) + ".")
-				return True
-			
-			except socket.gaierror as e1:
-				Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ". Try updating the list.")
-				reach = "NO"
-			except socket.error as e2:
-				Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ". Try updating the list.")
-				reach = "NO"
-			except paramiko.AuthenticationException as e3:
-				Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ". Try updating the list.")
-				reach = "NO"
-
 		return False	
 
 	# Using the last status received, parse the list string.

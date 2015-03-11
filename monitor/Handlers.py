@@ -124,14 +124,11 @@ def buttonSpitzAction(*args, **kwargs):
 	print index
 	print action
 	
-	if(action == "Try Again"):
-		if(Runner.Data.VMTryAgain(index) == "YES"):
+	if(action == "Restart"):
+		if(Runner.Data.launchVMnode(index, True, False, True, True) == True):
 			Runner.Screen.makeVMListLayout(Runner.Data)	
 	elif(action == "Start"):
-		if(Runner.Data.launchVMnode(2, index) == True):
-			Runner.Screen.makeVMListLayout(Runner.Data)	
-	elif(action == "Stop"):
-		if(Runner.Data.stopVMnode(index) == True):
+		if(Runner.Data.launchVMnode(index, False, False, True, True) == True):
 			Runner.Screen.makeVMListLayout(Runner.Data)	
 	else:
 		Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")
