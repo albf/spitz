@@ -292,11 +292,12 @@ class MonitorData:
 						Runner.Screen.AppInstance.config.get('example', 'jm_port'))
 		
 		if ret >= 0 :
-			ret = self.TotalTasks = COMM_get_num_tasks()
-		if ret >= 0 :
+			self.TotalTasks = COMM_get_num_tasks()
 			print "Received number of tasks: " + str(self.TotalTasks)
+			return 0
 		else:
-			Runner.Screen.makeCommandLayout(self, "Connection problem, couldn't get the number of tasks.") 
+			print "Connection problem, couldn't get the number of tasks." 
+			return -1
 
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	def launchVMnode(self, task, index):
