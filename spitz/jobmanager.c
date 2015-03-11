@@ -220,6 +220,7 @@ void * jm_gen_worker(void * ptr) {
 
         // Try to generate task.
         tid = * (td->gen_tid); 
+        debug("[jm_gen_worker] Received task %d to generate.", tid);
         
         if(!(tgen(td->user_data, td->gen_ba))) {
             * (td->gen_tid) = -1;
@@ -229,6 +230,7 @@ void * jm_gen_worker(void * ptr) {
         pthread_mutex_unlock(&td->gen_ready_lock);
     }
     
+    debug("[jm_gen_worker] Exiting, end of computation.");
     pthread_exit(NULL);
 }
 
@@ -261,6 +263,7 @@ void * jm_worker(void * ptr) {
         }
 
         else if(my_request->type == MSG_READY) {
+            debug("[jm_worker] Received MSG_READY.");
             task_generated = 0;
 
             client = LIST_search_socket(COMM_ip_list, my_request->socket);

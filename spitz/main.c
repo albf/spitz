@@ -80,6 +80,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
         // jm_gen_lock and gen_ready_lock start locked.
         pthread_mutex_trylock(&td.jm_gen_lock);
+        pthread_mutex_trylock(&td.gen_ready_lock);
     }
 
     // Start task counter and lock.
