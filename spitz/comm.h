@@ -44,7 +44,7 @@ enum message_type {
     MSG_TASK                    = 1,    // A task, Job Manager to Task Manager.
     MSG_RESULT                  = 2,    // A result, Task Manager to Committer.	
     MSG_KILL 	                = 3,    // Kill message, when there is nothing to send.
-    MSG_DONE                    = 4,
+    MSG_DONE                    = 4,    // Indicates some task has finished.
     MSG_GET_COMMITTER   	= 5,    // Task Manager to Job Manager 
     MSG_GET_PATH                = 6,    // Task Manager to Job Manager
     MSG_GET_RUNNUM              = 7,    // Task Manager/Committer to Job Manager
@@ -62,7 +62,8 @@ enum message_type {
     MSG_SET_JOB_MANAGER         = 19,   // Job Manager to VM Task Manager
     MSG_SET_TASK_MANAGER_ID     = 20,   // Task Manager to Job Manager, to restore ID. 
     MSG_NEW_VM_TASK_MANAGER     = 21,   // Monitor to JobManager, JobManager to Committer.
-    MSG_SEND_VM_TO_COMMITTER    = 22    // VM request to JobManager help to connect to Committer.
+    MSG_SEND_VM_TO_COMMITTER    = 22,   // VM request to JobManager help to connect to Committer.
+    MSG_NO_TASK                 = 23    // JM sends to TM when there is no task to send but computation is not over..
 };
 
 enum status_type {

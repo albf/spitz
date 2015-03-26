@@ -92,7 +92,6 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // Start tasks list.
     td.tasks = (struct task_list *) malloc (sizeof (struct task_list));
     td.tasks->home = NULL;
-    td.tasks->mark = NULL;
     td.tasks->head = NULL;
 
     td.handle = dlopen(so, RTLD_LAZY); 

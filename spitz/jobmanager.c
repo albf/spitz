@@ -86,7 +86,6 @@ void * add_task(struct jm_thread_data *td, struct task *node) {
     if(td->tasks->home == NULL) {
         td->tasks->home = node;
         td->tasks->head = node;
-        td->tasks->mark = node;
     }
     else {
         td->tasks->head->next = node;
@@ -104,8 +103,8 @@ struct task * next_task (struct jm_thread_data * td) {
     // Lock the task list.
     pthread_mutex_lock(&td->tl_lock);
 
-    // Check if mark is null, if it is computation is over or busy generating other questions.
-    if(td->tasks->mark == NULL) {
+    // Check if mark is null, if it is the computation is over or busy generating other tasks.
+    if(td->tasks->home == NULL) {
         if (td->task_counter >= td->num_tasks_total) {
             td->is_finished = 1;
         }
@@ -113,14 +112,15 @@ struct task * next_task (struct jm_thread_data * td) {
     }
 
     else {
-        // Get the marked one and make it iterate.
-        ret = td->tasks->mark;
-        td->tasks->mark = td->tasks->mark->next;
-
-        // Check if it should loop the FIFO.
-        if(!td->tasks->mark) {
-           td->tasks->mark = td->tasks->home; 
+        // Get the marked one and updates list. 
+        ret = td->tasks->home;
+        if(td->tasks->home->next != NULL) {
+            td->tasks->head->next = td->tasks->home;
+            td->tasks->home = td->tasks->home->next;
+            td->tasks->head = td->tasks->head->next;
+            td->tasks->head->next = NULL;
         }
+
     }
     // Let the FIFO go.
     pthread_mutex_unlock(&td->tl_lock);
@@ -160,15 +160,6 @@ void remove_task (struct jm_thread_data * td, int tid) {
             td->tasks->head = prev;
         }
 
-        // If equals to mark, iterate.
-        if(iter == td->tasks->mark) {
-            td->tasks->mark = td->tasks->mark->next;
-            
-            if(td->tasks->mark == NULL) {
-               td->tasks->mark = td->tasks->home; 
-            }
-        }
-
         // Can clean for now, committer will send only one message.
         byte_array_free(clean->data);
         free(clean->data);
@@ -177,7 +168,6 @@ void remove_task (struct jm_thread_data * td, int tid) {
 
     // Let the FIFO go.
     pthread_mutex_unlock(&td->tl_lock);
-    
 }
 
 // Get the next id used for generating the next task. Returns -1 if all tasks were generated already. 
@@ -334,7 +324,7 @@ void * jm_worker(void * ptr) {
                     while(task_generated == 0) {
                         node = next_task(td);
                         if (node == NULL) {
-                            // Couldn't find a task but it's not finished yet.
+                            // Couldn't find a task because computation is finished.
                             if(td->is_finished > 0) {
                                 debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
                                 COMM_send_message(NULL, MSG_KILL, my_request->socket);
@@ -345,7 +335,7 @@ void * jm_worker(void * ptr) {
                                 sleep(1);
                             }
                         }
-                        // Find a task, will replicate to another node.
+                        // Found a task, will replicate to another node.
                         else {
                             debug("Replicating task %d to rank %d",node->id,rank);
                             COMM_send_message(node->data, MSG_TASK, my_request->socket);

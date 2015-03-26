@@ -70,7 +70,6 @@ struct request_elem {
 // Special FIFO list, will repeat after ended. Will not remove when accessed (no pop).
 struct task_list {
    struct task *home;
-   struct task *mark;
    struct task *head;
 };
 
