@@ -152,7 +152,6 @@ class MonitorData:
 			# Debug for running a VM TM locally.
 			self.VMrows.append(["Debug", "127.0.0.1", "Local", "-", "Yes", "Start"])
 			self.VMrowsInfo.append(["Debug", "Debug", "Debug", "Debug"])
-			self.IsVMsListed = True	
 
 		except WindowsAzureError as WAE:
 			Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 

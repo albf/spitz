@@ -64,7 +64,6 @@ class FIFO:
 		self.task_FIFO.append(task)	# Append task
 		self.tasks_in_FIFO += 1		# Update task counter
 		self.task_FIFO_mutex.release()	# Release mutex
-		print 'task appended.'
 		self.pendent_tasks.release()	# Warn worker
 
 	def popTask(self):
@@ -221,9 +220,9 @@ class ScreenBankGUI(ScreenBank):
 		self.workerFIFO.pendent_tasks.release()			# Release, it may be stopped
 
 	def consume(self, *args):
-		print 'consume'
 		while (self.mainFIFO.tasks_in_FIFO > 0): 
 			task = self.mainFIFO.popTask()
+			print 'Consuming:' + str(task)
 			self.mainFIFO.runOneTask(task)
 
 	# Build the main screen, with header, list, navigation and command.
@@ -493,6 +492,7 @@ def WorkerUpdate(ScreenName):
 		Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeVMListLayout'), [Runner.Data]])
                 if(Runner.Data.IsVMsListed == True):
 			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeVMNavigationLayout'), [Runner.Data]])
+		#Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'buildVMListScreen'), []])
 
 def buttonSettings(instance):
         #Screen.layout.clear_widgets()
@@ -506,8 +506,10 @@ def buttonLog(instane):
 # Handler of the VM button, change the screen. 
 def buttonVM(instance):
         Runner.Screen.screenChange(Runner.Screen.btnV, "VMLauncher")
+	Runner.Screen.buildVMListScreen()
         Runner.Data.index = 0                           # Reset the current index.
         if(Runner.Data.IsVMsListed == False):
+		Runner.Data.IsVMsListed = True
 		Runner.Screen.workerFIFO.addTask([1, WorkerUpdate, ['VMLauncher']])
 	else:
 		Runner.Screen.buildVMListScreen()
