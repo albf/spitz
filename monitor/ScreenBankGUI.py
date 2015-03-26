@@ -428,18 +428,6 @@ class ScreenBankGUI(ScreenBank):
     Handlers of the main screen.
     ----- '''
 
-# Handler of the VM button, will launch an VM task manager.
-def buttonVM(instance):
-        Runner.Screen.screenChange(Runner.Screen.btnV, "VMLauncher")
-        Runner.Data.index = 0                           # Reset the current index.
-        if(Runner.Data.IsVMsListed == False):
-                Runner.Data.connectToCloudProvider()
-                Runner.Screen.makeVMListLayout(Runner.Data)
-                if(Runner.Data.IsVMsListed == True):
-                        Runner.Screen.makeVMNavigationLayout(Runner.Data)
-
-        Runner.Screen.buildVMListScreen()
-
 # Handler of the Prev button, return to the previous page.              
 def buttonPrev(instance):
         Runner.Data.index = Runner.Data.index - 1 
@@ -488,36 +476,23 @@ def buttonVMOrder(instance):
 
 # Request the current status and update the list. Redraw after that.
 def buttonUpdate(instance):
-	Runner.Screen.workerFIFO.addTask([1, WorkerUpdate, [None]])
+	Runner.Screen.workerFIFO.addTask([1, WorkerUpdate, [Runner.Screen.ScreenName]])
 
-def WorkerUpdate(instance):
+def WorkerUpdate(ScreenName):
 	print 'Update Function'
-        if Runner.Screen.ScreenName == "List":
+        if ScreenName == "List":
                 if (Runner.Data.getStatusMessage(1) >= 0) and (Runner.Data.getNumberOfTasks(3) >= 0):
                         Runner.Data.fillRows(Runner.Data.ln)
 			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeCommandLayout'), [Runner.Data, Runner.Data.ln]])
 			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'reDrawList'), [Runner.Data]])
                 else:
-                        Runner.Screen.makeCommandLayout(Runner.Data, "Problem getting status information from Job Manager. Is the address and port correct?")
-        elif Runner.Screen.ScreenName == "VMLauncher":
-                Runner.Data.IsVMsListed = False
-                buttonVM(None)
-
-def Update(instance):
-	print 'Update Function'
-        if Runner.Screen.ScreenName == "List":
-                if (Runner.Data.getStatusMessage(1) >= 0) and (Runner.Data.getNumberOfTasks(3) >= 0):
-                        Runner.Data.fillRows(Runner.Data.ln)
-                        #Runner.Screen.makeCommandLayout(Runner.Data, Runner.Data.ln)
-                        #Runner.Screen.reDrawList(Runner.Data)
-			Clock.schedule_once(Runner.Screen.makeCommandLayout, 0)
-                else:
-                        Runner.Screen.makeCommandLayout(Runner.Data, "Problem getting status information from Job Manager. Is the address and port correct?")
-        elif Runner.Screen.ScreenName == "VMLauncher":
-                Runner.Data.IsVMsListed = False
-                buttonVM(None)
-
-
+			error_msg = "Problem getting status information from Job Manager. Is the address and port correct?"
+			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeCommandLayout'), [Runner.Data, error_msg]])
+        elif ScreenName == "VMLauncher":
+                Runner.Data.connectToCloudProvider()
+		Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeVMListLayout'), [Runner.Data]])
+                if(Runner.Data.IsVMsListed == True):
+			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeVMNavigationLayout'), [Runner.Data]])
 
 def buttonSettings(instance):
         #Screen.layout.clear_widgets()
@@ -527,6 +502,15 @@ def buttonLog(instane):
         Runner.Screen.screenChange(Runner.Screen.btnL, "Log")
         Runner.Screen.makeLogLayout(Runner.Data)
         Runner.Screen.buildLogScreen()
+
+# Handler of the VM button, change the screen. 
+def buttonVM(instance):
+        Runner.Screen.screenChange(Runner.Screen.btnV, "VMLauncher")
+        Runner.Data.index = 0                           # Reset the current index.
+        if(Runner.Data.IsVMsListed == False):
+		Runner.Screen.workerFIFO.addTask([1, WorkerUpdate, ['VMLauncher']])
+	else:
+		Runner.Screen.buildVMListScreen()
 
 def buttonList(instance):
         Runner.Screen.screenChange(Runner.Screen.btnLi, "List")
