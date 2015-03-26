@@ -39,8 +39,7 @@ class MyApp(App):
 
 	# Run when closing. Send a quit message and print the sucess (or not) message.
 	def on_stop(self):
-		Data.getStatusMessage(0)
-		print Data.ln
+		Screen.quitWorker()
 
 	def build_config(self, config):
 		print 'BUILD CONFIG'

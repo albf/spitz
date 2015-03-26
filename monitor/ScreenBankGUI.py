@@ -29,13 +29,59 @@ from kivy.uix.settings import Settings
 from kivy.config import ConfigParser
 from kivy.uix.scrollview import ScrollView 
 from kivy.app import App
+from kivy.clock import Clock
 from operator import itemgetter
 import json
 from functools import partial
 from ScreenBank import *
 from Handlers import *
 import Runner
-	
+
+# Handlers
+from operator import itemgetter
+from datetime import datetime
+
+# For worker/threading part.
+import threading
+import time
+
+class FIFO:
+	def __init__(self):
+		# Semaphore
+		self.pendent_tasks = threading.Semaphore(0)
+		self.tasks_in_FIFO = 0
+		# Mutex
+		self.task_FIFO_mutex = threading.Lock()
+		self.task_FIFO = []
+		self.task_end = False
+
+	# Methods to manage the FIFO 
+
+	# Add task to Worker FIFO
+	def addTask(self,task):
+		self.task_FIFO_mutex.acquire()	# Take mutex of FIFO
+		print task
+		self.task_FIFO.append(task)	# Append task
+		self.tasks_in_FIFO += 1		# Update task counter
+		self.task_FIFO_mutex.release()	# Release mutex
+		print 'task appended.'
+		self.pendent_tasks.release()	# Warn worker
+
+	def popTask(self):
+		self.task_FIFO_mutex.acquire()
+		task = self.task_FIFO.pop(0)		# Pop first task available
+		self.tasks_in_FIFO -=1			# Update task counter
+		self.task_FIFO_mutex.release()
+		return task
+
+	# Worker : Run task passed by FIFO
+	def runOneTask(self,task):
+		for i in range(task[0]):	# Run the specified number
+			if(self.task_end == True):
+				return
+			task[1](*task[2+i])	# Call the function passed with the arguments
+
+
 ''' ----- 
     ScreenBankGUI
     ----- '''
@@ -143,6 +189,42 @@ class ScreenBankGUI(ScreenBank):
 
 		# Name of current screen
 		self.ScreenName = "List"
+
+		# Task FIFOs
+		self.workerFIFO = FIFO()
+		self.mainFIFO = FIFO()
+
+		#Extra Thread
+		self.WorkerThread = threading.Thread(target=self.worker)
+		self.WorkerThread.start()
+
+		# Set consume as callback function
+		Clock.schedule_interval(self.consume, 0.1)
+
+	# Worker function.
+	def worker(self):
+		print 'worker'
+		while(self.workerFIFO.task_end == False):		# Check if it's over.
+			self.workerFIFO.pendent_tasks.acquire()		# Wait for tasks
+			task = self.workerFIFO.popTask()		# Pop task
+			self.workerFIFO.runOneTask(task)		# Run the task
+
+		print 'Worker exited.'
+		return
+
+	# Function to kill/remove worker from tasks FIFO and exit.
+	def quitWorker(self):
+		self.workerFIFO.task_end = True				# Mark as ended.
+		self.workerFIFO.task_FIFO_mutex.acquire()		# Add empty task
+		self.workerFIFO.task_FIFO.append([1, None, []])
+		self.workerFIFO.task_FIFO_mutex.release()
+		self.workerFIFO.pendent_tasks.release()			# Release, it may be stopped
+
+	def consume(self, *args):
+		print 'consume'
+		while (self.mainFIFO.tasks_in_FIFO > 0): 
+			task = self.mainFIFO.popTask()
+			self.mainFIFO.runOneTask(task)
 
 	# Build the main screen, with header, list, navigation and command.
 	def buildMainScreen(self, Data):
@@ -340,4 +422,153 @@ class ScreenBankGUI(ScreenBank):
 		self.ScreenName = name
 		if(value.state == 'normal'):
 			value.state = 'down' 
+
+
+''' ----- 
+    Handlers of the main screen.
+    ----- '''
+
+# Handler of the VM button, will launch an VM task manager.
+def buttonVM(instance):
+        Runner.Screen.screenChange(Runner.Screen.btnV, "VMLauncher")
+        Runner.Data.index = 0                           # Reset the current index.
+        if(Runner.Data.IsVMsListed == False):
+                Runner.Data.connectToCloudProvider()
+                Runner.Screen.makeVMListLayout(Runner.Data)
+                if(Runner.Data.IsVMsListed == True):
+                        Runner.Screen.makeVMNavigationLayout(Runner.Data)
+
+        Runner.Screen.buildVMListScreen()
+
+# Handler of the Prev button, return to the previous page.              
+def buttonPrev(instance):
+        Runner.Data.index = Runner.Data.index - 1 
+        Runner.Screen.makeListLayout(Runner.Data)
+        Runner.Screen.makeNavigationLayout(Runner.Data)
+
+# Handler of the Next button, go to the next page.              
+def buttonNext(instance):
+        Runner.Data.index = Runner.Data.index + 1
+        Runner.Screen.makeListLayout(Runner.Data)
+        Runner.Screen.makeNavigationLayout(Runner.Data)
+
+# Handler responsible for ordering the list (using one of the columns).
+def buttonOrder(instance):
+        index = Runner.Data.columns.index(instance.text)
+        if(Runner.Data.lastIndex == index):
+                if(Runner.Data.lastOrder == 1):
+                        Runner.Data.lastOrder = -1
+                        Runner.Data.rows = sorted(Runner.Data.rows, key=itemgetter(index), reverse = True)
+                else:
+                        Runner.Data.rows = sorted(Runner.Data.rows, key=itemgetter(index))
+                        Runner.Data.lastOrder = 1
+        else:
+                Runner.Data.lastIndex = index
+                Runner.Data.lastOrder = 1
+                Runner.Data.rows = sorted(Runner.Data.rows, key=itemgetter(index))
+
+        Runner.Screen.makeListLayout(Runner.Data)
+
+# Handler responsible for ordering the list (using one of the columns).
+def buttonVMOrder(instance):
+        index = Runner.Data.VMcolumns.index(instance.text)
+        if(Runner.Data.VMlastIndex == index):
+                if(Runner.Data.VMlastOrder == 1):
+                        Runner.Data.VMlastOrder = -1
+                        Runner.Data.VMrows = sorted(Runner.Data.VMrows, key=itemgetter(index), reverse = True)
+                else:
+                        Runner.Data.VMrows = sorted(Runner.Data.VMrows, key=itemgetter(index))
+                        Runner.Data.VMlastOrder = 1
+        else:
+                Runner.Data.VMlastIndex = index
+                Runner.Data.VMlastOrder = 1
+                Runner.Data.VMrows = sorted(Runner.Data.VMrows, key=itemgetter(index))
+
+        Runner.Screen.makeVMListLayout(Runner.Data)
+
+# Request the current status and update the list. Redraw after that.
+def buttonUpdate(instance):
+	Runner.Screen.workerFIFO.addTask([1, WorkerUpdate, [None]])
+
+def WorkerUpdate(instance):
+	print 'Update Function'
+        if Runner.Screen.ScreenName == "List":
+                if (Runner.Data.getStatusMessage(1) >= 0) and (Runner.Data.getNumberOfTasks(3) >= 0):
+                        Runner.Data.fillRows(Runner.Data.ln)
+			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'makeCommandLayout'), [Runner.Data, Runner.Data.ln]])
+			Runner.Screen.mainFIFO.addTask([1, getattr(Runner.Screen, 'reDrawList'), [Runner.Data]])
+                else:
+                        Runner.Screen.makeCommandLayout(Runner.Data, "Problem getting status information from Job Manager. Is the address and port correct?")
+        elif Runner.Screen.ScreenName == "VMLauncher":
+                Runner.Data.IsVMsListed = False
+                buttonVM(None)
+
+def Update(instance):
+	print 'Update Function'
+        if Runner.Screen.ScreenName == "List":
+                if (Runner.Data.getStatusMessage(1) >= 0) and (Runner.Data.getNumberOfTasks(3) >= 0):
+                        Runner.Data.fillRows(Runner.Data.ln)
+                        #Runner.Screen.makeCommandLayout(Runner.Data, Runner.Data.ln)
+                        #Runner.Screen.reDrawList(Runner.Data)
+			Clock.schedule_once(Runner.Screen.makeCommandLayout, 0)
+                else:
+                        Runner.Screen.makeCommandLayout(Runner.Data, "Problem getting status information from Job Manager. Is the address and port correct?")
+        elif Runner.Screen.ScreenName == "VMLauncher":
+                Runner.Data.IsVMsListed = False
+                buttonVM(None)
+
+
+
+def buttonSettings(instance):
+        #Screen.layout.clear_widgets()
+        Runner.Screen.buildSettingsScreen()
+
+def buttonLog(instane):
+        Runner.Screen.screenChange(Runner.Screen.btnL, "Log")
+        Runner.Screen.makeLogLayout(Runner.Data)
+        Runner.Screen.buildLogScreen()
+
+def buttonList(instance):
+        Runner.Screen.screenChange(Runner.Screen.btnLi, "List")
+        Runner.Data.index = 0                           # Reset the current index.
+        Runner.Screen.buildListScreen()
+        buttonUpdate(None)
+
+def buttonStatistics(instance):
+        Runner.Screen.screenChange(Screen.btnSta, "Statistics")
+
+def buttonSpitzAction(*args, **kwargs):
+        # Debug
+        index = args[0]
+        action = args[1]
+        print index
+        print action
+
+        if(action == "Restart"):
+                if(Runner.Data.launchVMnode(index, True, False, True, True) == True):
+                        Runner.Screen.makeVMListLayout(Runner.Data)
+        elif(action == "Start"):
+                if(Runner.Data.launchVMnode(index, False, False, True, True) == True):
+                        Runner.Screen.makeVMListLayout(Runner.Data)
+        else:
+                Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")
+
+def buttonAzureAction(*args, **kwargs):
+        # Debug
+        index = args[0]
+        action = args[1]
+        print index
+        print action
+
+        if(action == "Start"):
+                if(Runner.Data.updateVMs([index], "Start") == True):
+                        # If could start the node, update the list and the screen.
+                        Runner.Data.connectToCloudProvider()
+                        Runner.Screen.makeVMListLayout(Runner.Data)
+        elif(action == "Stop"):
+                if(Runner.Data.updateVMs([index], "Stop") == True):
+                        Runner.Data.connectToCloudProvider()
+                        Runner.Screen.makeVMListLayout(Runner.Data)
+        else:
+                Runner.Screen.makeCommandLayout(Runner.Data, "Error: Don't know what this comand is, check python code")
 

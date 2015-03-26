@@ -340,10 +340,10 @@ void LIST_print_all_ip (struct LIST_data * data_pointer) {
     
     while(pointer != NULL) {
         total++;
-        printf("Connection: %d\n", total);
-        printf("ip: %s\n", pointer->address);
-        printf("port: %d\n", pointer->port);
-        printf("id: %d\n\n", pointer->id);
+        debug("Connection: %d\n", total);
+        debug("ip: %s\n", pointer->address);
+        debug("port: %d\n", pointer->port);
+        debug("id: %d\n\n", pointer->id);
         pointer = pointer->next;
     }
 }
@@ -358,10 +358,10 @@ int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
         if(pointer != NULL) {
             next_data.list_pointer = pointer->next;
             int num=LIST_print_all_ip_ordered (&next_data);
-            printf("Connection: %d\n", num);
-            printf("ip: %s\n", pointer->address);
-            printf("port: %d\n", pointer->port);
-            printf("id: %d\n\n", pointer->id);
+            debug("Connection: %d\n", num);
+            debug("ip: %s\n", pointer->address);
+            debug("port: %d\n", pointer->port);
+            debug("id: %d\n\n", pointer->id);
             return (num+1); 
         }
     }
