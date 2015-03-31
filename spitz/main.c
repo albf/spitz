@@ -82,6 +82,12 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_mutex_trylock(&td.jm_gen_lock);
         pthread_mutex_trylock(&td.gen_ready_lock);
     }
+    
+    if(KEEP_REGISTRY > 0) {
+        pthread_mutex_init(&td.registry_lock, NULL);    
+        td.registry_capacity = 2;
+        td.registry = (struct task_registry **) malloc(2*sizeof(struct task_registry *));
+    }
 
     // Start task counter and lock.
     td.task_counter = 0;

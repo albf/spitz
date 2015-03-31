@@ -23,12 +23,47 @@
 
 #include <dlfcn.h>
 #include <string.h>
+#include <time.h>
 #include "comm.h"
 #include "log.h"
 #include "barray.h"
 #include "spitz.h"
 
 
+// Adds an registry of task being sent to an Task Manager.
+void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
+    int changed = 0;
+    struct task_registry * ptr;
+    struct task_registry * next;
+
+    while(task_id > (td->registry_capacity)) {
+        changed = 1;
+        td->registry_capacity = td->registry_capacity*2;
+    }
+    
+    if(changed > 0) {
+        td->registry = (struct task_registry **) realloc(td->registry, td->registry_capacity*sizeof(struct task_registry *));
+    }
+
+    ptr = (struct task_registry *) malloc (sizeof(struct task_registry)); 
+    
+    ptr->tm_id = tm_id; 
+    ptr->task_id = task_id;
+
+    // Put time information here.
+    ptr->completed_time = NULL;
+
+    if(td->registry[tm_id] == NULL) {
+        td->registry[tm_id] = ptr;
+    }
+    else {
+        next = td->registry[tm_id];
+        while(next->next != NULL) {
+            next = next->next;
+        }
+        next->next = ptr;
+    }
+}
 
 // Push a task into the thread FIFO.
 void append_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {

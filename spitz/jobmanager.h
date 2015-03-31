@@ -27,6 +27,7 @@
 #define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
 #define WAIT_REQUEST_TIMEOUT_USEC 0
 #define GEN_PARALLEL 0                  // Indicate if jm generation function can work in parallel. 
+#define KEEP_REGISTRY 0                 // Indicate if jm will keep registry and avoid sending repeated tasks.
 
 #include <barray.h>
 #include <comm.h>
@@ -52,6 +53,11 @@ struct jm_thread_data {
     pthread_mutex_t jm_gen_lock;        // Control jm_gen_worker behaviour.
     struct byte_array * gen_ba;         // Byte array used for generating tasks.
     int * gen_tid;                      // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
+
+    // Registry related variables
+    pthread_mutex_t registry_lock;      // lock responsible for the registry.
+    struct task_registry ** registry;   // Registry itself.
+    int registry_capacity;              // Capacity of registry.
 };
 
 // Regular first in first out list. 
@@ -77,6 +83,14 @@ struct task {
     size_t id;
     struct byte_array * data;
     struct task *next;
+};
+
+struct task_registry {
+    size_t task_id;
+    int tm_id;
+    char * send_time;
+    char * completed_time;
+    struct task_registry *next;
 };
 
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
