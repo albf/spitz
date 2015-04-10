@@ -36,6 +36,8 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     struct task_registry * ptr;
     struct task_registry * next;
 
+    pthread_mutex_lock(&td->registry_lock);
+
     while(task_id > (td->registry_capacity)) {
         changed = 1;
         td->registry_capacity = td->registry_capacity*2;
@@ -55,16 +57,65 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     gettimeofday(&ptr->send_time);
     ptr->completed_time = NULL;
 
-    if(td->registry[tm_id] == NULL) {
-        td->registry[tm_id] = ptr;
+    if(td->registry[task_id] == NULL) {
+        td->registry[task_id] = ptr;
     }
     else {
-        next = td->registry[tm_id];
+        next = td->registry[task_id];
         while(next->next != NULL) {
             next = next->next;
         }
         next->next = ptr;
     }
+
+    pthread_mutex_unlock(&td->registry_lock);
+}
+
+// Indicate if task_id was already sent to tm_id. 1 if yes, 0 if no.
+int check_registry(struct jm_thread_data * td, size_t task_id, int tm_id) {
+    struct task_registry * ptr;
+    pthread_mutex_lock(&td->registry_lock);
+
+    if(task_id >= (td->registry_capacity)) {
+        error("Registry check of unregistered task (not allocated space) : %d", task_id);
+        pthread_mutex_unlock(&td->registry_lock);
+        return 0;
+    }
+    ptr = td->registry[task_id];
+    if(ptr == NULL) {
+        error("Registry check of unregistered task (NULL pointer) : %d", task_id);
+        pthread_mutex_unlock(&td->registry_lock);
+        return 0;
+    }
+
+    for(; ((ptr!=NULL)&&(ptr->tm_id != tm_id)); ptr=ptr->next);
+    if(ptr == NULL) {
+        pthread_mutex_unlock(&td->registry_lock);
+        return 0;
+    } 
+    else {
+        pthread_mutex_unlock(&td->registry_lock);
+        return 1;
+    } 
+}
+
+void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id) {
+    struct task_registry * ptr;
+    pthread_mutex_lock(&td->registry_lock);
+    ptr = td->registry[task_id];
+    while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
+        ptr = ptr->next;
+    }
+
+    if(ptr == NULL) {
+        error("Error in registry update. Couldn't found Task Manager %d in Registry[%d]", tm_id, (int) task_id);
+        pthread_mutex_unlock(&td->registry_lock);
+        return;
+    }
+
+    ptr->completed_time = (struct timeval *) malloc(sizeof(struct timeval));
+    gettimeofday(&ptr->completed_time);
+    pthread_mutex_unlock(&td->registry_lock);
 }
 
 // Push a task into the thread FIFO.
@@ -134,8 +185,9 @@ void * add_task(struct jm_thread_data *td, struct task *node) {
 }
 
 // Get next task iteration from task list. Return NULL if list is empty, will cycle otherwise.
-struct task * next_task (struct jm_thread_data * td) {
+struct task * next_task (struct jm_thread_data * td, int rank) {
     struct task * ret;
+    struct task * aux;
 
     // Lock the task list.
     pthread_mutex_lock(&td->tl_lock);
@@ -149,15 +201,45 @@ struct task * next_task (struct jm_thread_data * td) {
     }
 
     else {
-        // Get the marked one and updates list. 
-        ret = td->tasks->home;
-        if(td->tasks->home->next != NULL) {
-            td->tasks->head->next = td->tasks->home;
-            td->tasks->home = td->tasks->home->next;
-            td->tasks->head = td->tasks->head->next;
-            td->tasks->head->next = NULL;
-        }
+        if(KEEP_REGISTRY > 0) {
+            // Get the next new one for the current node and updates list. 
+            ret = td->tasks->home;
+            aux = NULL;
+            while((ret != NULL)&&(check_registry(td, ret->id, rank) == 1)) {
+                aux = ret;
+                ret = ret->next;
+            }
 
+            if(ret != NULL) {
+                if(aux != NULL) {
+                    aux->next = ret->next;
+                    td->tasks->head->next = ret;
+                    td->tasks->head = ret;
+                }
+                // It's home.
+                else {
+                    ret = td->tasks->home;
+                    if(td->tasks->home->next != NULL) {
+                        td->tasks->head->next = td->tasks->home;
+                        td->tasks->home = td->tasks->home->next;
+                        td->tasks->head = td->tasks->head->next;
+                        td->tasks->head->next = NULL;
+                    }
+                }
+                
+            }
+            
+        }
+        else {
+            // Get the marked one and updates list. 
+            ret = td->tasks->home;
+            if(td->tasks->home->next != NULL) {
+                td->tasks->head->next = td->tasks->home;
+                td->tasks->home = td->tasks->home->next;
+                td->tasks->head = td->tasks->head->next;
+                td->tasks->head->next = NULL;
+            }
+        }
     }
     // Let the FIFO go.
     pthread_mutex_unlock(&td->tl_lock);
@@ -349,6 +431,9 @@ void * jm_worker(void * ptr) {
                     
                     debug("Sending generated task %d to %d", tid, rank);
                     LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
+                    if(KEEP_REGISTRY>0) {
+                        add_registry(td, tid,rank);
+                    }
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
                 }
                 else {
@@ -359,7 +444,7 @@ void * jm_worker(void * ptr) {
 
                     // If couldn't generate, try to send a repeated one.
                     while(task_generated == 0) {
-                        node = next_task(td);
+                        node = next_task(td, rank);
                         if (node == NULL) {
                             // Couldn't find a task because computation is finished.
                             if(td->is_finished > 0) {
@@ -375,6 +460,10 @@ void * jm_worker(void * ptr) {
                         // Found a task, will replicate to another node.
                         else {
                             debug("Replicating task %d to rank %d",node->id,rank);
+                            LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
+                            if(KEEP_REGISTRY>0) {
+                                add_registry(td, tid,rank);
+                            }
                             COMM_send_message(node->data, MSG_TASK, my_request->socket);
                             break;
                         }
@@ -469,10 +558,13 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 tid = (int)bufferr;
                 byte_array_unpack64(ba, &bufferr);
                 tm_id = (int)bufferr;
+                debug("TASK %d was completed by %d!", tid, tm_id);
+
+                if(KEEP_REGISTRY > 0) {
+ 
+                }
                 
                 remove_task(td, tid);
-                
-                debug("TASK %d is complete by %d!", tid, tm_id);
                 LIST_update_tasks_info (COMM_ip_list,NULL,-1, tm_id, 0, 1);
                 break;
             case MSG_NEW_CONNECTION:
