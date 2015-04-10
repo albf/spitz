@@ -297,8 +297,7 @@ int next_task_num(struct jm_thread_data *td) {
     pthread_mutex_lock(&td->tc_lock);
 
     // if all tasks were generated or computation is over, just stops.
-    if((td->task_counter >= td->num_tasks_total)||(td->is_finished > 0)) {
-        td->all_generated = 1;
+    if((td->task_counter >= td->num_tasks_total)||(td->all_generated > 0)) {
         ret = -1;
     }
     // if there are still tasks to generate. 
@@ -333,6 +332,9 @@ void * jm_gen_worker(void * ptr) {
         
         if(!(tgen(td->user_data, td->gen_ba))) {
             * (td->gen_tid) = -1;
+        }
+        else {
+            td->all_generated = 1;
         }
         
         // Release waiting task.
@@ -388,12 +390,15 @@ void * jm_worker(void * ptr) {
 
                 if (tid >= 0) {
                     // Generate task, if possible in parallel. 
-                    if(GEN_PARALLEL != 0) {
+                    if(GEN_PARALLEL > 0) {
                         byte_array_pack64(my_request->ba, tid);
 
                         // try to generate task.
                         if(tgen(td->user_data, my_request->ba)) {
                             task_generated = 1;
+                        }
+                        else {
+                            td->all_generated = 1;
                         }
                     }
 

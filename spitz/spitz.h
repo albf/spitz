@@ -25,6 +25,7 @@ extern "C" {
 // Task Manager DEFINEs
 
 #define TM_CON_RETRIES 3
+#define RESULT_BUFFER_SIZE 10
     
 /*
  * Returns the worker id. If this method is called in a non-worker entity, it
