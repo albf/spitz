@@ -48,6 +48,10 @@ struct jm_thread_data {
     struct byte_array * gen_ba;         // Byte array used for generating tasks.
     int * gen_tid;                      // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
 
+    // Control exit condition.
+    pthread_mutex_t current_gen_lock;   // Lock current_gen variable
+    int current_gen;                    // Current threads generating tasks.
+
     // Registry related variables
     pthread_mutex_t registry_lock;      // lock responsible for the registry.
     struct task_registry ** registry;   // Registry itself.

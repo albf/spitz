@@ -393,6 +393,11 @@ void * jm_worker(void * ptr) {
                     if(GEN_PARALLEL > 0) {
                         byte_array_pack64(my_request->ba, tid);
 
+                        // Update current_gen value
+                        pthread_mutex_lock(&td->current_gen_lock);
+                        td->current_gen += 1;
+                        pthread_mutex_unlock(&td->current_gen_lock);
+                        
                         // try to generate task.
                         if(tgen(td->user_data, my_request->ba)) {
                             task_generated = 1;
@@ -400,6 +405,11 @@ void * jm_worker(void * ptr) {
                         else {
                             td->all_generated = 1;
                         }
+
+                        // Update current_gen value
+                        pthread_mutex_lock(&td->current_gen_lock);
+                        td->current_gen -= 1;
+                        pthread_mutex_unlock(&td->current_gen_lock);
                     }
 
                     // Can't generate in parallel.
@@ -452,7 +462,8 @@ void * jm_worker(void * ptr) {
                         node = next_task(td, rank);
                         if (node == NULL) {
                             // Couldn't find a task because computation is finished.
-                            if(td->is_finished > 0) {
+                            // Logic: If it's finished or there is no one generating anything, why couldn't I find anything to send?
+                            if((td->is_finished > 0)||(GEN_PARALLEL == 0)||(td->current_gen == 0)) {
                                 debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
                                 COMM_send_message(NULL, MSG_KILL, my_request->socket);
                                 break;

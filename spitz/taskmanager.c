@@ -212,7 +212,7 @@ void task_manager(struct tm_thread_data *d)
     int alive = 1;                                                  // Indicate if it still alive.
     enum message_type type;                                         // Type of received message.
     int tasks = 0;                                                  // Tasks received and not committed.
-    int min_results = 10;                                           // Minimum of results to send at the same time. 
+    int min_results = RESULT_BUFFER_SIZE;                           // Minimum of results to send at the same time. 
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
     int flushed_tasks;                                              // Return value from flush_results.

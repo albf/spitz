@@ -82,6 +82,10 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_mutex_trylock(&td.jm_gen_lock);
         pthread_mutex_trylock(&td.gen_ready_lock);
     }
+    else {
+        pthread_mutex_init(&td.current_gen_lock, NULL);    
+    }
+    td.current_gen = 0;
     
     // Initialize registry structures if applicable. 
     if(KEEP_REGISTRY > 0) {
