@@ -83,6 +83,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_mutex_trylock(&td.gen_ready_lock);
     }
     
+    // Initialize registry structures if applicable. 
     if(KEEP_REGISTRY > 0) {
         pthread_mutex_init(&td.registry_lock, NULL);    
         td.registry_capacity = 2;

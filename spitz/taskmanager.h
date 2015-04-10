@@ -26,7 +26,6 @@
 #include "barray.h"
 #include "cfifo.h"
 
-#define TM_CON_RETRIES 3
 
 struct result_node {
     struct byte_array ba;

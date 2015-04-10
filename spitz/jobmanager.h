@@ -22,16 +22,10 @@
 #ifndef __SPITZ_JOB_MANAGER_H__
 #define __SPITZ_JOB_MANAGER_H__
 
-#define RESTORE_RATE 10                 // Rate of JM loops/VM connection check.
-#define JM_EXTRA_THREADS 1              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
-#define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
-#define WAIT_REQUEST_TIMEOUT_USEC 0
-#define GEN_PARALLEL 0                  // Indicate if jm generation function can work in parallel. 
-#define KEEP_REGISTRY 0                 // Indicate if jm will keep registry and avoid sending repeated tasks.
-
 #include <barray.h>
 #include <comm.h>
 #include <semaphore.h>
+#include <time.h>
 
 struct jm_thread_data {
     void *user_data;                    // User data, used to generate tasks.
@@ -88,8 +82,8 @@ struct task {
 struct task_registry {
     size_t task_id;
     int tm_id;
-    char * send_time;
-    char * completed_time;
+    struct timeval * send_time;
+    struct timeval * completed_time;
     struct task_registry *next;
 };
 

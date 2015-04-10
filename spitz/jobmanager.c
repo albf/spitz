@@ -50,7 +50,9 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     ptr->tm_id = tm_id; 
     ptr->task_id = task_id;
 
-    // Put time information here.
+    // Save time information 
+    ptr->send_time = (struct timeval *) malloc(sizeof(struct timeval));
+    gettimeofday(&ptr->send_time);
     ptr->completed_time = NULL;
 
     if(td->registry[tm_id] == NULL) {
