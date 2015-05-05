@@ -18,6 +18,7 @@ extern "C" {
 
 #define PORT_MANAGER 8898
 #define PORT_COMMITTER 10007
+#define PORT_VM 11006
 #define max_clients 30
 #define max_pending_connections 3
 

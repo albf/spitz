@@ -588,7 +588,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
                 if(KEEP_REGISTRY > 0) {
- 
+			add_completion_registry (td, tid, tm_id);	
                 }
                 
                 remove_task(td, tid);

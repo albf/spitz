@@ -41,6 +41,8 @@ struct jm_thread_data {
     struct task_list * tasks;           // List of already generated tasks.
     void *handle;                       // Used to find user-defined functions.
     int is_done_loading;                // Determine if initial loading of job manager is done. 
+    int argc;                           // Argc, used for ctor loading.
+    char **argv;                        // Argv, used for ctor loading (and mayber other threads, if they need).
     
     // jm_gen_worker-related variables.
     pthread_mutex_t gen_region_lock;    // Separate generate region on worker thread. 
