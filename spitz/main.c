@@ -43,12 +43,25 @@ int LOG_LEVEL = 0;
 int FIFOSZ = 10;
 int NTHREADS = 1; 
 
+void * jm_create_thread(void *ptr) {
+	struct jm_thread_data * td = ptr;
+
+    debug("Starting to load shared data in a separated thread.");
+    ctor = dlsym(td.handle, "spits_job_manager_new");
+    td.user_data = ctor((argc), (argv));
+
+    debug("Shared data loading done.");
+    ptr->is_done_loading = 1;
+    pthread_exit(NULL);
+}_
+
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     int i;
     spitz_ctor_t ctor;
     int gen_threads;
     pthread_t * t; 
+    pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
 
     struct jm_thread_data td;
@@ -61,6 +74,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     }
     
     t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_EXTRA_THREADS + gen_threads)); 
+    t_loading = (pthread_t *) malloc(sizeof (pthread_t)); 
 
     // start task fifo list. 
     td.request_list = (struct request_FIFO *) malloc (sizeof(struct request_FIFO));
@@ -111,9 +125,10 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         return;
     }
 
+
     // initialize shared user data. 
-    ctor = dlsym(td.handle, "spits_job_manager_new"); 
-    td.user_data = ctor((argc), (argv));
+    ptr->is_done_loading = 1;
+    pthread_create(t_loading, NULL, jm_create_thread, &td);
 
     // Create extra-thread(s)
     for (i=0; i < JM_EXTRA_THREADS; i++) {

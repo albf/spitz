@@ -33,18 +33,23 @@
 // Adds an registry of task being sent to an Task Manager.
 void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     int changed = 0;
+    int initial_size, i;
     struct task_registry * ptr;
     struct task_registry * next;
 
     pthread_mutex_lock(&td->registry_lock);
 
-    while(task_id > (td->registry_capacity)) {
+    initial_size = td->registry_capacity;
+    while(task_id >= (td->registry_capacity)) {
         changed = 1;
         td->registry_capacity = td->registry_capacity*2;
     }
     
     if(changed > 0) {
         td->registry = (struct task_registry **) realloc(td->registry, td->registry_capacity*sizeof(struct task_registry *));
+        for(i=initial_size; i < td->registry_capacity; i++) {
+            td->registry[i] = NULL;
+        }
     }
 
     ptr = (struct task_registry *) malloc (sizeof(struct task_registry)); 
@@ -332,8 +337,6 @@ void * jm_gen_worker(void * ptr) {
         
         if(!(tgen(td->user_data, td->gen_ba))) {
             * (td->gen_tid) = -1;
-        }
-        else {
             td->all_generated = 1;
         }
         
@@ -345,7 +348,7 @@ void * jm_gen_worker(void * ptr) {
     pthread_exit(NULL);
 }
 
-// Function reponsible for the workers on JM.
+// Function reponsible for the workers on JM, will send the tasks messages
 void * jm_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     struct request_elem * my_request;
@@ -387,6 +390,8 @@ void * jm_worker(void * ptr) {
                 rank = client->id;
                 tid = next_task_num(td);
                 byte_array_clear(my_request->ba); 
+
+                debug("Trying to generate task : %d for TM %d", tid, rank);
 
                 if (tid >= 0) {
                     // Generate task, if possible in parallel. 
@@ -565,8 +570,14 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         
         switch (type) {
             case MSG_READY:
-                byte_array_clear(ba);
-                append_request(td, ba, type, origin_socket);
+		if(td->is_done_loading == 1) {
+			byte_array_clear(ba);
+			append_request(td, ba, type, origin_socket);
+		}
+		else {
+			debug("Received task request from %d but shared data is still being load.", LIST_search_socket(COMM_ip_list, origin_socket));
+			COMM_send_message(NULL, MSG_NO_TASK, origin_socket);
+		}
                
                 break;
             case MSG_DONE:;

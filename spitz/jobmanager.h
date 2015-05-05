@@ -40,6 +40,7 @@ struct jm_thread_data {
     pthread_mutex_t tl_lock;            // lock responsible for task_list.
     struct task_list * tasks;           // List of already generated tasks.
     void *handle;                       // Used to find user-defined functions.
+    int is_done_loading;                // Determine if initial loading of job manager is done. 
     
     // jm_gen_worker-related variables.
     pthread_mutex_t gen_region_lock;    // Separate generate region on worker thread. 
