@@ -18,6 +18,7 @@
 
 #include <dlfcn.h>
 #include <pthread.h>
+#include <sys/time.h>           // Wait some seconds in NO_TASK case.
 #include "comm.h"
 #include "log.h"
 #include "spitz.h"
@@ -52,6 +53,13 @@ int get_number_of_cores() {
 #else
     return sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+}
+
+// Get rand number in range.
+int int_rand(int min, int max)
+{
+    int val = min + (min-max) * (double)rand() / (double)RAND_MAX + 0.5;
+    return val; 
 }
 
 // Function responsible for the workers on current TM node.
@@ -216,10 +224,14 @@ void task_manager(struct tm_thread_data *d)
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
     int flushed_tasks;                                              // Return value from flush_results.
-    int tm_retries;
+    int tm_retries;                                                 // Count the number of times TM tries to reconnect.
+    int task_wait_max=1;                                            // Current max time of wait in CASE MSG_NO_TASK (sec)
+    int wait;                                                       // wait(sec) in CASE MSG_NO_TASK
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba;
+
+    srand (time(NULL));
 
     info("Starting task manager main loop");
     while (alive) {
@@ -272,6 +284,12 @@ void task_manager(struct tm_thread_data *d)
                 else {
                     info("Reconnected to the Job Manager.");
                 }
+                break;
+            case MSG_NO_TASK:
+                wait = int_rand(1, task_wait_max);
+                debug("No task available, is it still loading? Sleeping for %d seconds", wait);
+                sleep(wait);
+                task_wait_max = task_wait_max * 2;
                 break;
             default:
                 break;
