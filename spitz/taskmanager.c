@@ -290,6 +290,9 @@ void task_manager(struct tm_thread_data *d)
                 debug("No task available, is it still loading? Sleeping for %d seconds", wait);
                 sleep(wait);
                 task_wait_max = task_wait_max * 2;
+                if(task_wait_max > TM_MAX_SLEEP) {
+                    task_wait_max = TM_MAX_SLEEP;
+                }
                 break;
             default:
                 break;
@@ -312,6 +315,7 @@ void task_manager(struct tm_thread_data *d)
             else {
                 tasks -= flushed_tasks; 
                 debug("I have sent %d tasks\n", flushed_tasks);
+                debug("Alive: %d\n", alive);
             }
             
         }

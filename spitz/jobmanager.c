@@ -587,9 +587,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 tm_id = (int)bufferr;
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
-                if(KEEP_REGISTRY > 0) {
-			add_completion_registry (td, tid, tm_id);	
-                }
+                //if(KEEP_REGISTRY > 0) {
+		//	add_completion_registry (td, tid, tm_id);	
+                //}
                 
                 remove_task(td, tid);
                 LIST_update_tasks_info (COMM_ip_list,NULL,-1, tm_id, 0, 1);
