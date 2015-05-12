@@ -1094,7 +1094,7 @@ void COMM_send_committer(int sock) {
         strcat(committer_send, "\0");
        
         v = committer_send;
-        n = (size_t) strlen(committer_send);
+        n = (size_t) (strlen(committer_send)+1);
         
         byte_array_init(ba, n);
         byte_array_pack8v(ba, v, n);

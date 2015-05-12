@@ -20,14 +20,16 @@ struct prime_jm {
 void *spits_job_manager_new(int argc, char *argv[])
 {
 	UNUSED(argc);
-	struct prime_jm *self = malloc(sizeof(*self));
+	struct prime_jm *self = (struct prime_jm *) malloc(sizeof(struct prime_jm));
 	self->numpoints = atoi(argv[0]);
+	printf("self->numpoints: %d\n", self->numpoints);
 	return self;
 }
 
 int spits_job_manager_next_task(void *user_data, struct byte_array *ba)
 {
-	struct prime_jm *self = user_data;
+	struct prime_jm *self = (struct prime_jm *) user_data;
+	printf("self->numpoints: %d\n", self->numpoints);
 	if (self->numpoints == 0) {
 		return 0;
         }

@@ -37,6 +37,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     struct task_registry * ptr;
     struct task_registry * next;
 
+    debug("Registry: adding registry for task : %d to taskmanager : %d", task_id, tm_id);
     pthread_mutex_lock(&td->registry_lock);
 
     initial_size = td->registry_capacity;
@@ -52,6 +53,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
         }
     }
 
+
     ptr = (struct task_registry *) malloc (sizeof(struct task_registry)); 
     
     ptr->tm_id = tm_id; 
@@ -61,6 +63,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
     ptr->send_time = (struct timeval *) malloc(sizeof(struct timeval));
     gettimeofday(&ptr->send_time);
     ptr->completed_time = NULL;
+    ptr->next = NULL;
 
     if(td->registry[task_id] == NULL) {
         td->registry[task_id] = ptr;
@@ -72,7 +75,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
         }
         next->next = ptr;
     }
-
+    
     pthread_mutex_unlock(&td->registry_lock);
 }
 
@@ -93,7 +96,10 @@ int check_registry(struct jm_thread_data * td, size_t task_id, int tm_id) {
         return 0;
     }
 
-    for(; ((ptr!=NULL)&&(ptr->tm_id != tm_id)); ptr=ptr->next);
+    while((ptr!=NULL)&&(ptr->tm_id != tm_id)) {
+        ptr=ptr->next;
+    }    
+
     if(ptr == NULL) {
         pthread_mutex_unlock(&td->registry_lock);
         return 0;
@@ -102,14 +108,19 @@ int check_registry(struct jm_thread_data * td, size_t task_id, int tm_id) {
         pthread_mutex_unlock(&td->registry_lock);
         return 1;
     } 
+    error("check_registry bug exit.");
 }
 
 void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id) {
     struct task_registry * ptr;
     pthread_mutex_lock(&td->registry_lock);
-    ptr = td->registry[task_id];
+    //ptr = td->registry[task_id];
+    debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
+    //debug("TM_ID : %d", ptr->tm_id);
+    ptr = NULL;
     while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
         ptr = ptr->next;
+        //debug("TM_ID : %d", ptr->tm_id);
     }
 
     if(ptr == NULL) {
@@ -120,6 +131,7 @@ void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_
 
     ptr->completed_time = (struct timeval *) malloc(sizeof(struct timeval));
     gettimeofday(&ptr->completed_time);
+    debug("Completion Registry added.");
     pthread_mutex_unlock(&td->registry_lock);
 }
 
@@ -275,8 +287,24 @@ void remove_task (struct jm_thread_data * td, int tid) {
         }
         // If not, iter = home.
         else {
+            debug("Home Task Removed");
             clean = td->tasks->home; 
             td->tasks->home = td->tasks->home->next;
+            // If its null and all is generated, computation is over.
+            if((td->tasks->home == NULL) && (td->all_generated > 0)) {
+                debug("Home is now null. Is it over?");
+                pthread_mutex_lock(&td->gc_lock);
+                if(td->g_counter == 0) {
+                    debug("Finally Over!");
+                    td->is_finished = 1; 
+                }
+                pthread_mutex_unlock(&td->gc_lock);
+            }
+            else {
+                debug("Not null, td->all_generated:%d", td->all_generated);
+                debug("Not null, address of home:%d", td->tasks->home);
+                debug("Not null, id of home:%d", td->tasks->home->id);
+            }
         }
 
         // If it's the head, updates it.
@@ -335,10 +363,17 @@ void * jm_gen_worker(void * ptr) {
         tid = * (td->gen_tid); 
         debug("[jm_gen_worker] Received task %d to generate.", tid);
         
+        pthread_mutex_lock(&td->gc_lock);
+        td->g_counter++;
+        pthread_mutex_unlock(&td->gc_lock);
         if(!(tgen(td->user_data, td->gen_ba))) {
+            debug("ALL GENERATED");
             * (td->gen_tid) = -1;
             td->all_generated = 1;
         }
+        pthread_mutex_lock(&td->gc_lock);
+        td->g_counter--;
+        pthread_mutex_unlock(&td->gc_lock);
         
         // Release waiting task.
         pthread_mutex_unlock(&td->gen_ready_lock);
@@ -399,22 +434,24 @@ void * jm_worker(void * ptr) {
                         byte_array_pack64(my_request->ba, tid);
 
                         // Update current_gen value
-                        pthread_mutex_lock(&td->current_gen_lock);
-                        td->current_gen += 1;
-                        pthread_mutex_unlock(&td->current_gen_lock);
-                        
+                        pthread_mutex_lock(&td->gc_lock);
+                        td->g_counter++;
+                        pthread_mutex_unlock(&td->gc_lock);
+
                         // try to generate task.
                         if(tgen(td->user_data, my_request->ba)) {
                             task_generated = 1;
                         }
                         else {
+                            debug("ALL TASKS WERE GENERATED");
                             td->all_generated = 1;
                         }
 
                         // Update current_gen value
-                        pthread_mutex_lock(&td->current_gen_lock);
-                        td->current_gen -= 1;
-                        pthread_mutex_unlock(&td->current_gen_lock);
+                        pthread_mutex_lock(&td->gc_lock);
+                        td->g_counter--;
+                        pthread_mutex_unlock(&td->gc_lock);
+
                     }
 
                     // Can't generate in parallel.
@@ -440,6 +477,9 @@ void * jm_worker(void * ptr) {
                             task_generated = 1;
                         }
                     }
+                }
+                else {
+                   td->all_generated = 1;
                 }
 
                 // If task was generated, add it to queue and send it.
@@ -468,13 +508,21 @@ void * jm_worker(void * ptr) {
                         if (node == NULL) {
                             // Couldn't find a task because computation is finished.
                             // Logic: If it's finished or there is no one generating anything, why couldn't I find anything to send?
-                            if((td->is_finished > 0)||(GEN_PARALLEL == 0)||(td->current_gen == 0)) {
+                            //if((td->is_finished > 0)||(GEN_PARALLEL == 0)||(td->g_counter == 0)) {
+                            if((td->is_finished > 0) || ((td->all_generated > 0) && (td->g_counter == 0))) {
                                 debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
+                                debug("td->is_finished: %d",td->is_finished);
+                                debug("td->all_generated: %d",td->all_generated);
+                                debug("td->g_counter: %d",td->g_counter);
                                 COMM_send_message(NULL, MSG_KILL, my_request->socket);
                                 break;
                             }
                             // Couldn't find a task because the computation isn't finished. Wait?
                             else {
+                                debug("Sleeping rank %d ---",rank);
+                                debug("td->is_finished: %d",td->is_finished);
+                                debug("td->all_generated: %d",td->all_generated);
+                                debug("td->g_counter: %d",td->g_counter);
                                 sleep(1);
                             }
                         }
@@ -587,9 +635,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 tm_id = (int)bufferr;
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
-                //if(KEEP_REGISTRY > 0) {
-		//	add_completion_registry (td, tid, tm_id);	
-                //}
+                if(KEEP_REGISTRY > 0) {
+                    add_completion_registry (td, tid, tm_id);	
+                }
                 
                 remove_task(td, tid);
                 LIST_update_tasks_info (COMM_ip_list,NULL,-1, tm_id, 0, 1);

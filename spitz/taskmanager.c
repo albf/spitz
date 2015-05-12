@@ -105,8 +105,9 @@ void *worker(void *ptr)
         byte_array_free(task);                                  // Free memory used in task and pointer.
         free(task);                                             // For now, each pointer is allocated in master thread.
 
+        debug("Appending task %d.", task_id);
         pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
-        result->next = d->results;
+        result->next = d->results; 
         d->results = result;
         
         if(d->is_blocking_flush==1) {
@@ -197,11 +198,14 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             pthread_mutex_lock(&d->bf_mutex);
         }
         
+        n = d->results;
+        len = 0;
         while (n) {
             if(COMM_send_message(&n->ba, MSG_RESULT,socket_committer)<0) {
                 error("Problem to send result to committer. Aborting flush_results.");
                 return -1;
             }
+            len++;
             byte_array_free(&n->ba);
             aux = n->next;
             free(n);
@@ -218,6 +222,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
 void task_manager(struct tm_thread_data *d)
 {
     int alive = 1;                                                  // Indicate if it still alive.
+    int end = 0;                                                    // To indicate a true ending. Dead but fine. 
     enum message_type type;                                         // Type of received message.
     int tasks = 0;                                                  // Tasks received and not committed.
     int min_results = RESULT_BUFFER_SIZE;                           // Minimum of results to send at the same time. 
@@ -271,6 +276,7 @@ void task_manager(struct tm_thread_data *d)
             case MSG_KILL:
                 info("Got a KILL message");
                 alive = 0;
+                end = 1;
                 min_results = tasks;
                 b = BLOCKING;
                 break;
@@ -298,7 +304,7 @@ void task_manager(struct tm_thread_data *d)
                 break;
         }
 
-        if (alive) {
+        if (alive || end) {
             debug("Trying to flush %d %s...", min_results, b == BLOCKING ? "blocking":"non blocking");
             flushed_tasks = flush_results(d, min_results, b);
             if(flushed_tasks < 0) {
@@ -315,7 +321,6 @@ void task_manager(struct tm_thread_data *d)
             else {
                 tasks -= flushed_tasks; 
                 debug("I have sent %d tasks\n", flushed_tasks);
-                debug("Alive: %d\n", alive);
             }
             
         }

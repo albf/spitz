@@ -26,29 +26,29 @@ fixguys:
 valgrind0: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 0 127.0.0.1 prime.so 30
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 0 127.0.0.1 prime.so 20
 
 valgrind1: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 1 127.0.0.1 prime.so 30
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 1 127.0.0.1 prime.so 20
 
-valgrid2: pi.so
+valgrind2: pi.so
 	# Set some environment variables
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 2 127.0.0.1 prime.so 30
+		valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all ./spitz 2 127.0.0.1 prime.so 20
 
 gdb0: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 0 127.0.0.1 prime.so 100
+			gdb --args ./spitz 0 127.0.0.1 prime.so 20
 
 gdb1: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 1 127.0.0.1 prime.so 100
+			gdb --args ./spitz 1 127.0.0.1 prime.so 20
 
 gdb2: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 prime.so 100
+			gdb --args ./spitz 2 127.0.0.1 prime.so 20
 
 
 gdb3: pi.so

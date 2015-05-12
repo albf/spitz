@@ -62,7 +62,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     int gen_threads;
     pthread_t * t; 
     pthread_t * t_loading; 
-    lib_path = strcpy(malloc(sizeof(char)*strlen(so)), so);         // set lib path variable
+    lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);         // set lib path variable
 
     struct jm_thread_data td;
 
@@ -86,26 +86,22 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     sem_init(&td.num_requests, 0, 0);
     pthread_mutex_init(&td.tc_lock, NULL);    
     pthread_mutex_init(&td.tl_lock, NULL);    
+    pthread_mutex_init(&td.gc_lock, NULL);    
 
     if(GEN_PARALLEL == 0) {
         pthread_mutex_init(&td.gen_region_lock, NULL);    
         pthread_mutex_init(&td.gen_ready_lock, NULL);    
         pthread_mutex_init(&td.jm_gen_lock, NULL);    
-
         // jm_gen_lock and gen_ready_lock start locked.
         pthread_mutex_trylock(&td.jm_gen_lock);
         pthread_mutex_trylock(&td.gen_ready_lock);
     }
-    else {
-        pthread_mutex_init(&td.current_gen_lock, NULL);    
-    }
-    td.current_gen = 0;
     
     // Initialize registry structures if applicable. 
     if(KEEP_REGISTRY > 0) {
         pthread_mutex_init(&td.registry_lock, NULL);    
-        td.registry_capacity = 2;
-        td.registry = (struct task_registry **) malloc(2*sizeof(struct task_registry *));
+        td.registry_capacity = 1024;
+        td.registry = (struct task_registry **) malloc(1024*sizeof(struct task_registry *));
     }
 
     // Start task counter and lock.
@@ -113,6 +109,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.all_generated = 0;                                           // No, not all tasks was generated at start. 
     td.is_finished = 0;
     td.num_tasks_total = atoi(argv[0]);
+    td.g_counter = 0;
 
     // Start tasks list.
     td.tasks = (struct task_list *) malloc (sizeof (struct task_list));
