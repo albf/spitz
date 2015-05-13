@@ -35,6 +35,7 @@ void committer(int argc, char *argv[], void *handle)
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket, packed by the COMM_wait_request.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
+    uint64_t buffer;                                                // Used for receiving 64 bits.
    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -48,7 +49,6 @@ void committer(int argc, char *argv[], void *handle)
                                                                     // 1 for committed, 0 for not yet.
     int task_id;                                                    // Task id of received result.
     int tm_rank;                                                    // Rank id of the worker that completed the work.
-    int64_t buffer;
     
     // Loads the user functions.
     void * (*setup) (int, char **);
@@ -71,14 +71,13 @@ void committer(int argc, char *argv[], void *handle)
         
         switch (type) {
             case MSG_RESULT:
+                printf("SIZEOF THIS SHIT: %ld\n", sizeof(buffer));
                 byte_array_unpack64(ba, &buffer);
                 task_id = (int) buffer;
                 byte_array_unpack64(ba, &buffer);
                 tm_rank = (int) buffer;
-                //int total_prim;
-                //byte_array_unpack64(ba, &total_prim);
+
                 debug("Got a RESULT message for task %d from %d", task_id, tm_rank);
-                //debug("totalprim: %d", total_prim);
                 if(task_id>=cap) {                                   // If id higher them actual cap
                     old_cap = cap;
                     cap=2*task_id;
@@ -92,12 +91,6 @@ void committer(int argc, char *argv[], void *handle)
                 if (committed[task_id] == 0) {                      // If not committed yet
                     committed[task_id] = 1;
                     commit_pit(user_data, ba);
-                    byte_array_clear(ba);
-
-                    buffer = (int64_t) task_id;
-                    byte_array_pack64(ba, buffer);
-                    buffer = (int64_t) tm_rank;
-                    byte_array_pack64(ba, buffer);
                     info("Sending task %d to Job Manager.", task_id);
                     COMM_send_message(ba, MSG_DONE, socket_manager);
                 }

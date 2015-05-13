@@ -66,10 +66,11 @@ int int_rand(int min, int max)
 void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
-    size_t task_id;
+    int task_id;
     struct tm_thread_data *d = ptr;
     struct byte_array * task;
     struct result_node * result;
+    uint64_t buffer;
 
     workerid = d->id;
 
@@ -93,7 +94,8 @@ void *worker(void *ptr)
         // Warn the Task Manager about the new space available.
         sem_post(&d->sem);
 
-        byte_array_unpack64(task, &task_id);
+        byte_array_unpack64(task, &buffer);
+	task_id = (int) buffer;
         debug("[worker] Received TASK %d", task_id);
         
         //_byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.

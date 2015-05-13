@@ -66,7 +66,6 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     byte_array_unpack32(task, &test_value);
 
     // Resize the byte array to fit all prime numbers.
-    //byte_array_clear(result);
     byte_array_resize(result, (size_t)(num_for_task*4));
     printf("LEN: %d\n", (int)result->len);
 

@@ -564,7 +564,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
     uint64_t aux64;                                                 // Auxiliary, used to cast variables. 
-    int64_t bufferr;                                                // buffer used for received int64_t values 
+    uint64_t buffer;                                                // buffer used for received uint64_t values 
     struct timeval tv;                                              // Timeout for select.
     int i;                                                          // Iterator
 
@@ -629,10 +629,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                
                 break;
             case MSG_DONE:;
-                byte_array_unpack64(ba, &bufferr);
-                tid = (int)bufferr;
-                byte_array_unpack64(ba, &bufferr);
-                tm_id = (int)bufferr;
+                byte_array_unpack64(ba, &buffer);
+                tid = (int)buffer;
+                byte_array_unpack64(ba, &buffer);
+                tm_id = (int)buffer;
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
                 if(KEEP_REGISTRY > 0) {
@@ -672,10 +672,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_register_monitor(origin_socket); 
                 break;
             case MSG_SET_TASK_MANAGER_ID:
-                byte_array_unpack64(ba, &bufferr);
-                rank_rcv = (int)bufferr;
-                byte_array_unpack64(ba, &bufferr);
-                rank_original = (int)bufferr;
+                byte_array_unpack64(ba, &buffer);
+                rank_rcv = (int)buffer;
+                byte_array_unpack64(ba, &buffer);
+                rank_original = (int)buffer;
                 COMM_ip_list = LIST_update_id(COMM_ip_list, rank_rcv, rank_original);
                 break;
             case MSG_GET_ALIVE:

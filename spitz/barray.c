@@ -420,3 +420,4 @@ int byte_array_compute_hash(struct byte_array *ba, struct byte_array * binary) {
     
     return 0;
 }
+
