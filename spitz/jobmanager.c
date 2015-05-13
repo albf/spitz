@@ -61,7 +61,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
 
     // Save time information 
     ptr->send_time = (struct timeval *) malloc(sizeof(struct timeval));
-    gettimeofday(&ptr->send_time);
+    gettimeofday(ptr->send_time, NULL);
     ptr->completed_time = NULL;
     ptr->next = NULL;
 
@@ -116,11 +116,11 @@ void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_
     pthread_mutex_lock(&td->registry_lock);
     ptr = td->registry[task_id];
     debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
-    //debug("TM_ID : %d", ptr->tm_id);
+    debug("TM_ID : %d", ptr->tm_id);
     //ptr = NULL;
     while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
         ptr = ptr->next;
-        //debug("TM_ID : %d", ptr->tm_id);
+        debug("TM_ID : %d", ptr->tm_id);
     }
 
     if(ptr == NULL) {
@@ -129,8 +129,11 @@ void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_
         return;
     }
 
+    //pthread_mutex_unlock(&td->registry_lock);
+    //return;
+
     ptr->completed_time = (struct timeval *) malloc(sizeof(struct timeval));
-    gettimeofday(&ptr->completed_time);
+    gettimeofday(ptr->completed_time, NULL);
     debug("Completion Registry added.");
     pthread_mutex_unlock(&td->registry_lock);
 }
