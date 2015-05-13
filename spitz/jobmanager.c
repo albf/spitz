@@ -114,10 +114,10 @@ int check_registry(struct jm_thread_data * td, size_t task_id, int tm_id) {
 void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id) {
     struct task_registry * ptr;
     pthread_mutex_lock(&td->registry_lock);
-    //ptr = td->registry[task_id];
+    ptr = td->registry[task_id];
     debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
     //debug("TM_ID : %d", ptr->tm_id);
-    ptr = NULL;
+    //ptr = NULL;
     while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
         ptr = ptr->next;
         //debug("TM_ID : %d", ptr->tm_id);
@@ -567,17 +567,18 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     uint64_t buffer;                                                // buffer used for received uint64_t values 
     struct timeval tv;                                              // Timeout for select.
     int i;                                                          // Iterator
+    int free_ba;                                                    // Indicate if ba should be released.
 
     // VM restore management.
     int counter=0;                                                  // Counts requests to restore VMs Task Managers.
     int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
     int total_restores=0;                                           // Amount of nodes restored.
     
-    //struct task *home = NULL, *mark = NULL, *head = NULL;           // Pointer to represent the FIFO.
+    //struct task *home = NULL, *mark = NULL, *head = NULL;         // Pointer to represent the FIFO.
     
     void * ptr = td->handle;                                        // Open the binary file.
     
-    //spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");        // Loads the user functions.
+    //spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");      // Loads the user functions.
     spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
 
     // Data structure to exchange message between processes. 
@@ -610,6 +611,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     while (1) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         byte_array_init(ba, 10);
+        free_ba = 1;
 
         // Set timeout values for wait_request.
         tv.tv_sec = WAIT_REQUEST_TIMEOUT_SEC;
@@ -619,6 +621,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         switch (type) {
             case MSG_READY:
 		if(td->is_done_loading == 1) {
+                        free_ba = 0;
 			byte_array_clear(ba);
 			append_request(td, ba, type, origin_socket);
 		}
@@ -756,7 +759,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
         }
 
-        if(type != MSG_READY) {
+        if(free_ba > 0) {
+            byte_array_free(ba);
             free(ba);
         }
         
@@ -800,10 +804,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     }
 
     // Free memory allocated in byte arrays.
-    byte_array_free(ba);
+    //byte_array_free(ba);
     byte_array_free(ba_binary);
     byte_array_free(ba_hash);
-    free(ba);
+    //free(ba);
     free(ba_binary);
     free(ba_hash);
 

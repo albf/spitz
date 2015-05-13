@@ -12,7 +12,7 @@ extern "C" {
 #define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
 #define WAIT_REQUEST_TIMEOUT_USEC 0
 #define GEN_PARALLEL 0                  // Indicate if jm generation function can work in parallel. 
-#define KEEP_REGISTRY 1                 // Indicate if jm will keep registry and avoid sending repeated tasks.
+#define KEEP_REGISTRY 0                 // Indicate if jm will keep registry and avoid sending repeated tasks.
     
 // Comm DEFINEs
 
