@@ -71,13 +71,13 @@ void committer(int argc, char *argv[], void *handle)
         
         switch (type) {
             case MSG_RESULT:
-                printf("SIZEOF THIS SHIT: %ld\n", sizeof(buffer));
                 byte_array_unpack64(ba, &buffer);
                 task_id = (int) buffer;
                 byte_array_unpack64(ba, &buffer);
                 tm_rank = (int) buffer;
 
                 debug("Got a RESULT message for task %d from %d", task_id, tm_rank);
+                debug("Size of Result: %d", (int)ba->len);
                 if(task_id>=cap) {                                   // If id higher them actual cap
                     old_cap = cap;
                     cap=2*task_id;
