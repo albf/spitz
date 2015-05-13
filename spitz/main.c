@@ -101,7 +101,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     if(KEEP_REGISTRY > 0) {
         pthread_mutex_init(&td.registry_lock, NULL);    
         td.registry_capacity = 1024;
-        td.registry = (struct task_registry **) malloc(1024*sizeof(struct task_registry *));
+        td.registry = (struct task_registry **) calloc(1024, sizeof(struct task_registry *));
     }
 
     // Start task counter and lock.

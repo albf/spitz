@@ -55,8 +55,9 @@ static uint64_t ntohll(uint64_t x)
 
 static void ensure_size(struct byte_array *ba, size_t sz)
 {
-	if (ba->len + sz >= ba->cap)
+	if ((ba->len + sz) >= ba->cap) {
 		byte_array_resize(ba, ba->len + sz);
+	}
 }
 
 /**

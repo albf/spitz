@@ -21,7 +21,7 @@ void *spits_job_manager_new(int argc, char *argv[])
 {
 	UNUSED(argc);
 	struct prime_jm *self = (struct prime_jm *) malloc(sizeof(struct prime_jm));
-	self->numpoints = atoi(argv[0]);
+	self->numpoints = atoi(argv[0]) -1;
 	printf("self->numpoints: %d\n", self->numpoints);
 	return self;
 }
@@ -30,11 +30,11 @@ int spits_job_manager_next_task(void *user_data, struct byte_array *ba)
 {
 	struct prime_jm *self = (struct prime_jm *) user_data;
 	printf("self->numpoints: %d\n", self->numpoints);
-	if (self->numpoints == 0) {
+	if (self->numpoints < 0) {
 		return 0;
         }
 
-	byte_array_pack64(ba, self->numpoints);
+	byte_array_pack32(ba, self->numpoints);
 	self->numpoints--;
 
 	return 1;
@@ -59,28 +59,22 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     int i; 
     double sqrt_value;
     int sqrt_cast;
-    int zero=0;
     int is_prime;
     int total_prime=0;
-    size_t len_b;
     
     UNUSED(user_data);
-    byte_array_unpack64(task, &test_value);
+    byte_array_unpack32(task, &test_value);
 
     // Resize the byte array to fit all prime numbers.
-    if(num_for_task > 2) {
-        byte_array_resize(result, (size_t)(num_for_task*8));
-    }
+    //byte_array_clear(result);
+    byte_array_resize(result, (size_t)(num_for_task*4));
+    printf("LEN: %d\n", (int)result->len);
 
-    // Pack zero to keep a place for the total primes found, added in the end.
-    byte_array_pack64(result, zero);
-
-    sleep(5);
+    //sleep(5);
 
     // Search for all the numbers is the granularity range.
     for(number = (test_value)*num_for_task; number < ((test_value+1)*num_for_task); number++) {
-        //printf("PRIME.C => Testing : %" PRIu64 "\n", number);
-        //sleep(1);
+        printf("PRIME.C => Testing : %d\n", number);
         sqrt_value = sqrt(number);
         sqrt_cast = (int) sqrt_value;
 
@@ -104,25 +98,12 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         }
         // If it's a prime, pack it.
         if(is_prime == 1) { 
-            byte_array_pack64(result, number);
+            printf("PACKING %d\n", number);
+            byte_array_pack32(result, number);
+            printf("LEN: %d\n", (int)result->len);
             total_prime++;
         }
     }
-        
-    // Pack the number of primes found in total in this range.
-    len_b = result->len;
-    result->len=16;
-    byte_array_pack64(result, total_prime);
-    result->len=len_b;
-
-    result->iptr = result->ptr;
-    int x=0;
-    x = byte_array_unpack64(result, &x);
-    x=0;
-    x = byte_array_unpack64(result, &x);
-    x=0;
-    x = byte_array_unpack64(result, &x);
-    x=0;
 }
 
 /*---------------------------------------------------------------------------*/
@@ -136,46 +117,31 @@ struct prime_list{
 };
 
 // Pointer to the list with results
-struct prime_list * list_pointer;
-
 void *spits_setup_commit(int argc, char *argv[])
 {
 	UNUSED(argc);
-	struct prime_jm *self = malloc(sizeof(*self));
-	self->numpoints = atoi(argv[0]);
-	return self;
+	UNUSED(argv);
+	struct prime_list * list_pointer = (struct prime_list *) malloc(sizeof(struct prime_list));
+	list_pointer->value = -1;
+	list_pointer->next = NULL;
+	return list_pointer;
 }
 
 void spits_commit_pit(void *user_data, struct byte_array *result)
 {
-    int x;
-    int i;
-    uint64_t u_value;
-    int value;
-    struct prime_list * insertion;   
+	int x;
+	struct prime_list * list_pointer = (struct prime_list *) user_data; 
+	struct prime_list * insertion;
    
-    UNUSED(user_data);
+	UNUSED(user_data);
     
-   // Get the total values found.
-    byte_array_unpack64(result, &x);
-
-    // Checks if the value passed is different then zero and insert in the list.
-       for(i=0; i<x; i++) {
-            byte_array_unpack64(result, &u_value); 
-            value = (int) u_value;           
-
-            if(list_pointer == NULL) {
-                list_pointer = (struct prime_list *) malloc (sizeof(struct prime_list));
-                list_pointer->value = value;
-                list_pointer->next = NULL;
-            }
-            else {
-                insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
-                insertion->value = value;
-                insertion->next = list_pointer;
-                list_pointer = insertion;
-            }
-       }
+	while(byte_array_unpack32(result, &x)) {
+		printf("COMMITTING %d\n", x);
+		insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
+		insertion->value = x;
+		insertion->next = list_pointer->next;
+		list_pointer->next = insertion;
+	}
 }
 
 void spits_commit_job(void *user_data, struct byte_array *final_result)
@@ -189,7 +155,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     UNUSED(user_data);
     UNUSED(final_result);
     
-    bf = list_pointer;
+    bf = (struct prime_list *) user_data;
     iter = bf-> next;
 
     // Bubble Sort
@@ -210,7 +176,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
                 iter=iter->next;
             }
             else {
-                bf=list_pointer;
+                bf=(struct prime_list *) user_data;
                 iter = bf->next;
                 loop_over=1;
             }
@@ -221,7 +187,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     // Just print everyone.
     printf("Prime Numbers : \n");
     
-    iter = list_pointer;
+    iter = (struct prime_list *) user_data;
     while(iter != NULL) {
         printf("%d", (int) iter->value);
         iter = iter->next;
