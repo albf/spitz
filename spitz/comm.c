@@ -118,7 +118,7 @@ int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_so
         *type = MSG_EMPTY;
     }
 
-    debug("Reading message size: %d\n", ba->len);
+    //debug("Reading message size: %d\n", ba->len);
 
     return read_return;
 }
@@ -129,7 +129,7 @@ int COMM_send_bytes(int sock, void * bytes, int size) {
     int return_value;
     
     sprintf(size_c, "%d", size);
-    debug("SENDBYTES_ MSG_SIZE: %d\n", size);
+    //debug("SENDBYTES_ MSG_SIZE: %d\n", size);
     strcat(size_c, "|\n");
     return_value = (int) send(sock, size_c, (strlen(size_c)-1), MSG_NOSIGNAL); // don't send '\n'
 
@@ -175,7 +175,7 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_termi
     }
 
     msg_size = atoi(message_size);
-    debug("READBYTES _ MSG_SIZE: %d\n", msg_size);
+    //debug("READBYTES _ MSG_SIZE: %d\n", msg_size);
     offset = 0;
     
     if(null_terminator > 0) {           // Check if should reserve space for null terminator. 
@@ -194,9 +194,9 @@ int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_termi
     while(offset < msg_size) {		// if zero, doesn't come in
         total_rcv = read(sock, (ba->ptr+offset), (msg_size-offset));
         ba->len += ((size_t)total_rcv);
-        debug("READBYTES_DURING_DIF : %d\n", (msg_size-offset));
-        debug("READBYTES_DURING_RCV : %d\n", total_rcv);
-        debug("READBYTES_DURING_TOT : %d\n", (int)ba->len);
+        //debug("READBYTES_DURING_DIF : %d\n", (msg_size-offset));
+        //debug("READBYTES_DURING_RCV : %d\n", total_rcv);
+        //debug("READBYTES_DURING_TOT : %d\n", (int)ba->len);
 
         if(total_rcv <= 0) {            // check if received zero bytes or an error.
             if(size != NULL) {

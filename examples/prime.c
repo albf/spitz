@@ -22,14 +22,14 @@ void *spits_job_manager_new(int argc, char *argv[])
 	UNUSED(argc);
 	struct prime_jm *self = (struct prime_jm *) malloc(sizeof(struct prime_jm));
 	self->numpoints = atoi(argv[0]) -1;
-	printf("self->numpoints: %d\n", self->numpoints);
+	//printf("self->numpoints: %d\n", self->numpoints);
 	return self;
 }
 
 int spits_job_manager_next_task(void *user_data, struct byte_array *ba)
 {
 	struct prime_jm *self = (struct prime_jm *) user_data;
-	printf("self->numpoints: %d\n", self->numpoints);
+	//printf("self->numpoints: %d\n", self->numpoints);
 	if (self->numpoints < 0) {
 		return 0;
         }
@@ -73,7 +73,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
 
     // Search for all the numbers is the granularity range.
     for(number = (test_value)*num_for_task; number < ((test_value+1)*num_for_task); number++) {
-        printf("PRIME.C => Testing : %d\n", number);
+        //printf("PRIME.C => Testing : %d\n", number);
         sqrt_value = sqrt(number);
         sqrt_cast = (int) sqrt_value;
 
@@ -97,9 +97,9 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
         }
         // If it's a prime, pack it.
         if(is_prime == 1) { 
-            printf("PACKING %d\n", number);
+            //printf("PACKING %d\n", number);
             byte_array_pack32(result, number);
-            printf("LEN: %d\n", (int)result->len);
+            //printf("LEN: %d\n", (int)result->len);
             total_prime++;
         }
     }
@@ -135,7 +135,7 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 	UNUSED(user_data);
     
 	while(byte_array_unpack32(result, &x)) {
-		printf("COMMITTING %d\n", x);
+		//printf("COMMITTING %d\n", x);
 		insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
 		insertion->value = x;
 		insertion->next = list_pointer->next;
@@ -187,6 +187,7 @@ void spits_commit_job(void *user_data, struct byte_array *final_result)
     printf("Prime Numbers : \n");
     
     iter = (struct prime_list *) user_data;
+    iter = iter->next;
     while(iter != NULL) {
         printf("%d", (int) iter->value);
         iter = iter->next;
