@@ -183,8 +183,8 @@ def COMM_connect_to_job_manager(ip, port):
 		return -1
 
 # Send VM identification to Job Manager.
-def COMM_send_vm_node(ip):
-	return COMM_send_message(ip+'|'+str(PORT_VM), MSG_NEW_VM_TASK_MANAGER, socket_manager)
+def COMM_send_vm_node(ip, port):
+	return COMM_send_message(str(ip)+'|'+str(port), MSG_NEW_VM_TASK_MANAGER, socket_manager)
 
 # Get status string. Used to fill the table of status.
 def COMM_get_status(request):

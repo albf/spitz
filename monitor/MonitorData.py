@@ -25,8 +25,8 @@ import socket
 from azure import *
 from azure.servicemanagement import *
 import ssl
+import time
 from Comm import *
-import Runner
 
 ''' ----- 
     MonitorData 
@@ -59,15 +59,16 @@ class MonitorData:
 		self.VMrowsInfo =[]		# stores service names: [service_name, deployment_name, instance_name, azure status]
 		self.VMlastIndex= -1 
 		self.VMlastOrder = -1
-
+		self.subscription_id = ''
+		self.certificate_path = ''
 
 	# Connect to Azure and get information about all services with SPITZ in their name.
 	# Check if it's on and if there is a spitz instance running.
 	def connectToCloudProvider(self):
 		# Get credentials and instanciate SMS
-		subscription_id = str(Runner.Screen.AppInstance.config.get('example', 'subscription_id'))
-		certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
- 		sms = ServiceManagementService(subscription_id, certificate_path)
+		#subscription_id = str(.Screen.AppInstance.config.get('example', 'subscription_id'))
+		#certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
+ 		sms = ServiceManagementService(self.subscription_id, self.certificate_path)
 
 		# May be an update, clean before doing anything.
 		if len(self.VMrows) > 0:
@@ -173,9 +174,9 @@ class MonitorData:
 		print services_names
 
 		# Get credentials and instanciate SMS
-		subscription_id = str(Runner.Screen.AppInstance.config.get('example', 'subscription_id'))
-		certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
- 		sms = ServiceManagementService(subscription_id, certificate_path)
+		#subscription_id = str(Runner.Screen.AppInstance.config.get('example', 'subscription_id'))
+		#certificate_path = str(Runner.Screen.AppInstance.config.get('example', 'certificate_path'))
+ 		sms = ServiceManagementService(self.subscription_id, self.certificate_path)
 
 		# May be an update, clean before doing anything.
 		if len(self.VMrows) > 0:
@@ -229,7 +230,9 @@ class MonitorData:
 			return False
 
 	# Test if an unreachable VM is, now, reachable (using SSH). Also checks for SPITZ intance if it's on. 
-	def VMTryAgain(self, index):
+	# OLD:str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
+	# OLD:str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+	def VMTryAgain(self, index, ssh_login, ssh_pass):
 		address = self.VMrows[index][1] 
 		print address
 		sshs = paramiko.SSHClient()
@@ -240,8 +243,8 @@ class MonitorData:
 		try:
 			s_action = "Try Again"
 			sshs.connect(address,
-				 username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
-				 password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+				 username=ssh_login,
+				 password=ssh_pass)
 
 			stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
 			pid = stdouts.readlines()
@@ -275,9 +278,10 @@ class MonitorData:
 			return False 
 
 	# Send a request to the monitor and get the answer.
-	def getStatusMessage(self, task):
-		if COMM_connect_to_job_manager(Runner.Screen.AppInstance.config.get('example', 'jm_address'),
-							Runner.Screen.AppInstance.config.get('example', 'jm_port')) >= 0:
+	# OLD: Runner.Screen.AppInstance.config.get('example', 'jm_address'),
+	# OLD: Runner.Screen.AppInstance.config.get('example', 'jm_port')) >= 0:
+	def getStatusMessage(self, task, jm_address, jm_port):
+		if COMM_connect_to_job_manager(jm_addres, jm_port) >= 0:
 
 			self.ln = COMM_get_status('')
 			if self.ln != None:
@@ -286,9 +290,10 @@ class MonitorData:
 		return -1 
 
 	# Get number of tasks from the Job Manager
-	def getNumberOfTasks(self, task):
-		ret = COMM_connect_to_job_manager(Runner.Screen.AppInstance.config.get('example', 'jm_address'),
-						Runner.Screen.AppInstance.config.get('example', 'jm_port'))
+	# OLD:Runner.Screen.AppInstance.config.get('example', 'jm_address'),
+	# OLD:Runner.Screen.AppInstance.config.get('example', 'jm_port'))
+	def getNumberOfTasks(self, task, jm_address, jm_port):
+		ret = COMM_connect_to_job_manager(jm_address, jm_port)
 		
 		if ret >= 0 :
 			self.TotalTasks = COMM_get_num_tasks()
@@ -301,7 +306,9 @@ class MonitorData:
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	# Kill : Kill existing if true ; Start : start new process if true ; Send : send data to JM if true.
 	# Note, invalid combination : true, false, true.
-	def launchVMnode(self, index, kill, update, start, send):
+	# OLD: str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')), 
+	# OLD: str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+	def launchVMnode(self, index, kill, update, start, send, username, password):
 		if (kill == True) and (start == False) and (send == True):
 			Runner.Screen.makeCommandLayout(self, "Invalid combination in MonitorData.launchVMnode.")
 			return False
@@ -315,9 +322,7 @@ class MonitorData:
 
 		if(address != "localhost") and (address != "127.0.0.1"):
 			try:
-				ssh.connect(address,
-					username=str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')), 
-					password=str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
+				ssh.connect(address, username=username,	password=password)
 
 				# Send spitz and libspitz.so to VM node.
 				'''if os.path.isfile('spitz') and os.path.isfile('libspitz.so'):
@@ -354,7 +359,7 @@ class MonitorData:
 							Runner.Screen.AppInstance.config.get('example', 'jm_port'))
 			
 			if ret == 0:
-				ret = COMM_send_vm_node(str(address))
+				ret = COMM_send_vm_node(str(address), 22)
 				if ret == 0:
 					Runner.Screen.makeCommandLayout(self, "Spitz instance running in " + str(address) + ".")
 					return True
@@ -390,6 +395,215 @@ class MonitorData:
 
 		# i = 5 total_rcvd
 		# i = 6 completed
-
 		#percentage = (self.total_compl / float(100))*100
-		
+
+
+	# Check if it's on and if there is a spitz instance running.
+	def startAllNodes(self, subscription_id, certificate_path, command, ssh_user, ssh_pass, jm_address, jm_port):
+		# Get credentials and instanciate SMS
+		sms = ServiceManagementService(subscription_id, certificate_path)
+
+		try:
+			# Get service list
+			result = sms.list_hosted_services()
+			for hosted_service in result:
+				print hosted_service.service_name
+				# Get only services with SPITZ in its name.
+				if "spitz" in str(hosted_service.service_name).lower() :
+					address = str(hosted_service.service_name) + ".cloudapp.net"
+					status = "None"
+					instance_name = ""
+
+					# Get deployment information.
+					d_result = sms.get_deployment_by_slot(hosted_service.service_name,'Production')
+					deployment_name = d_result.name
+
+					# Get instance information.
+					for instance in d_result.role_instance_list:
+						instance_name = instance.instance_name
+						status = instance.instance_status
+						offset = int(instance_name[5:])
+						port = offset+22
+
+						# If the VM is ok and running, try to establish a SSH connection.
+						if (status != "StoppedVM") and (status!= "StoppedDeallocated"):
+							sshs = paramiko.SSHClient()
+							sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+							try:
+								sshs.connect(address,
+									username=ssh_user,
+									password=ssh_pass, 
+									port = port) 
+
+								sshs.exec_command('pkill spitz')
+								sftp = sshs.open_sftp()
+								self.sftp.put('spitz', 'spitz') 
+								sssh.exec_command('chmod 555 spitz')
+								sftp.put('libspitz.so', 'libspitz.so')
+								sshs.exec_command('export LD_LIBRARY_PATH=$PWD')
+								sshs.exec_command(command)
+								ret = COMM_connect_to_job_manager(jm_address, jm_port)
+
+								if ret == 0:
+									ret = COMM_send_vm_node(str(address), PORT_VM+offset)
+									if ret == 0:
+										print("Spitz instance running in " + str(address) + "|" + str(port) + ".")
+									else:
+										print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(port) + ".")
+								else:
+									print("Can't connect to Job Manager.")
+						
+
+							except socket.gaierror as e1:
+								print ("Couldn't find " + str(address) + ".")
+								status = "No SSH access."
+							except socket.error as e2:
+								print("Connection refused in " + str(address) + ".")
+								status = "SSH refused."
+							except paramiko.AuthenticationException as e3:
+								print("Wrong credentials for " + str(address) + ".")
+								status = "SSH denied."
+							except:
+								print("unexpected error connecting to " + str(address) + ".")
+								status = "SSH issue."
+
+		except WindowsAzureError as WAE:
+			#Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
+			print "Couldn't connect with Azure, is your credentials right?"
+		except socket.gaierror as SGE:
+			#Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
+			print "Problem connecting to Azure, are your internet ok?"
+		except ssl.SSLError as SLE:
+			#Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
+			print "Problem connecting to Azure, are your certificates ok?")
+
+
+
+	def createNode(sms, service_name, vm_name, blob_url, offset, linux_user, linux_pass, is_first, wait=10):
+		# Create linux config
+		linux_config = LinuxConfigurationSet(vm_name, linux_user, linux_pass, True)
+		linux_config.disable_ssh_password_authentication = False
+
+		# Create linux endpoints
+		endpoint_config = ConfigurationSet()
+		endpoint_config.configuration_set_type = 'NetworkConfiguration'
+		endpoint1 = ConfigurationSetInputEndpoint(name='JM', protocol='tcp', port=str(8898+offset), local_port='8898', 
+													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+		endpoint2 = ConfigurationSetInputEndpoint(name='CM', protocol='tcp', port=str(10007+offset), local_port='10007', 
+													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+		endpoint3 = ConfigurationSetInputEndpoint(name='SSH', protocol='tcp', port=str(22+offset), local_port='22', 
+													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+
+		endpoint_config.input_endpoints.input_endpoints.append(endpoint1)
+		endpoint_config.input_endpoints.input_endpoints.append(endpoint2)
+		endpoint_config.input_endpoints.input_endpoints.append(endpoint3)
+
+		# Create HD
+		label = service_name + '-' + vm_name
+		media_link = blob_url + label + '.vhd'
+		os_hd = OSVirtualHardDisk(image, media_link, disk_label= label +'.vhd', disk_name = label +'.name' )
+		print vars(os_hd)
+
+		if(is_first == True):
+			done = False
+			try_t = 0
+			while (done == False):
+				try:
+					print "Try: " + str(try_t)
+					sms.create_virtual_machine_deployment(service_name=service_name, deployment_name=service_name,
+											  deployment_slot='production', label=vm_name, role_name=vm_name,
+											  system_config=linux_config, network_config=endpoint_config,
+											  os_virtual_hard_disk=os_hd, role_size='Small')
+					done=True
+				except Exception as exc:
+					try_t += 1
+					time.sleep(wait)
+					print 'error, exc: ' + str(exc)
+		else:
+			done = False
+			try_t = 0
+			while (done == False):
+				try:
+					print "Try: " + str(try_t)
+					sms.add_role(service_name=service_name, deployment_name=service_name, role_name = vm_name, 
+									system_config=linux_config, os_virtual_hard_disk = os_hd, 
+									network_config=endpoint_config, role_size='Small')
+					done = True
+				except Exception as exc:
+					try_t += 1
+					time.sleep(wait)
+					print 'error, exc: ' + str(exc)
+
+	def allocateNodes(total_cloud_services, vms_per_cloud, windows_blob_url, image, location, linux_user, linux_pass, VMHeader = "spitz"):
+		sms = ServiceManagementService(subscription_id, certificate_path)
+
+		# Stores names of services.
+		ServiceList = []
+		VMList = []
+
+		# Get current services.
+		try:
+			result = sms.list_hosted_services()
+		except WindowsAzureError as x:
+			print 'Except: Could not list hosted services'
+			return
+
+
+		# Check current services and create deployments when needed.
+		service_counter = 0
+		for hosted_service in result:
+			print('Service name: ' + hosted_service.service_name)
+
+			if "spitz" in str(hosted_service.service_name).lower():
+				if(service_counter < total_cloud_services):
+					service_counter += 1
+					ServiceList.append(str(hosted_service.service_name))
+					remove_list = []
+					try:
+						d_result = sms.get_deployment_by_slot(hosted_service.service_name, 'Production')
+						vm_counter = 0
+						print ( 'Deployment Name:'  + d_result.name )
+						for instance in d_result.role_instance_list :
+							print ( 'Instance name:'  + instance.instance_name )
+							if(vm_counter >= vms_per_cloud):
+								print 'Not necessary role detected'
+								remove_list.append(instance.instance_name)
+								# Don't need it, remove.
+							else:
+								vm_counter += 1
+
+						if(len(remove_list)>0):
+							print 'Deleting extra roles'
+							sms.delete_role_instances(hosted_service.service_name, d_result.name, remove_list)
+
+						VMList.append(vm_counter)
+					# Deployment doesn't exist
+					except WindowsAzureMissingResourceError:
+						print 'Creating Deployment'
+						createNode(sms, str(hosted_service.service_name), VMHeader + str(0), windows_blob_url, 0, linux_user, linux_pass, True)
+						VMList.append(1)
+
+				# Service not necessary, destroy it.
+				else:
+					print 'Deleting extra service'
+					sms.delete_hosted_service(hosted_service.service_name)
+
+			print('')
+		# Verify if any service should be created and create them.
+		while(service_counter < total_cloud_services):
+			nextName = VMHeader + str(service_counter)
+			print 'Creating service and deployment: ' + str(nextName)
+			sms.create_hosted_service(service_name=nextName, label=nextName, location=location)
+			createNode(sms, nextName, VMHeader + str(0), windows_blob_url, 0, linux_user, linux_pass, True)
+
+			ServiceList.append(nextName)
+			VMList.append(1)
+			service_counter += 1
+
+		# Create the remaining VMs
+		for vm_num in range(vms_per_cloud):
+			for sv_num in range(len(ServiceList)):
+				if (VMList[sv_num] <= vm_num):
+					print 'Creating Node: ' + str(ServiceList[sv_num]) + ' - VMNUM: ' + str(vm_num)
+					self.createNode(sms, ServiceList[sv_num], VMHeader + str(vm_num), windows_blob_url, vm_num, linux_user, linux_pass, False)
+
