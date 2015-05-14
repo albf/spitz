@@ -69,7 +69,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
     byte_array_resize(result, (size_t)(num_for_task*4));
     printf("LEN: %d\n", (int)result->len);
 
-    //sleep(5);
+    sleep(5);
 
     // Search for all the numbers is the granularity range.
     for(number = (test_value)*num_for_task; number < ((test_value+1)*num_for_task); number++) {

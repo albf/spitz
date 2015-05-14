@@ -430,18 +430,25 @@ class MonitorData:
 							sshs = paramiko.SSHClient()
 							sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 							try:
+								print "name: " + str(instance_name)
+								print "address: " + str(address)
+								print "port: " + str(port)
 								sshs.connect(address,
 									username=ssh_user,
 									password=ssh_pass, 
 									port = port) 
 
 								sshs.exec_command('pkill spitz')
+								sshs.exec_command('rm -r spitz')
+								sshs.exec_command('mkdir spitz')
 								sftp = sshs.open_sftp()
-								self.sftp.put('spitz', 'spitz') 
-								sssh.exec_command('chmod 555 spitz')
-								sftp.put('libspitz.so', 'libspitz.so')
-								sshs.exec_command('export LD_LIBRARY_PATH=$PWD')
-								sshs.exec_command(command)
+								sftp.put('../examples/spitz', 'spitz/spitz') 
+								sshs.exec_command('chmod 555 ~/spitz/spitz')
+								sftp.put('../examples/libspitz.so', 'spitz/libspitz.so') 
+								sftp.put('../examples/prime.so', 'spitz/prime.so') 
+								sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz')
+								#sshs.exec_command(command)
+								return
 								ret = COMM_connect_to_job_manager(jm_address, jm_port)
 
 								if ret == 0:
@@ -463,9 +470,9 @@ class MonitorData:
 							except paramiko.AuthenticationException as e3:
 								print("Wrong credentials for " + str(address) + ".")
 								status = "SSH denied."
-							except:
-								print("unexpected error connecting to " + str(address) + ".")
-								status = "SSH issue."
+							#except Exception as e3:
+							#	print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
+							#	status = "SSH issue."
 
 		except WindowsAzureError as WAE:
 			#Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
@@ -475,11 +482,11 @@ class MonitorData:
 			print "Problem connecting to Azure, are your internet ok?"
 		except ssl.SSLError as SLE:
 			#Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
-			print "Problem connecting to Azure, are your certificates ok?")
+			print "Problem connecting to Azure, are your certificates ok?"
 
 
 
-	def createNode(sms, service_name, vm_name, blob_url, offset, linux_user, linux_pass, is_first, wait=10):
+	def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
 		# Create linux config
 		linux_config = LinuxConfigurationSet(vm_name, linux_user, linux_pass, True)
 		linux_config.disable_ssh_password_authentication = False
@@ -534,7 +541,10 @@ class MonitorData:
 					time.sleep(wait)
 					print 'error, exc: ' + str(exc)
 
-	def allocateNodes(total_cloud_services, vms_per_cloud, windows_blob_url, image, location, linux_user, linux_pass, VMHeader = "spitz"):
+	def allocateNodes(self, total_cloud_services, vms_per_cloud, subscription_id, 
+				certificate_path, windows_blob_url, image, location, 
+				linux_user, linux_pass, VMHeader = "spitz"):
+
 		sms = ServiceManagementService(subscription_id, certificate_path)
 
 		# Stores names of services.
@@ -580,7 +590,8 @@ class MonitorData:
 					# Deployment doesn't exist
 					except WindowsAzureMissingResourceError:
 						print 'Creating Deployment'
-						createNode(sms, str(hosted_service.service_name), VMHeader + str(0), windows_blob_url, 0, linux_user, linux_pass, True)
+						self.createNode(sms, str(hosted_service.service_name), VMHeader + str(0), 
+							windows_blob_url, image, 0, linux_user, linux_pass, True)
 						VMList.append(1)
 
 				# Service not necessary, destroy it.
@@ -594,7 +605,8 @@ class MonitorData:
 			nextName = VMHeader + str(service_counter)
 			print 'Creating service and deployment: ' + str(nextName)
 			sms.create_hosted_service(service_name=nextName, label=nextName, location=location)
-			createNode(sms, nextName, VMHeader + str(0), windows_blob_url, 0, linux_user, linux_pass, True)
+			self.createNode(sms, nextName, VMHeader + str(0), windows_blob_url, image, 
+				0, linux_user, linux_pass, True)
 
 			ServiceList.append(nextName)
 			VMList.append(1)
@@ -605,5 +617,6 @@ class MonitorData:
 			for sv_num in range(len(ServiceList)):
 				if (VMList[sv_num] <= vm_num):
 					print 'Creating Node: ' + str(ServiceList[sv_num]) + ' - VMNUM: ' + str(vm_num)
-					self.createNode(sms, ServiceList[sv_num], VMHeader + str(vm_num), windows_blob_url, vm_num, linux_user, linux_pass, False)
+					self.createNode(sms, ServiceList[sv_num], VMHeader + str(vm_num), windows_blob_url, 
+						image, vm_num, linux_user, linux_pass, False)
 

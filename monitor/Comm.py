@@ -170,7 +170,7 @@ def COMM_connect_to_job_manager(ip, port):
 	if COMM_is_connected == True:
 		return 0
 
-	print "Connecting to JM with address: " + ip + ":" + port
+	print "Connecting to JM with address: " + ip + ":" + str(port)
 	try:
 		socket_manager.connect((ip, COMM_cast(port)))		# Connect to Job Manager
 		COMM_my_rank = COMM_read_int(socket_manager)		# Receive rank
