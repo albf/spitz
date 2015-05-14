@@ -510,10 +510,12 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     
     // Get the ip and port values.
     token = strtok((char *) ba->ptr, "|\0");
+    debug("VM IP: %s", token);
     node_address.sin_addr.s_addr = inet_addr(token);
     node_address.sin_family = AF_INET;
     
     token = strtok(NULL, "|\0");
+    debug("VM PORT : %s", token);
     c_port = atoi(token);
     //c_port = atoi(strtok(token, "|"));
     node_address.sin_port = htons(c_port);
@@ -550,7 +552,8 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         if (connect(socket_node, (struct sockaddr *)&node_address, sizeof(node_address)) < 0) { 
             if(errno == EINPROGRESS) {
                 // Use select with timeout
-                tv.tv_sec = 5;
+                debug("Adding timeout");
+                tv.tv_sec = 20;
                 tv.tv_usec = 0;
                 FD_ZERO(&myset); 
                 FD_SET(socket_node, &myset); 
@@ -563,9 +566,13 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
                     } 
                 } 
             }
+            else {
+                error("Error occurred when connecting to VM : %s", strerror(errno));
+            }
         }
         // Instant connection? Shouldn't occur.
         else { 
+            debug("Instant connection shouldn't occur");
             is_connected = 1; 
         }
 

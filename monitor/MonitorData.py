@@ -433,28 +433,45 @@ class MonitorData:
 								print "name: " + str(instance_name)
 								print "address: " + str(address)
 								print "port: " + str(port)
+								print "ip: " + str(socket.gethostbyname(str(address)))
+								print "port: " + str(PORT_VM+offset)
 								sshs.connect(address,
 									username=ssh_user,
 									password=ssh_pass, 
 									port = port) 
 
+							 	
 								sshs.exec_command('pkill spitz')
 								sshs.exec_command('rm -r spitz')
 								sshs.exec_command('mkdir spitz')
 								sftp = sshs.open_sftp()
-								sftp.put('../examples/spitz', 'spitz/spitz') 
+								#sftp.get('spitz/spitz/spitz', 'spitz_vm')
+								#sftp.get('spitz/spitz/libspitz.so', 'libspitz_vm.so')
+								#sftp.get('spitz/examples/prime.so', 'prime_vm.so')
+								sftp.put('spitz_vm', 'spitz/spitz') 
 								sshs.exec_command('chmod 555 ~/spitz/spitz')
-								sftp.put('../examples/libspitz.so', 'spitz/libspitz.so') 
-								sftp.put('../examples/prime.so', 'spitz/prime.so') 
-								sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz')
-								#sshs.exec_command(command)
-								return
+								sftp.put('libspitz_vm.so', 'spitz/libspitz.so') 
+								sftp.put('prime_vm.so', 'spitz/prime.so') 
+								#sshs.exec_command('screen')
+								sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz && ' + str(command))
+								#print 'stdout: ' + str(stdout.readlines())
+								#print 'stderr: ' + str(stderr.readlines())
+								print command
+								#sstdin, stdout, stderr = sshs.exec_command(command)
+								#print 'stdout: ' + str(stdout.readlines())
+								#print 'stderr: ' + str(stderr.readlines())
+								#print 'sleeping'
+								time.sleep(10)
+								
 								ret = COMM_connect_to_job_manager(jm_address, jm_port)
 
+								#ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
 								if ret == 0:
-									ret = COMM_send_vm_node(str(address), PORT_VM+offset)
+									ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
+									#ret = COMM_send_vm_node('127.0.0.1', PORT_VM+offset)
+
 									if ret == 0:
-										print("Spitz instance running in " + str(address) + "|" + str(port) + ".")
+										print("Spitz instance running in " + str(address) + "|" + str(PORT_VM+offset) + ".")
 									else:
 										print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(port) + ".")
 								else:
@@ -494,16 +511,22 @@ class MonitorData:
 		# Create linux endpoints
 		endpoint_config = ConfigurationSet()
 		endpoint_config.configuration_set_type = 'NetworkConfiguration'
-		endpoint1 = ConfigurationSetInputEndpoint(name='JM', protocol='tcp', port=str(8898+offset), local_port='8898', 
+		#endpoint1 = ConfigurationSetInputEndpoint(name='JM', protocol='tcp', port=str(8898+offset), local_port='8898', 
+		#											load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+		#endpoint2 = ConfigurationSetInputEndpoint(name='CM', protocol='tcp', port=str(10007+offset), local_port='10007', 
+		#											load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+		#endpoint1 = ConfigurationSetInputEndpoint(name='SPITZ', protocol='tcp', port=str(PORT_VM+offset), local_port='10007', 
+		#											load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
+		print "port: " + str(PORT_VM+offset)
+		print "local_port: " + str(PORT_VM)
+		endpoint1 = ConfigurationSetInputEndpoint(name='SPITZ', protocol='tcp', port=str(PORT_VM+offset), local_port=str(PORT_VM),
 													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
-		endpoint2 = ConfigurationSetInputEndpoint(name='CM', protocol='tcp', port=str(10007+offset), local_port='10007', 
-													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
-		endpoint3 = ConfigurationSetInputEndpoint(name='SSH', protocol='tcp', port=str(22+offset), local_port='22', 
+		endpoint2 = ConfigurationSetInputEndpoint(name='SSH', protocol='tcp', port=str(22+offset), local_port='22', 
 													load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
 
 		endpoint_config.input_endpoints.input_endpoints.append(endpoint1)
 		endpoint_config.input_endpoints.input_endpoints.append(endpoint2)
-		endpoint_config.input_endpoints.input_endpoints.append(endpoint3)
+		#endpoint_config.input_endpoints.input_endpoints.append(endpoint3)
 
 		# Create HD
 		label = service_name + '-' + vm_name

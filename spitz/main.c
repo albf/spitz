@@ -442,7 +442,7 @@ int main(int argc, char *argv[])
         setvbuf(stderr, (char *) NULL, _IOLBF, 0);                  // Make line buffered stdout.
     }
 
-    info("SPITZ Started, actor number: %d", (int) type);
+    error("SPITZ Started, actor number: %d", (int) type);
     
     sa.sa_handler = SIG_IGN;
     sigemptyset(&sa.sa_mask);
