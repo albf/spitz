@@ -414,7 +414,7 @@ int byte_array_compute_hash(struct byte_array *ba, struct byte_array * binary) {
         free(ba->ptr);
     }
     
-    ba->ptr = md5(binary->ptr, binary->len);
+    ba->ptr = (uint8_t *) md5(binary->ptr, binary->len);
     ba->len = strlen((char *)ba->ptr)+1; 
     byte_array_resize(ba, ba->len);
     

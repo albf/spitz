@@ -60,8 +60,6 @@ int COMM_request_committer();
 // Communication
 int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_terminator);
 int COMM_send_bytes(int sock, void * bytes, int size);
-int COMM_send_int(int sock, int value);
-int COMM_read_int(int sock);
 
 
 // Send message, used to make request between processes 
@@ -289,7 +287,6 @@ int COMM_vm_connection(int waitJM, char waitCM) {
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket.
     int origin_socket;                                              // Socket that sent the request.
-    char * v;                                                       // Used as auxiliary. 
     int64_t bufferr;                                                // Buffer used to receive id. 
    
     // May be looking only for JM or for CM
@@ -364,10 +361,10 @@ int COMM_vm_connection(int waitJM, char waitCM) {
             case MSG_CLOSE_CONNECTION:
                 _byte_array_unpack64(ba, &socket_cl);
 
-                if(socket_cl == socket_committer) {
+                if((int)socket_cl == socket_committer) {
                     is_there_cm = 0;
                 }
-                if(socket_cl == socket_manager) {
+                if((int)socket_cl == socket_manager) {
                     is_there_jm = 0;
                 }                
                 
@@ -397,7 +394,6 @@ int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
     int is_connected = 0;
     int retries_left;
     int rank_rcv;
-    int msg_ret;
     struct byte_array * ba;
         
     // Verify if retries is valid.
@@ -491,7 +487,6 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int i;
 
     // Non-Blocking socket.
-    struct sockaddr_in addr; 
     long arg; 
     fd_set myset; 
     struct timeval tv; 
@@ -632,11 +627,12 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 // Connect with committer using any task manager.
 int COMM_connect_to_committer(int * retries) {
     if ((type == TASK_MANAGER) || (type == COMMITTER) || (type == MONITOR)) {
-        COMM_connect_to_committer_local(retries);
+        return COMM_connect_to_committer_local(retries);
     }
     else if(type==VM_TASK_MANAGER) {
-        COMM_vm_connection(0,1); 
+        return COMM_vm_connection(0,1); 
     }
+    return -1;
 }
 
 // Get committer with the job manager and establish a connection. Local (non-VM) version.
@@ -685,6 +681,7 @@ int COMM_connect_to_committer_local(int * retries) {
             is_connected = 1; 
         }
     }    
+    return 0;
 }
 
 // Request and receive number of alive members.

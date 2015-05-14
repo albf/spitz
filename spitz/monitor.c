@@ -31,7 +31,6 @@ void monitor(int argc, char *argv[])
     enum message_type type;                                         // Type of received message.
     int comm_return=0;                                              // Return values from send and read.
     int retries;                                                    // Number of retries used to send a VM.
-    int is_connected=0;                                             // Indicate if connected successfully
     uint64_t aux64;                                                 // Used to receive the number of tasks.
     
     // Used to parse and send a ip from a vm task manager.

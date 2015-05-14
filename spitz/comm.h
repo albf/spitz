@@ -103,6 +103,8 @@ void COMM_LIST_print_ip_list();
 // General Propose (sending and receiving data from sockets)
 int COMM_read_message(struct byte_array *ba, enum message_type *type, int rcv_socket);
 int COMM_send_message(struct byte_array *ba, int type, int dest_socket);
+int COMM_send_int(int sock, int value);
+int COMM_read_int(int sock);
 
 // Extern Variables
 extern int socket_manager, socket_committer;                // socket of servers (job manager and committer)

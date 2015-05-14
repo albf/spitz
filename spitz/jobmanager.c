@@ -28,10 +28,13 @@
 #include "log.h"
 #include "barray.h"
 #include "spitz.h"
+#include <pthread.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 
 // Adds an registry of task being sent to an Task Manager.
-void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
+void add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
     int changed = 0;
     int initial_size, i;
     struct task_registry * ptr;
@@ -80,7 +83,7 @@ void add_registry(struct jm_thread_data *td, size_t task_id, int tm_id) {
 }
 
 // Indicate if task_id was already sent to tm_id. 1 if yes, 0 if no.
-int check_registry(struct jm_thread_data * td, size_t task_id, int tm_id) {
+int check_registry(struct jm_thread_data * td, int task_id, int tm_id) {
     struct task_registry * ptr;
     pthread_mutex_lock(&td->registry_lock);
 
@@ -187,7 +190,7 @@ struct request_elem * pop_request(struct jm_thread_data * td) {
 }
 
 // Add task to the task list. No repeated tasks will be generated with current algorithm.
-void * add_task(struct jm_thread_data *td, struct task *node) {
+void add_task(struct jm_thread_data *td, struct task *node) {
     pthread_mutex_lock(&td->tl_lock);
     
     node->next = NULL;
@@ -566,24 +569,19 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     char * v;                                                       // Used as auxiliary. 
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
-    uint64_t aux64;                                                 // Auxiliary, used to cast variables. 
     uint64_t buffer;                                                // buffer used for received uint64_t values 
     struct timeval tv;                                              // Timeout for select.
     int i;                                                          // Iterator
     int free_ba;                                                    // Indicate if ba should be released.
+    int total_restores;                                             // Total of VMs restored.
 
     // VM restore management.
     int counter=0;                                                  // Counts requests to restore VMs Task Managers.
     int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
-    int total_restores=0;                                           // Amount of nodes restored.
     
     //struct task *home = NULL, *mark = NULL, *head = NULL;         // Pointer to represent the FIFO.
     
-    void * ptr = td->handle;                                        // Open the binary file.
     
-    //spitz_ctor_t ctor = dlsym(ptr, "spits_job_manager_new");      // Loads the user functions.
-    spitz_tgen_t tgen = dlsym(ptr, "spits_job_manager_next_task");
-
     // Data structure to exchange message between processes. 
     struct byte_array * ba; 
 
@@ -785,6 +783,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 counter++;
                 if(counter>=RESTORE_RATE) {
                     total_restores = check_VM_nodes(COMM_ip_list); 
+                    debug("%d nodes were restored.", total_restores);
                     counter=0;
                 }
             }

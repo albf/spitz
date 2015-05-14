@@ -43,12 +43,12 @@ void committer(int argc, char *argv[], void *handle)
 
     // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
-    size_t cap = 10;                                                // Initial capacity.
-    size_t i, old_cap;                                              // Auxiliary to capacity
-    size_t *committed = malloc(sizeof(size_t) * cap);               // List indexed by the task id. 
-                                                                    // 1 for committed, 0 for not yet.
-    int task_id;                                                    // Task id of received result.
-    int tm_rank;                                                    // Rank id of the worker that completed the work.
+    int cap = 10;                                                    // Initial capacity.
+    int i, old_cap;                                                  // Auxiliary to capacity
+    int *committed = malloc(sizeof(int) * cap);                      // List indexed by the task id. 
+                                                                     // 1 for committed, 0 for not yet.
+    int task_id;                                                     // Task id of received result.
+    int tm_rank;                                                     // Rank id of the worker that completed the work.
     
     // Loads the user functions.
     void * (*setup) (int, char **);

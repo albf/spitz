@@ -35,6 +35,9 @@
 #include "monitor.h"
 #include "comm.h"
 #include "spitz.h"
+#include <pthread.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define SPITZ_VERSION "0.1.0"
 #define NON_BUFFERED_STDOUT 1  
@@ -331,7 +334,7 @@ void start_slave_processes(int argc, char *argv[])
             // DEBUG END //
 
             
-            byte_array_unpack_binary(ba_binary, lib_path->ptr);   
+            byte_array_unpack_binary(ba_binary, (char *) lib_path->ptr);   
     
         }
     }     

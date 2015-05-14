@@ -81,13 +81,13 @@ struct task_list {
 };
 
 struct task {
-    size_t id;
+    int id;
     struct byte_array * data;
     struct task *next;
 };
 
 struct task_registry {
-    size_t task_id;
+    int task_id;
     int tm_id;
     struct timeval * send_time;
     struct timeval * completed_time;

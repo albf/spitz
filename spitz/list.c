@@ -193,10 +193,10 @@ struct LIST_data * LIST_remove_id(struct LIST_data * data_pointer, int id) {
     // First check for the head.
     if(data_pointer->list_pointer->id == id) {
         // If it is here and there is any holes, check again, might break.
-        if(ptr->next != NULL) {
+        if(prev->next != NULL) {
             // Fix the holes number in the head.
-            if((ptr->next->id)!=((ptr->id)-1) ) {
-                data_pointer->holes = (data_pointer->holes) - ((ptr->id)-1-(ptr->next->id));
+            if((prev->next->id)!=((prev->id)-1) ) {
+                data_pointer->holes = (data_pointer->holes) - ((prev->id)-1-(prev->next->id));
             }
         }
 

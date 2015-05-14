@@ -2,7 +2,7 @@ SRC = cfifo.c log.c comm.c main.c jobmanager.c committer.c taskmanager.c list.c 
 COMM = comm
 
 CPPFLAGS = -I.
-CFLAGS = -g
+CFLAGS = -g -Wall -Wextra 
 LDFLAGS = -L. -lspitz -ldl -lrt -lpthread -lm
 
 all: spitz

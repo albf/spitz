@@ -86,8 +86,6 @@ void info(const char *msg, ...)
 	if (LOG_LEVEL < 1)
 		return;
 	
-	int rank = COMM_get_rank_id();	
-	
 	va_list ap;
 	va_start(ap, msg);
 	vmessage(stdout, msg, "info:", BLUE, ap);
@@ -99,8 +97,6 @@ void debug(const char *msg, ...)
 	if (LOG_LEVEL < 2)
 		return;
 	
-	int rank = COMM_get_rank_id();
-	
 	va_list ap;
 	va_start(ap, msg);
 	vmessage(stdout, msg, "debug:", GREEN, ap);
@@ -109,8 +105,6 @@ void debug(const char *msg, ...)
 
 void warning(const char *msg, ...)
 {
-	int rank = COMM_get_rank_id();
-	
 	va_list ap;
 	va_start(ap, msg);
 	vmessage(stderr, msg, "warning:", YELLOW, ap);
@@ -119,8 +113,6 @@ void warning(const char *msg, ...)
 
 void error(const char *msg, ...)
 {
-	int rank = COMM_get_rank_id();
-	
 	va_list ap;
 	va_start(ap, msg);
 	vmessage(stderr, msg, "error:", RED, ap);

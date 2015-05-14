@@ -461,7 +461,7 @@ class MonitorData:
 								#print 'stdout: ' + str(stdout.readlines())
 								#print 'stderr: ' + str(stderr.readlines())
 								#print 'sleeping'
-								time.sleep(10)
+								#time.sleep(5)
 								
 								ret = COMM_connect_to_job_manager(jm_address, jm_port)
 
@@ -505,6 +505,8 @@ class MonitorData:
 
 	def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
 		# Create linux config
+		print 'Linux user: ' + str(linux_user)
+		print 'Linux pass: ' + str(linux_pass)
 		linux_config = LinuxConfigurationSet(vm_name, linux_user, linux_pass, True)
 		linux_config.disable_ssh_password_authentication = False
 
