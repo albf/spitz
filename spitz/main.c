@@ -66,6 +66,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     pthread_t * t; 
     pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);         // set lib path variable
+    char * info;
 
     struct jm_thread_data td;
 
@@ -148,9 +149,10 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_join(t[i], NULL);
     }
 
-    debug(REGISTRY_generate_info(&td, NULL));
-
     if(KEEP_REGISTRY > 0) {
+        info = REGISTRY_generate_info(&td, NULL);
+        debug(info);
+        free(info);
         REGISTRY_free(&td);
     }   
     
