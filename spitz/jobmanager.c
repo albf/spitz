@@ -718,10 +718,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     free(ba_binary);
     free(ba_hash);
 
-    if(KEEP_REGISTRY > 0) {
-        REGISTRY_free(td);
-    }
-
     // And in user_data
     free(td->user_data);
 

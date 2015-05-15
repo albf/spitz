@@ -38,5 +38,8 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id);
 void REGISTRY_add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id);
 void REGISTRY_free(struct jm_thread_data *td);
 
+// Info
+char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename);
+
 #endif	/* LIST_H */
 

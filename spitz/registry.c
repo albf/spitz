@@ -151,3 +151,118 @@ void REGISTRY_free(struct jm_thread_data *td) {
     free(td->registry);
     debug("Registry memory freed.");
 }
+
+/* Return 1 if the difference is negative, otherwise 0.  */
+int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
+{
+    long int diff = (t2->tv_usec + 1000000 * t2->tv_sec) - (t1->tv_usec + 1000000 * t1->tv_sec);
+    result->tv_sec = diff / 1000000;
+    result->tv_usec = diff % 1000000;
+
+    return (diff<0);
+}
+
+// Mount registry info, saving in file or not. If filename == NULL, will return the info.
+// If filename != NULL will save in this file and will return NULL.
+// Format: task_id(12)|whoCompleted(id or -1)(9)|processed_time(Sent-Finish)|
+    // sent_counter(12)|total_time_alive(Generated-Finish)(30);
+// TotalSize : 1 + 12 + 1 + 9 + 1 + 30 1 + 12 + 1 + 30 + 1 <= 100
+char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
+    struct task_registry * ptr;       
+    struct task_registry * completed;       
+    int counter = 0;
+    int send_counter;
+    int i;
+    char * info;
+    char buffer[30];
+    struct timeval * result = (struct timeval *) malloc (sizeof(struct timeval));
+    struct timeval * gen;
+    struct timeval * now = (struct timeval *) malloc(sizeof(struct timeval));
+    
+    // Get current time, might use for incompleted tasks.
+    gettimeofday(now , NULL);
+
+    for(i=0; i<td->registry_capacity; i++) {
+        if(td->registry[i] != NULL) {
+            counter++;
+        }
+    }
+
+    info = (char *) malloc (sizeof(char)*counter*100);
+    info[0] = '\0';
+
+    for(i=0; i<td->registry_capacity; i++) {
+        if(td->registry[i] != NULL) {
+            send_counter = 0;
+            completed = NULL;
+            gen = NULL;
+            for(ptr = td->registry[i]; ptr!= NULL; ptr=ptr->next) {
+                send_counter++;
+                // Check if this generated results.
+                if(ptr->completed_time != NULL) {
+                    completed = ptr;
+                }
+                // Update gen value, it is in the first position.
+                if(gen == NULL) {
+                    gen = ptr->send_time;
+                }
+            }
+            // Task ID
+            sprintf(buffer, "%d", i);
+            strcat(info, buffer);
+            strcat(info, "|");
+
+            // Completed Task Manager ID
+            if(completed != NULL) {
+                sprintf(buffer, "%d", completed->tm_id);
+                strcat(info, buffer);
+            }
+            else {
+                strcat(info, "-1");
+            }
+            strcat(info, "|");
+
+            // Completed Time
+            if(completed != NULL) {
+                timeval_subtract(result, completed->completed_time, completed->send_time);
+                sprintf(buffer, "%ld.%06ld", result->tv_sec, result->tv_usec);
+                strcat(info, buffer);
+            }
+            else {
+                strcat(info, "-1");
+            }
+            strcat(info, "|");
+
+            // Send Counter 
+            sprintf(buffer, "%d", send_counter);
+            strcat(info, buffer);
+            strcat(info, "|");
+
+            // Completed Time
+            if(completed != NULL) {
+                timeval_subtract(result, completed->completed_time, gen);
+                sprintf(buffer, "%ld.%06ld", result->tv_sec, result->tv_usec);
+                strcat(info, buffer);
+            }
+            else {
+                timeval_subtract(result, now, gen);
+                sprintf(buffer, "%ld.%06ld", result->tv_sec, result->tv_usec);
+                strcat(info, buffer);
+            }
+            strcat(info, ";\n");
+        }
+    }
+
+    if(filename) {
+        // TODO: Write part
+        free(result);
+        free(now);
+        free(info);
+        return NULL;
+    }
+    else {
+        free(result);
+        free(now);
+        return info;
+    }
+}

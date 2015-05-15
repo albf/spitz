@@ -34,6 +34,7 @@
 #include "taskmanager.h"
 #include "monitor.h"
 #include "comm.h"
+#include "registry.h"
 #include "spitz.h"
 #include <pthread.h>
 #include <sys/types.h>
@@ -146,6 +147,12 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     for (i = 0; i < JM_EXTRA_THREADS; i++) {    // Join them all
         pthread_join(t[i], NULL);
     }
+
+    debug(REGISTRY_generate_info(&td, NULL));
+
+    if(KEEP_REGISTRY > 0) {
+        REGISTRY_free(&td);
+    }   
     
     free(lib_path);
 }
