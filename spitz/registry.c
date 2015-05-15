@@ -50,7 +50,6 @@ void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
         }
     }
 
-
     ptr = (struct task_registry *) malloc (sizeof(struct task_registry));
 
     ptr->tm_id = tm_id;
@@ -81,11 +80,9 @@ void REGISTRY_add_completion_registry (struct jm_thread_data *td, size_t task_id
     pthread_mutex_lock(&td->registry_lock);
     ptr = td->registry[task_id];
     debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
-    debug("TM_ID : %d", ptr->tm_id);
-    //ptr = NULL;
+
     while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
         ptr = ptr->next;
-        debug("TM_ID : %d", ptr->tm_id);
     }
 
     if(ptr == NULL) {
@@ -132,5 +129,25 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id) 
     error("check_registry bug exit.");
 }
 
+// Add information about task completion.
+void REGISTRY_free(struct jm_thread_data *td) {
+    int i;
+    struct task_registry * ptr;
+    struct task_registry * free_ptr;
 
+    for(i=0; i < td->registry_capacity; i++) {
+        ptr = td->registry[i];
+        while(ptr != NULL) {
+            free_ptr = ptr;	
+            ptr = ptr->next;
+            free(free_ptr->send_time);
+            if(free_ptr->completed_time != NULL) {
+                free(free_ptr->completed_time);
+            }
+            free(free_ptr);
+        }
+    }
 
+    free(td->registry);
+    debug("Registry memory freed.");
+}

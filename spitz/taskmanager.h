@@ -30,6 +30,7 @@
 struct result_node {
     struct byte_array ba;
     struct result_node *next;
+    struct result_node *before;
 };
 
 struct tm_thread_data {

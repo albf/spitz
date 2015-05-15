@@ -25,6 +25,7 @@ extern "C" {
 // Task Manager DEFINEs
 
 #define TM_CON_RETRIES 3
+#define TASK_BUFFER_SIZE 10
 #define RESULT_BUFFER_SIZE 10
 #define TM_MAX_SLEEP 16
 

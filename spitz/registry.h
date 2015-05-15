@@ -36,6 +36,7 @@ struct task_registry {
 void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id);
 int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id);
 void REGISTRY_add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id);
+void REGISTRY_free(struct jm_thread_data *td);
 
 #endif	/* LIST_H */
 

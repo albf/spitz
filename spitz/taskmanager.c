@@ -110,6 +110,10 @@ void *worker(void *ptr)
         debug("Appending task %d.", task_id);
         pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
         result->next = d->results; 
+        result->before = NULL;
+        if(d->results != NULL) {
+            d->results->before = result;
+        }
         d->results = result;
         
         if(d->is_blocking_flush==1) {
@@ -139,8 +143,11 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
     int len = 0;
     struct result_node *aux, *n = d->results;
 
-    for (aux = n; aux; aux = aux->next) {
+    if(n) {
         len++;
+        for (aux = n; aux->next; aux = aux->next) {
+            len++;
+        }
     }
 
     if (len < min_results && b == NONBLOCKING) {
@@ -166,20 +173,28 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
         }
          */  
 
-        aux = n->next;
-        n->next = NULL;
-        n = aux;
-        while (n) {
+        len = 0;
+        while(aux) {
+            pthread_mutex_lock(&d->rlock);
+            n = aux;
+            if(aux->before != NULL) {
+                aux->next = NULL;
+            }
+            else {
+                d->results = NULL;
+            }
+            aux = aux->before;
+            pthread_mutex_unlock(&d->rlock);
+
             if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
                 error("Problem to send result to committer. Aborting flush_results.");
                 return -1;
             }
             byte_array_free(&n->ba);
-            aux = n->next;
             free(n);
-            n = aux;
+        len++;
         }
-        return len - 1;
+        return len;
     }
 
     else if (b == BLOCKING) {
@@ -200,19 +215,30 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             pthread_mutex_lock(&d->bf_mutex);
         }
         
-        n = d->results;
+        for (aux = d->results; aux->next; aux = aux->next);
+
         len = 0;
-        while (n) {
-            if(COMM_send_message(&n->ba, MSG_RESULT,socket_committer)<0) {
+        while(aux) {
+            pthread_mutex_lock(&d->rlock);
+            n = aux;
+            if(aux->before != NULL) {
+                aux->next = NULL;
+            }
+            else {
+                d->results = NULL;
+            }
+            aux = aux->before;
+            pthread_mutex_unlock(&d->rlock);
+
+            if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
                 error("Problem to send result to committer. Aborting flush_results.");
                 return -1;
             }
-            len++;
             byte_array_free(&n->ba);
-            aux = n->next;
             free(n);
-            n = aux;
+        len++;
         }
+
         return len;
     }
 

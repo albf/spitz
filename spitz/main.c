@@ -43,7 +43,6 @@
 #define NON_BUFFERED_STDOUT 1  
 
 int LOG_LEVEL = 0;
-int FIFOSZ = 10;
 int NTHREADS = 1; 
 
 void * jm_create_thread(void *ptr) {
@@ -363,8 +362,8 @@ void start_slave_processes(int argc, char *argv[])
             struct tm_thread_data d;
             struct result_node * aux;
             
-            cfifo_init(&d.f, sizeof(struct byte_array *), FIFOSZ);
-            sem_init(&d.sem, 0, FIFOSZ);
+            cfifo_init(&d.f, sizeof(struct byte_array *), TASK_BUFFER_SIZE);
+            sem_init(&d.sem, 0, TASK_BUFFER_SIZE);
             sem_init (&d.tcount, 0, 0);
             pthread_mutex_init(&d.tlock, NULL);
             pthread_mutex_init(&d.rlock, NULL);
@@ -499,11 +498,6 @@ int main(int argc, char *argv[])
     }
     else {
         NTHREADS=1;
-    }
-
-    char *fifosz = getenv("SPITS_TMCACHE_SIZE");
-    if (fifosz) {
-        FIFOSZ = atoi(fifosz);
     }
 
     if (type == JOB_MANAGER && LOG_LEVEL >= 1) {
