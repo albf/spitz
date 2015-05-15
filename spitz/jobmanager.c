@@ -27,119 +27,12 @@
 #include "comm.h"
 #include "log.h"
 #include "barray.h"
+#include "registry.h"
 #include "spitz.h"
 #include <pthread.h>
-#include <sys/time.h>
 #include <unistd.h>
 
-
-// Adds an registry of task being sent to an Task Manager.
-void add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
-    int changed = 0;
-    int initial_size, i;
-    struct task_registry * ptr;
-    struct task_registry * next;
-
-    debug("Registry: adding registry for task : %d to taskmanager : %d", task_id, tm_id);
-    pthread_mutex_lock(&td->registry_lock);
-
-    initial_size = td->registry_capacity;
-    while(task_id >= (td->registry_capacity)) {
-        changed = 1;
-        td->registry_capacity = td->registry_capacity*2;
-    }
-    
-    if(changed > 0) {
-        td->registry = (struct task_registry **) realloc(td->registry, td->registry_capacity*sizeof(struct task_registry *));
-        for(i=initial_size; i < td->registry_capacity; i++) {
-            td->registry[i] = NULL;
-        }
-    }
-
-
-    ptr = (struct task_registry *) malloc (sizeof(struct task_registry)); 
-    
-    ptr->tm_id = tm_id; 
-    ptr->task_id = task_id;
-
-    // Save time information 
-    ptr->send_time = (struct timeval *) malloc(sizeof(struct timeval));
-    gettimeofday(ptr->send_time, NULL);
-    ptr->completed_time = NULL;
-    ptr->next = NULL;
-
-    if(td->registry[task_id] == NULL) {
-        td->registry[task_id] = ptr;
-    }
-    else {
-        next = td->registry[task_id];
-        while(next->next != NULL) {
-            next = next->next;
-        }
-        next->next = ptr;
-    }
-    
-    pthread_mutex_unlock(&td->registry_lock);
-}
-
-// Indicate if task_id was already sent to tm_id. 1 if yes, 0 if no.
-int check_registry(struct jm_thread_data * td, int task_id, int tm_id) {
-    struct task_registry * ptr;
-    pthread_mutex_lock(&td->registry_lock);
-
-    if(task_id >= (td->registry_capacity)) {
-        error("Registry check of unregistered task (not allocated space) : %d", task_id);
-        pthread_mutex_unlock(&td->registry_lock);
-        return 0;
-    }
-    ptr = td->registry[task_id];
-    if(ptr == NULL) {
-        error("Registry check of unregistered task (NULL pointer) : %d", task_id);
-        pthread_mutex_unlock(&td->registry_lock);
-        return 0;
-    }
-
-    while((ptr!=NULL)&&(ptr->tm_id != tm_id)) {
-        ptr=ptr->next;
-    }    
-
-    if(ptr == NULL) {
-        pthread_mutex_unlock(&td->registry_lock);
-        return 0;
-    } 
-    else {
-        pthread_mutex_unlock(&td->registry_lock);
-        return 1;
-    } 
-    error("check_registry bug exit.");
-}
-
-void add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id) {
-    struct task_registry * ptr;
-    pthread_mutex_lock(&td->registry_lock);
-    ptr = td->registry[task_id];
-    debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
-    debug("TM_ID : %d", ptr->tm_id);
-    //ptr = NULL;
-    while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
-        ptr = ptr->next;
-        debug("TM_ID : %d", ptr->tm_id);
-    }
-
-    if(ptr == NULL) {
-        error("Error in registry update. Couldn't found Task Manager %d in Registry[%d]", tm_id, (int) task_id);
-        pthread_mutex_unlock(&td->registry_lock);
-        return;
-    }
-
-    //pthread_mutex_unlock(&td->registry_lock);
-    //return;
-
-    ptr->completed_time = (struct timeval *) malloc(sizeof(struct timeval));
-    gettimeofday(ptr->completed_time, NULL);
-    debug("Completion Registry added.");
-    pthread_mutex_unlock(&td->registry_lock);
-}
+#define ARGS_C 0
 
 // Push a task into the thread FIFO.
 void append_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {
@@ -228,7 +121,7 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
             // Get the next new one for the current node and updates list. 
             ret = td->tasks->home;
             aux = NULL;
-            while((ret != NULL)&&(check_registry(td, ret->id, rank) == 1)) {
+            while((ret != NULL)&&(REGISTRY_check_registry(td, ret->id, rank) == 1)) {
                 aux = ret;
                 ret = ret->next;
             }
@@ -498,7 +391,7 @@ void * jm_worker(void * ptr) {
                     debug("Sending generated task %d to %d", tid, rank);
                     LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
                     if(KEEP_REGISTRY>0) {
-                        add_registry(td, tid,rank);
+                        REGISTRY_add_registry(td, tid,rank);
                     }
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
                 }
@@ -537,7 +430,7 @@ void * jm_worker(void * ptr) {
                             debug("Replicating task %d to rank %d",node->id,rank);
                             LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
                             if(KEEP_REGISTRY>0) {
-                                add_registry(td, tid,rank);
+                                REGISTRY_add_registry(td, node->id,rank);
                             }
                             COMM_send_message(node->data, MSG_TASK, my_request->socket);
                             break;
@@ -609,6 +502,18 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int rank_rcv;
     int rank_original;
 
+    if(CHECK_ARGS > 0) {
+        if(argc < ARGC_C) {
+            error("Wrong number of arguments in argc");
+        }
+        if(argv == NULL) {
+            error("NULL argv");
+        }
+        if(final_result == NULL) {
+            error("NULL final_result struct");
+        }
+    }
+
     while (1) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         byte_array_init(ba, 10);
@@ -640,7 +545,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
                 if(KEEP_REGISTRY > 0) {
-                    add_completion_registry (td, tid, tm_id);	
+                    REGISTRY_add_completion_registry (td, tid, tm_id);	
                 }
                 
                 remove_task(td, tid);

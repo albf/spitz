@@ -42,6 +42,15 @@ void monitor(int argc, char *argv[])
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
 
+    if(CHECK_ARGS > 0) {
+        if(argc < ARGC_C) {
+            error("Wrong number of arguments in argc");
+        }
+        if(argv == NULL) {
+            error("NULL argv");
+        }
+    }
+
     COMM_send_message(NULL, MSG_SET_MONITOR, socket_manager);       // set as a committer with manager
     debug("Set monitor successfully.");
 

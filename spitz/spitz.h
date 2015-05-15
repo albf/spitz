@@ -27,6 +27,10 @@ extern "C" {
 #define TM_CON_RETRIES 3
 #define RESULT_BUFFER_SIZE 10
 #define TM_MAX_SLEEP 16
+
+// Arguments Checks
+#define CHECK_ARGS 0
+#define ARGC_C 0
     
 /*
  * Returns the worker id. If this method is called in a non-worker entity, it

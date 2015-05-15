@@ -86,14 +86,6 @@ struct task {
     struct task *next;
 };
 
-struct task_registry {
-    int task_id;
-    int tm_id;
-    struct timeval * send_time;
-    struct timeval * completed_time;
-    struct task_registry *next;
-};
-
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
 void * jm_gen_worker(void * ptr);
 void * jm_worker(void * ptr);
