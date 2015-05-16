@@ -147,6 +147,7 @@ void REGISTRY_free(struct jm_thread_data *td) {
         }
     }
 
+    free(td->abs_zero);
     free(td->registry);
     debug("Registry memory freed.");
 }
@@ -164,8 +165,8 @@ int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval 
 // Mount registry info, saving in file or not. If filename == NULL, will return the info.
 // If filename != NULL will save in this file and will return the info.
 // Format: task_id(12)|whoCompleted(id or -1)(9)|processed_time(Sent-Finish)|
-    // sent_counter(12)|total_time_alive(Generated-Finish)(30);
-// TotalSize : 1 + 12 + 1 + 9 + 1 + 30 1 + 12 + 1 + 30 + 1 <= 100
+    // sent_counter(12)|total_time_alive(Generated-Finish)(30)|absolute_completed_time(30);
+// TotalSize : 1 + 12 + 1 + 9 + 1 + 30 1 + 12 + 1 + 30 + 1 + 30 + 1 <= 130
 char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
     struct task_registry * ptr;       
     struct task_registry * completed;       
@@ -175,7 +176,7 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
     char * info;
     char buffer[30];
     struct timeval * result = (struct timeval *) malloc (sizeof(struct timeval));
-    struct timeval * gen;
+    struct timeval * gen; 
     struct timeval * now = (struct timeval *) malloc(sizeof(struct timeval));
     FILE *f;
     
@@ -188,7 +189,7 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
         }
     }
 
-    info = (char *) malloc (sizeof(char)*counter*100);
+    info = (char *) malloc (sizeof(char)*counter*130);
     info[0] = '\0';
 
     for(i=0; i<td->registry_capacity; i++) {
@@ -249,6 +250,17 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
                 timeval_subtract(result, now, gen);
                 sprintf(buffer, "%ld.%06ld", result->tv_sec, result->tv_usec);
                 strcat(info, buffer);
+            }
+            strcat(info, "|");
+
+            // Completed Time
+            if(completed != NULL) {
+                timeval_subtract(result, completed->completed_time, td->abs_zero);
+                sprintf(buffer, "%ld.%06ld", result->tv_sec, result->tv_usec);
+                strcat(info, buffer);
+            }
+            else {
+                strcat(info, "-1");
             }
             strcat(info, ";\n");
         }

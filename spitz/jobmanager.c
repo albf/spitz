@@ -127,11 +127,13 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
             }
 
             if(ret != NULL) {
-                // Not home
-                if((aux != NULL)&&(ret != td->tasks->head))  {
-                    aux->next = ret->next;
-                    td->tasks->head->next = ret;
-                    td->tasks->head = ret;
+                // Not home and not head.
+                if(aux != NULL)  {
+                    if (ret != td->tasks->head) {
+                        aux->next = ret->next;
+                        td->tasks->head->next = ret;
+                        td->tasks->head = ret;
+                    }
                 }
                 // It's home.
                 else {

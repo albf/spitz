@@ -59,6 +59,7 @@ struct jm_thread_data {
     pthread_mutex_t registry_lock;      // lock responsible for the registry.
     struct task_registry ** registry;   // Registry itself.
     int registry_capacity;              // Capacity of registry.
+    struct timeval * abs_zero;
 };
 
 // Regular first in first out list. 

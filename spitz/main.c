@@ -39,6 +39,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #define SPITZ_VERSION "0.1.0"
 #define NON_BUFFERED_STDOUT 1  
@@ -101,13 +102,6 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_mutex_trylock(&td.gen_ready_lock);
     }
     
-    // Initialize registry structures if applicable. 
-    if(KEEP_REGISTRY > 0) {
-        pthread_mutex_init(&td.registry_lock, NULL);    
-        td.registry_capacity = 1024;
-        td.registry = (struct task_registry **) calloc(1024, sizeof(struct task_registry *));
-    }
-
     // Start task counter and lock.
     td.task_counter = 0;
     td.all_generated = 0;                                           // No, not all tasks was generated at start. 
@@ -126,7 +120,6 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         return;
     }
 
-
     // initialize shared user data. 
     td.is_done_loading = 1;
     td.argc = argc;
@@ -141,6 +134,15 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // Create generate thread if gen is not parallel. 
     if(GEN_PARALLEL == 0) {
         pthread_create(&t[JM_EXTRA_THREADS], NULL, jm_gen_worker, &td);
+    }
+
+    // Initialize registry structures if applicable. 
+    if(KEEP_REGISTRY > 0) {
+        pthread_mutex_init(&td.registry_lock, NULL);    
+        td.registry_capacity = 1024;
+        td.registry = (struct task_registry **) calloc(1024, sizeof(struct task_registry *));
+        td.abs_zero = (struct timeval *) malloc(sizeof(struct timeval));
+        gettimeofday(td.abs_zero, NULL);
     }
     
     job_manager(argc, argv, so, final_result, &td);

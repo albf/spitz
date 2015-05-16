@@ -28,7 +28,7 @@ extern "C" {
 
 #define TM_CON_RETRIES 3                // Retries of connection.
 #define TASK_BUFFER_SIZE 10             // Number of tasks to get as buffer.
-#define RESULT_BUFFER_SIZE 10           // Number of tasks required for a flush.
+#define RESULT_BUFFER_SIZE 2            // Number of tasks required for a flush.
 #define TM_MAX_SLEEP 16                 // Max sleep before asking again for a task.
 
 // Arguments Checks                     // Used to remove warnings, as args may be used in the future.
