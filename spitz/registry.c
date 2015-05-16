@@ -118,12 +118,11 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id) 
         ptr=ptr->next;
     }
 
+    pthread_mutex_unlock(&td->registry_lock);
     if(ptr == NULL) {
-        pthread_mutex_unlock(&td->registry_lock);
         return 0;
     }
     else {
-        pthread_mutex_unlock(&td->registry_lock);
         return 1;
     }
     error("check_registry bug exit.");
@@ -201,6 +200,7 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
                 send_counter++;
                 // Check if this generated results.
                 if(ptr->completed_time != NULL) {
+                    debug("Completed found for %d", i);
                     completed = ptr;
                 }
                 // Update gen value, it is in the first position.

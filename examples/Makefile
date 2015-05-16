@@ -2,7 +2,7 @@ CPPFLAGS = -I..
 CFLAGS = -shared -Wall -Wextra -fPIC -g3 -O0
 CXXFLAGS = $(CFLAGS)
 LDFLAGS = -L../spitz -lspitz
-TASKS = 10
+TASKS = 100
 
 all: pi.so picpp.so prime.so
 
@@ -41,24 +41,24 @@ valgrind2: pi.so
 
 gdb0: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 0 127.0.0.1 prime.so $(TASKS)
+			gdb -ex run --args ./spitz 0 127.0.0.1 prime.so $(TASKS)
 
 gdb1: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 1 127.0.0.1 prime.so $(TASKS)
+			gdb -ex run --args ./spitz 1 127.0.0.1 prime.so $(TASKS)
 
 gdb2: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 2 127.0.0.1 prime.so $(TASKS)
+			gdb -ex run --args ./spitz 2 127.0.0.1 prime.so $(TASKS)
 
 
 gdb3: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 3 127.0.0.1 prime.so $(TASKS)
+			gdb -ex run --args ./spitz 3 127.0.0.1 prime.so $(TASKS)
 
 gdb4: pi.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
-			gdb --args ./spitz 4 127.0.0.1 prime.so $(TASKS)
+			gdb -ex run --args ./spitz 4 127.0.0.1 prime.so $(TASKS)
 
 test0: prime.so
 	LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$$PWD:$$PWD/../spitz PATH=$$PATH:$$PWD/../spitz \
