@@ -107,7 +107,7 @@ int COMM_send_int(int sock, int value);
 int COMM_read_int(int sock);
 
 // Extern Variables
-extern int socket_manager, socket_committer;                // socket of servers (job manager and committer)
+extern int socket_manager, socket_committer;    // socket of servers (job manager and committer)
 extern int COMM_alive;
 extern char * COMM_addr_manager;
 extern int COMM_my_rank;

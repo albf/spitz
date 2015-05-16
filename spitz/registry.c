@@ -21,11 +21,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-//#include <assert.h>
 #include <string.h>
 #include "log.h"
 #include <pthread.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 // Adds an registry of task being sent to an Task Manager.
 void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
@@ -163,7 +163,7 @@ int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval 
 }
 
 // Mount registry info, saving in file or not. If filename == NULL, will return the info.
-// If filename != NULL will save in this file and will return NULL.
+// If filename != NULL will save in this file and will return the info.
 // Format: task_id(12)|whoCompleted(id or -1)(9)|processed_time(Sent-Finish)|
     // sent_counter(12)|total_time_alive(Generated-Finish)(30);
 // TotalSize : 1 + 12 + 1 + 9 + 1 + 30 1 + 12 + 1 + 30 + 1 <= 100
@@ -178,6 +178,7 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
     struct timeval * result = (struct timeval *) malloc (sizeof(struct timeval));
     struct timeval * gen;
     struct timeval * now = (struct timeval *) malloc(sizeof(struct timeval));
+    FILE *f;
     
     // Get current time, might use for incompleted tasks.
     gettimeofday(now , NULL);
@@ -254,11 +255,17 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
     }
 
     if(filename) {
-        // TODO: Write part
+        // Remove file if exist.
+        if( access(filename, F_OK) != -1 ) {
+            remove(filename);
+        }
+        // Create file with info string.
+        f = fopen(filename, "w");
+        fprintf(f, "%s", info);
+        fclose(f);
         free(result);
         free(now);
-        free(info);
-        return NULL;
+        return info;
     }
     else {
         free(result);

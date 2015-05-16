@@ -65,8 +65,8 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     int gen_threads;
     pthread_t * t; 
     pthread_t * t_loading; 
-    lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);         // set lib path variable
-    char * info;
+    lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);   // set lib path variable
+    char * info, * filename;                                      // used to print registry info
 
     struct jm_thread_data td;
 
@@ -149,13 +149,29 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_join(t[i], NULL);
     }
 
-    if(KEEP_REGISTRY > 0) {
-        info = REGISTRY_generate_info(&td, NULL);
-        debug(info);
-        free(info);
-        REGISTRY_free(&td);
-    }   
+    if((SAVE_REGISTRY > 0) || ((KEEP_REGISTRY > 0)&&(SAVE_REGISTRY > 0))) {
+        filename = strcpy(malloc((sizeof(char)*strlen(so)+1)+5), so);
+        if((KEEP_REGISTRY > 0)&&(SAVE_REGISTRY > 0)) {
+            filename = strcat(filename, ".reg");
+            debug("Saving registry in file: %s.", filename);
+            info = REGISTRY_generate_info(&td, filename);
+            debug(info);
+            free(info);
+            REGISTRY_free(&td);
+        }   
+
+        filename = strcpy(filename, so);
+        if(SAVE_LIST > 0) {
+            filename = strcat(filename, ".list");
+            debug("Saving list in file: %s.", filename);
+            info = LIST_generate_info(COMM_ip_list, filename); 
+            debug(info);
+            free(info);
+        }   
+        free(filename);
+    }
     
+    LIST_free_data(COMM_ip_list);
     free(lib_path);
 }
 

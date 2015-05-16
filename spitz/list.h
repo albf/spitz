@@ -62,7 +62,7 @@ int LIST_get_total_nodes (struct LIST_data * data_pointer);
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id);
 
 // Debug & GUI Information
-char * LIST_get_monitor_info(struct LIST_data * data_pointer);
+char * LIST_generate_info(struct LIST_data * data_pointer, char * filename);
 void LIST_print_all_ip (struct LIST_data * data_pointer);
 int LIST_print_all_ip_ordered (struct LIST_data * data_pointer);
 

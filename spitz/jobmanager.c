@@ -606,7 +606,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 }
                 break;
             case MSG_GET_STATUS:
-                v = LIST_get_monitor_info(COMM_ip_list);
+                v = LIST_generate_info(COMM_ip_list,NULL);
                 n = (size_t) (strlen(v)+1); 
                 byte_array_init(ba, n);
                 byte_array_pack8v(ba, v, n);

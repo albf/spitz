@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>   
 #include <stdlib.h>
+#include <unistd.h>
 #include "comm.h"
 
 // Add an element to a list. If it's not yet initialize, allocate memory and append the first term.
@@ -483,51 +484,71 @@ void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt
     }
 }
 
+char * LIST_join_info(struct connected_ip * pointer, char * info) {
+    char buffer[15];
+
+    if(pointer->next != NULL) {
+        info = LIST_join_info(pointer->next, info);
+    }
+
+    sprintf(buffer, "%d", pointer->id);
+    strcat(info, buffer);
+    strcat(info, "|");
+    
+    strcat(info, pointer->address);
+    strcat(info, "|");
+
+    sprintf(buffer, "%d", pointer->port);
+    strcat(info, buffer);
+    strcat(info, "|");
+
+    sprintf(buffer, "%d", pointer->type);
+    strcat(info, buffer);
+    strcat(info, "|");
+
+    sprintf(buffer, "%d", pointer->connected);
+    strcat(info, buffer);
+    strcat(info, "|");
+    
+    sprintf(buffer, "%lu", pointer->rcv_tasks);
+    strcat(info, buffer);
+    strcat(info, "|");
+
+    sprintf(buffer, "%lu", pointer->done_tasks);
+    strcat(info, buffer);
+    strcat(info, ";\n");
+
+    return info;
+}
+
 // Format : id(max 999 999)|ip(ip v6)|port(int)|type(0,1,2 or 3)|connected(1 or 0)|rcv_tasks|done_tasks; [Another entry here]
 // Assume rcv_tasks/done_tasks max 999 999 999 (12 chars)
 // Ip max : 999.999.999.999 = 15 chars
 // Port Range : 0...65535 = 5 chars 
-// Max size of string = n* (9+1 (id) +15+1 (ip) + 5+1 (port) 1+1 (type) + 1+1 + 12+1 + 12+1 + 1(;) ) = n * 53. 
-char * LIST_get_monitor_info(struct LIST_data * data_pointer) {
+// Max size of string = n* (9+1 (id) +15+1 (ip) + 5+1 (port) 1+1 (type) + 1+1 + 12+1 + 12+1 + 1(;) + 1(\n ) <= 55. 
+char * LIST_generate_info(struct LIST_data * data_pointer, char * filename) {
     char * info;
-    char buffer[15];
     int total_nodes = LIST_get_total_nodes(data_pointer);
     struct connected_ip * pointer = data_pointer->list_pointer;
+    FILE *f;
     
-    info = (char *) malloc(sizeof(char)*53*total_nodes + 1);     // \0 addition
+    info = (char *) malloc(sizeof(char)*55*total_nodes + 1);     // \0 addition
     info[0] = '\0';
     
-    while (pointer != NULL) {
-        sprintf(buffer, "%d", pointer->id);
-        strcat(info, buffer);
-        strcat(info, "|");
-        
-        strcat(info, pointer->address);
-        strcat(info, "|");
-    
-        sprintf(buffer, "%d", pointer->port);
-        strcat(info, buffer);
-        strcat(info, "|");
+    info = LIST_join_info(pointer, info);
 
-        sprintf(buffer, "%d", pointer->type);
-        strcat(info, buffer);
-        strcat(info, "|");
-
-        sprintf(buffer, "%d", pointer->connected);
-        strcat(info, buffer);
-        strcat(info, "|");
-        
-        sprintf(buffer, "%lu", pointer->rcv_tasks);
-        strcat(info, buffer);
-        strcat(info, "|");
-    
-        sprintf(buffer, "%lu", pointer->done_tasks);
-        strcat(info, buffer);
-        strcat(info, ";");
-
-        pointer = pointer->next;
+    if(filename) {
+        // Remove file if exist.
+        if( access(filename, F_OK) != -1 ) {
+            remove(filename);
+        }
+        // Create file with info string.
+        f = fopen(filename, "w");
+        fprintf(f, "%s", info);
+        fclose(f);
+        return info;
     }
-    strcat(info, "\0");
+
     return info;
 }
 

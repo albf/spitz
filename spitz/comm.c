@@ -1231,10 +1231,6 @@ void COMM_LIST_print_ip_list() {
 void COMM_close_all_connections() {
     int i, sd;
 
-    if(COMM_my_rank==(int)JOB_MANAGER) {
-        LIST_free_data(COMM_ip_list);
-    }
-
     if(COMM_my_rank < 2) {
         for(i=0; i<max_clients; i++) {
                 sd = COMM_client_socket[i];             //socket descriptor
