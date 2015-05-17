@@ -133,6 +133,7 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
                         aux->next = ret->next;
                         td->tasks->head->next = ret;
                         td->tasks->head = ret;
+                        ret->next = NULL;
                     }
                 }
                 // It's home.

@@ -115,6 +115,7 @@ extern struct LIST_data * COMM_ip_list;
 extern enum actor type;
 
 // Debug
-extern int COMM_client_socket[max_clients];    // used to stock the sockets.
+extern int * COMM_client_socket;                // used to stock the sockets.
+extern int COMM_current_max;                  // Current allocated size for connections.
 
 #endif	/* COMM_H */

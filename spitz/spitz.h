@@ -21,7 +21,7 @@ extern "C" {
 #define PORT_MANAGER 8898               // Number of ports used to communicate.
 #define PORT_COMMITTER 10007
 #define PORT_VM 11006
-#define max_clients 30                  // Max number of clientes conneceted.
+#define INITIAL_MAX_CONNECTIONS 30      // Initial max number of clientes conneceted (will increase if needed).
 #define max_pending_connections 3
 
 // Task Manager DEFINEs

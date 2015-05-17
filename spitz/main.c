@@ -552,6 +552,11 @@ int main(int argc, char *argv[])
         monitor(argc, argv); 
     }
 
+    // Clean memory for sockets.
+    if((type==JOB_MANAGER)||(type==COMMITTER)||(type!=VM_TASK_MANAGER)) {
+        free(COMM_client_socket);
+    }
+
     free(COMM_addr_manager);
     return 0;
 }

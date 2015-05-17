@@ -45,7 +45,8 @@ enum actor type;                        // Type of current node.
 /* Job Manager/Committer (servers) only */
 int COMM_master_socket;                 // socket used to accept connections
 int COMM_addrlen;                       // len of socket addresses
-int COMM_client_socket[max_clients];    // used to stock the sockets.
+int COMM_current_max;                   // Current allocated size for connections. 
+int * COMM_client_socket;               // used to stock the sockets.
 int COMM_committer_index;               // committer index in the structure.
 int COMM_alive;                         // number of connected members
 struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
@@ -56,6 +57,7 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 // Worker
 int COMM_get_committer(int * retries);
 int COMM_request_committer();
+void COMM_add_client_socket(int rcv_socket);
 
 // Communication
 int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_terminator);
@@ -236,6 +238,25 @@ int COMM_read_int(int sock) {
     result = atoi((char *) ba.ptr);
     byte_array_free(&ba);
     return result;
+}
+
+void COMM_add_client_socket(int rcv_socket) {
+    int i;
+
+    //add new socket to array of sockets
+    for (i = 0; (i < COMM_current_max) && (COMM_client_socket[i] != 0); i++);
+    if (i == COMM_current_max) {
+        COMM_current_max = COMM_current_max * 2;
+        COMM_client_socket = (int *) realloc (COMM_client_socket, sizeof(int)*COMM_current_max);
+    }
+
+    COMM_client_socket[i] = rcv_socket;
+            
+    if(COMM_my_rank==0) {
+        info("Adding to list of sockets as %d\n" , i);
+        COMM_LIST_print_ip_list(); 
+    }
+    COMM_alive++;
 }
 
 // Establish connection with job manager, used by any Task Manager.
@@ -471,13 +492,12 @@ int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
 // Returns 0 if success and < 0 otherwise. 
 int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int c_port;
-    char * token;
+    char * token, * save_ptr;
     struct sockaddr_in node_address;
     int socket_node;
     int is_connected = 0;
     int retries_left;
     int id_send; 
-    int i;
 
     // Non-Blocking socket.
     long arg; 
@@ -497,15 +517,14 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     }
     
     // Get the ip and port values.
-    token = strtok((char *) ba->ptr, "|\0");
+    token = strtok_r((char *) ba->ptr, "|\0", &save_ptr);
     debug("VM IP: %s", token);
     node_address.sin_addr.s_addr = inet_addr(token);
     node_address.sin_family = AF_INET;
     
-    token = strtok(NULL, "|\0");
+    token = strtok_r(NULL, "|\0", &save_ptr);
     debug("VM PORT : %s", token);
     c_port = atoi(token);
-    //c_port = atoi(strtok(token, "|"));
     node_address.sin_port = htons(c_port);
 
     //Create socket
@@ -597,22 +616,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         }
 
         //add new socket to array of sockets
-        for (i = 0; i < max_clients; i++) 
-        {
-              //if position is empty
-            if( COMM_client_socket[i] == 0 )
-            {
-                COMM_client_socket[i] = socket_node;
-                
-                if(COMM_my_rank==0) {
-                    info("Adding to list of sockets as %d\n" , i);
-                    COMM_LIST_print_ip_list(); 
-                }
-
-                break;
-            }
-        }
-        COMM_alive++;
+        COMM_add_client_socket(socket_node);
     }
     return 0;
 }
@@ -732,7 +736,7 @@ int COMM_get_committer(int * retries) {
 // Do the request for the committer value. May receive a failed message.
 int COMM_request_committer() {
     int c_port;
-    char * token;
+    char * token, * save_ptr;
 
     enum message_type type;                                             // Type of received message.
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
@@ -748,13 +752,12 @@ int COMM_request_committer() {
     } 
     else {
         // otherwise, get the ip and port values.
-        token = strtok((char *) ba->ptr, "|\0");
+        token = strtok_r((char *) ba->ptr, "|\0", &save_ptr);
         COMM_addr_committer.sin_addr.s_addr = inet_addr(token);
         COMM_addr_committer.sin_family = AF_INET;
         
-        token = strtok(NULL, "|\0");
+        token = strtok_r(NULL, "|\0", &save_ptr);
         c_port = atoi(token);
-        //c_port = atoi(strtok(token, "|"));
         COMM_addr_committer.sin_port = htons(c_port);
 
         byte_array_free(ba);
@@ -779,8 +782,11 @@ int COMM_setup_committer_network() {
     
     COMM_send_message(NULL, MSG_SET_COMMITTER, socket_manager);      // set as a committer with manager
     debug("Set committer successfully\n");
+
+    COMM_client_socket = (int *) malloc(sizeof(int)*INITIAL_MAX_CONNECTIONS);
+    COMM_current_max = INITIAL_MAX_CONNECTIONS;
     
-    for (i = 0; i < max_clients; i++) {
+    for (i = 0; i < COMM_current_max; i++) {
         COMM_client_socket[i] = 0;
     }
 
@@ -841,8 +847,11 @@ int COMM_setup_committer_network() {
 int COMM_setup_vm_network() {
     int i,flags, opt = 1;
     struct sockaddr_in address;
+
+    COMM_client_socket = (int *) malloc(sizeof(int)*INITIAL_MAX_CONNECTIONS);
+    COMM_current_max = INITIAL_MAX_CONNECTIONS;
       
-    for (i = 0; i < max_clients; i++) {
+    for (i = 0; i < COMM_current_max; i++) {
         COMM_client_socket[i] = 0;
     }
       
@@ -904,8 +913,11 @@ int COMM_setup_job_manager_network() {
     COMM_ip_list = NULL;
     COMM_addr_committer.sin_addr.s_addr = 0;
     COMM_addr_committer.sin_port = 0;
+
+    COMM_client_socket = (int *) malloc(sizeof(int)*INITIAL_MAX_CONNECTIONS);
+    COMM_current_max = INITIAL_MAX_CONNECTIONS;
       
-    for (i = 0; i < max_clients; i++) {
+    for (i = 0; i < COMM_current_max; i++) {
         COMM_client_socket[i] = 0;
     }
       
@@ -988,7 +1000,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
         max_sd = COMM_master_socket;
          
         //add child sockets to set
-        for ( i = 0 ; i < max_clients ; i++) 
+        for ( i = 0 ; i < COMM_current_max; i++) 
         {
             sd = COMM_client_socket[i];             //socket descriptor
                      
@@ -1041,19 +1053,19 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
     }
     
     // I/O Operation
-    while (socket_found == 0) {                     // Find the socket responsible.
-        COMM_loop_b = (COMM_loop_b+1)%max_clients;  // update loop_b to be fair with workers.
+    while (socket_found == 0) {                          // Find the socket responsible.
+        COMM_loop_b = (COMM_loop_b+1)%COMM_current_max;  // update loop_b to be fair with workers.
         sd = COMM_client_socket[COMM_loop_b];
       
-        if (FD_ISSET(sd , &readfds))                // Test the socket. 
+        if (FD_ISSET(sd , &readfds))                    // Test the socket. 
         {
             socket_found=1;
         }
     }
     
-    COMM_read_message(ba,type,sd);                  // Receive the request.
+    COMM_read_message(ba,type,sd);                      // Receive the request.
    
-    if ((*(type)) == MSG_EMPTY)                     // Someone is closing
+    if ((*(type)) == MSG_EMPTY)                         // Someone is closing
     {
         COMM_client_socket[COMM_loop_b] = 0;
         * type = MSG_CLOSE_CONNECTION;
@@ -1063,7 +1075,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
          return 0;
     }
       
-    else                                            // Other request
+    else                                                // Other request
     {
         *origin_socket = sd;
         return 0;
@@ -1118,7 +1130,7 @@ void COMM_send_committer(int sock) {
 int COMM_register_committer(int sock) {
     int old_prt, i;
     
-    for (i = 0; i < max_clients; i++) {
+    for (i = 0; i < COMM_current_max; i++) {
         if(COMM_client_socket[i] == sock) {
             COMM_committer_index = i;
             break;
@@ -1149,7 +1161,7 @@ int COMM_register_monitor(int sock) {
 
 // Creates a new connection when the job manager or committer sees it.
 void COMM_create_new_connection() {
-    int i, rcv_socket, id_send;
+    int rcv_socket, id_send;
     struct sockaddr_in address;
   
     if ((rcv_socket = accept(COMM_master_socket, (struct sockaddr *)&address, (socklen_t*)&COMM_addrlen))<0) {
@@ -1167,24 +1179,7 @@ void COMM_create_new_connection() {
         COMM_send_int(rcv_socket,id_send);
     }
 
-    //add new socket to array of sockets
-    for (i = 0; i < max_clients; i++) 
-    {
-	  //if position is empty
-        if( COMM_client_socket[i] == 0 )
-        {
-            COMM_client_socket[i] = rcv_socket;
-            
-            if(COMM_my_rank==0) {
-                info("Adding to list of sockets as %d\n" , i);
-                COMM_LIST_print_ip_list(); 
-            }
-
-            break;
-        }
-    }
-
-    COMM_alive++;
+    COMM_add_client_socket(rcv_socket);
 }
 
 // Close the connection for committer and job manager.
@@ -1232,8 +1227,8 @@ void COMM_close_all_connections() {
     int i, sd;
 
     if(COMM_my_rank < 2) {
-        for(i=0; i<max_clients; i++) {
-                sd = COMM_client_socket[i];             //socket descriptor
+        for(i=0; i<COMM_current_max; i++) {
+            sd = COMM_client_socket[i];             //socket descriptor
             if(sd > 0) {
                 close(sd);
             }
