@@ -33,16 +33,19 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
     char * ip_hole;
     int holes_counter=0;
    
-    ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
-    ptr->address = (char *) malloc (sizeof(char)*12);   // max size of ip : xxx.xxx.xxx\0
-    (ptr->address)[0] = '\0';
-    strcat(ptr->address, adr);
-    ptr->port = prt;
-    ptr->socket = socket;
-    ptr->rcv_tasks = 0;
-    ptr->done_tasks = 0;
-    ptr->connected = 1;
-    ptr->type = type;
+    // In case there is no one there or there ins't any zombie hole : create the node.
+    if((data_pointer == NULL) || (data_pointer->holes == 0)) {
+        ptr = (struct connected_ip *) malloc (sizeof(struct connected_ip));
+        ptr->address = (char *) malloc (sizeof(char)*12);   // max size of ip : xxx.xxx.xxx\0
+        (ptr->address)[0] = '\0';
+        strcat(ptr->address, adr);
+        ptr->port = prt;
+        ptr->socket = socket;
+        ptr->rcv_tasks = 0;
+        ptr->done_tasks = 0;
+        ptr->connected = 1;
+        ptr->type = type;
+    }
     
     if(data_pointer == NULL) {     // Initialize, add the job manager
         data_pointer = (struct LIST_data *) malloc (sizeof(struct LIST_data));
@@ -75,7 +78,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
             data_pointer->list_pointer = ptr;
             return data_pointer;
         }
-        else {                  // Add worker with holes
+        else {                          // Add worker with holes
             holes_counter = data_pointer->holes;
             data_pointer->holes = data_pointer->holes - 1;  // Updates holes counter.
             iter = data_pointer->list_pointer;
@@ -88,7 +91,7 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
                     data_pointer->holes = 0; 
                     return LIST_add_ip_address (data_pointer, adr, prt, socket, type, rank);
                 }
-                if(iter->id != ((iter->next->id)+1)) {
+                if(iter->type == -1) {
                     if(holes_counter > 1) {
                         iter = iter ->next;
                     }
@@ -101,12 +104,17 @@ struct LIST_data * LIST_add_ip_address (struct LIST_data * data_pointer, char * 
             }
 
             // And put the new node in the hole.
-            ptr->next = iter->next;
-            iter->next = ptr;
-            ptr->id = iter->id - 1;
-            
+            (iter->address)[0] = '\0';
+            strcat(iter->address, adr);
+            iter->port = prt;
+            iter->socket = socket;
+            iter->rcv_tasks = 0;
+            iter->done_tasks = 0;
+            iter->connected = 1;
+            iter->type = type;
+
             if(rank != NULL) {
-                * rank = ptr->id;
+                * rank = iter->id;
             }
             
             return data_pointer;
@@ -119,6 +127,7 @@ void LIST_disconnect_ip_adress(struct LIST_data * data_pointer, char * adr, int 
     struct connected_ip * pointer;
     
     if(data_pointer == NULL) {
+        error("Tried to disconnect ip from null list");
         return;
     }
     else {
@@ -137,44 +146,25 @@ void LIST_disconnect_ip_adress(struct LIST_data * data_pointer, char * adr, int 
 
 // Remove an element from the list using the ip and port.
 struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char * adr, int prt) {
-    struct connected_ip * prev = data_pointer->list_pointer;
-    struct connected_ip * ptr;
+    struct connected_ip * ptr = data_pointer->list_pointer;
 
     if(data_pointer == NULL) {
+        error("Removing ip address from null data_pointer");
         return data_pointer;
     }
    
-    // First check for the head.
     ptr = data_pointer->list_pointer;
-    if((strcmp((const char *)adr, (const char *)ptr->address)==0)&&(prt == ptr->port)){ 
-        // If it is here and there is any holes, check again, might break.
-        if(ptr->next != NULL) {
-            // Fix the holes number in the head.
-            if((ptr->next->id)!=((ptr->id)-1) ) {
-                data_pointer->holes = (data_pointer->holes) - ((ptr->id)-1-(ptr->next->id));
-            }
-        }
-        
-        free(data_pointer->list_pointer->address);
-    	ptr = data_pointer->list_pointer->next;
-        free(data_pointer->list_pointer);
-        data_pointer->id_counter--;
-        data_pointer->list_pointer = ptr;
-        return data_pointer;
-    }
    
-    // Check for the rest.
+    // Search for nodes matching the data 
     ptr = data_pointer->list_pointer->next;
     while(ptr!=NULL) {
         if((strcmp((const char *)adr, (const char *)ptr->address)==0) && (prt == ptr->port)) {
-            free(ptr->address);
-            prev->next = ptr->next;
-            free(ptr);
+            ptr->socket = -1;
+            ptr->type = -1;
             ptr = NULL;
             data_pointer->holes++;
         }
         else {
-            prev = ptr;
             ptr = ptr->next;
         }
     }
@@ -184,28 +174,10 @@ struct LIST_data * LIST_remove_ip_address (struct LIST_data * data_pointer, char
 
 // Remove an element from the list using the ip and port.
 struct LIST_data * LIST_remove_id(struct LIST_data * data_pointer, int id) {
-    struct connected_ip * prev = data_pointer->list_pointer;
     struct connected_ip * ptr;
 
     if(data_pointer == NULL) {
-        return data_pointer;
-    }
-   
-    // First check for the head.
-    if(data_pointer->list_pointer->id == id) {
-        // If it is here and there is any holes, check again, might break.
-        if(prev->next != NULL) {
-            // Fix the holes number in the head.
-            if((prev->next->id)!=((prev->id)-1) ) {
-                data_pointer->holes = (data_pointer->holes) - ((prev->id)-1-(prev->next->id));
-            }
-        }
-
-        free(data_pointer->list_pointer->address);
-    	ptr = data_pointer->list_pointer->next;
-        free(data_pointer->list_pointer);
-        data_pointer->id_counter--;
-        data_pointer->list_pointer = ptr;
+        error("Removing id from null data_pointer");
         return data_pointer;
     }
    
@@ -213,14 +185,12 @@ struct LIST_data * LIST_remove_id(struct LIST_data * data_pointer, int id) {
     ptr = data_pointer->list_pointer->next;
     while(ptr!=NULL) {
         if(ptr->id == id) {
-            free(ptr->address);
-            prev->next = ptr->next;
-            free(ptr);
+            ptr->socket = -1;
+            ptr->type = -1;
             ptr = NULL;
             data_pointer->holes++;
         }
         else {
-            prev = ptr;
             ptr = ptr->next;
         }
     }
@@ -369,7 +339,7 @@ int LIST_print_all_ip_ordered (struct LIST_data * data_pointer) {
     return 1;
 }
 
-// Get the number of total workers registered in the list.
+// Get the number of total nodes registered in the list.
 int LIST_get_total_nodes (struct LIST_data * data_pointer) {
     int total = 0;
     struct connected_ip * pointer;
@@ -391,6 +361,7 @@ int LIST_get_total_nodes (struct LIST_data * data_pointer) {
 // Free the data of the structure.
 void LIST_free_data (struct LIST_data * data_pointer) {
     if(data_pointer==NULL) {
+        error("Trying to free NULL data_pointer");
         return;
     }
 
@@ -402,33 +373,31 @@ void LIST_free_data (struct LIST_data * data_pointer) {
 void LIST_free_list (struct connected_ip * pointer) {
     if(pointer!=NULL) {
         LIST_free_list(pointer->next);
+        free(pointer->address);
         free(pointer);
     }    
 }
 
 // Get a socket for a given rank id value, base in a list data structure.
 int LIST_get_socket (struct LIST_data * data_pointer, int rank_id) {
+    struct connected_ip * ptr;
+
     if(data_pointer == NULL) {
+        error("NULL pointer passed to LIST_get_socket");
         return -1;
     }
 
     else { 
-        return LIST_get_socket_list(data_pointer->list_pointer, rank_id);       
-    }
-}
+        ptr = data_pointer->list_pointer;
+        while(ptr!=NULL) {
+            if(ptr->id == rank_id) {
+                return ptr->socket;
+            }
+            ptr = ptr->next;
+        }
 
-// Get a socket for a given rank id value, based in list of ips.
-int LIST_get_socket_list (struct connected_ip * pointer, int rank_id) {
-    if (pointer == NULL) {
+        error("Can't find id provided in get_socket");
         return -1;
-    }
-    
-    else if (pointer->id == rank_id) {
-        return pointer->socket;
-    }
-
-    else {
-        return LIST_get_socket_list(pointer->next, rank_id);
     }
 }
 

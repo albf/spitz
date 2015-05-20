@@ -438,7 +438,8 @@ class MonitorData:
 								sshs.connect(address,
 									username=ssh_user,
 									password=ssh_pass, 
-									port = port) 
+									port = port,
+                                    timeout = float(2)) 
 
 							 	
 								sshs.exec_command('pkill spitz')
@@ -451,10 +452,15 @@ class MonitorData:
 								sftp.put('spitz_vm', 'spitz/spitz') 
 								sshs.exec_command('chmod 555 ~/spitz/spitz')
 								sftp.put('libspitz_vm.so', 'spitz/libspitz.so') 
-								sftp.put('prime_vm.so', 'spitz/prime.so') 
+								sftp.put('libcmp_vm.so', 'spitz/libcmp.so') 
+								sftp.put('run_vm', 'spitz/run_vm') 
+								sshs.exec_command('chmod 555 ~/spitz/run_vm')
 								#sshs.exec_command('screen')
-								sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz && ' + str(command))
-								#print 'stdout: ' + str(stdout.readlines())
+								
+                                #sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz && ' + str(command))
+								sshs.exec_command('./spitz/run_vm') 
+								
+                                #print 'stdout: ' + str(stdout.readlines())
 								#print 'stderr: ' + str(stderr.readlines())
 								print command
 								#sstdin, stdout, stderr = sshs.exec_command(command)
@@ -469,6 +475,7 @@ class MonitorData:
 								if ret == 0:
 									ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
 									#ret = COMM_send_vm_node('127.0.0.1', PORT_VM+offset)
+									#return
 
 									if ret == 0:
 										print("Spitz instance running in " + str(address) + "|" + str(PORT_VM+offset) + ".")

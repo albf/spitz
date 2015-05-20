@@ -8,7 +8,7 @@ extern "C" {
 // Job Manager DEFINEs.
 
 #define RESTORE_RATE 10                 // Rate of JM loops/VM connection check.
-#define JM_EXTRA_THREADS 1              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
+#define JM_EXTRA_THREADS 4              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
 #define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
 #define WAIT_REQUEST_TIMEOUT_USEC 0
 #define GEN_PARALLEL 0                  // if jm generation function can work in parallel. 
@@ -26,12 +26,16 @@ extern "C" {
 
 // Task Manager DEFINEs
 
-#define TM_CON_RETRIES 3                // Retries of connection.
+#define TM_CON_RETRIES 3                // Retries of connection. Used when have a connection problem (not at start).
 #define TASK_BUFFER_SIZE 10             // Number of tasks to get as buffer.
 #define RESULT_BUFFER_SIZE 2            // Number of tasks required for a flush.
-#define TM_MAX_SLEEP 16                 // Max sleep before asking again for a task.
+#define TM_MAX_SLEEP 16                 // Max sleep before asking again for a task (seconds).
+#define IDENTIFY_CORES 1                // Find total cores availables and create one thread per core.
+#define NUM_CORES 1                     // Used only if IDENTIFY_CORES = 0. 
+#define FLUSHER_THREAD 1                // if should use a separated thread to flush results.
 
 // Arguments Checks                     // Used to remove warnings, as args may be used in the future.
+
 #define CHECK_ARGS 0
 #define ARGC_C 0
     

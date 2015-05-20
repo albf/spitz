@@ -3,14 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 which = 2
+filename = "libcmp.so"
 
-with open("prime.so.list") as f:
+with open(filename + ".list") as f:
     data_list = f.read()
     data_list = data_list.split(';\n')
     data_list = [row.split('|') for row in data_list]
     data_list.pop(-1)
 
-with open("prime.so.reg") as f:
+with open(filename + ".reg") as f:
     data_reg = f.read()
     data_reg = data_reg.split(';\n')
     data_reg = [row.split('|') for row in data_reg]

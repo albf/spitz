@@ -26,6 +26,10 @@
 #include "barray.h"
 #include "cfifo.h"
 
+enum blocking {
+    BLOCKING,
+    NONBLOCKING
+};
 
 struct result_node {
     struct byte_array ba;
@@ -47,17 +51,21 @@ struct tm_thread_data {
     char **argv;
     int is_blocking_flush;              // 1 if in blocking flush, 0 if not. 
     pthread_mutex_t bf_mutex;           // semaphore to unlock the blocking flush.
+    int tasks;                          // Tasks received and not yet committed counter.
     int bf_remaining_tasks;             // remaining tasks in blocking flush.
-};
+    int alive;                          // indicate if TM is alive or not.
 
-enum blocking {
-    BLOCKING,
-    NONBLOCKING
+    // Flusher related.
+    int flusher_min_results;            // Used to pass min_results to the flusher.
+    enum blocking flusher_b;            // Used to pass blocking b to the flusher.
+    pthread_mutex_t tasks_lock;         // lock the tasks variable, shared under this situation. 
+    sem_t flusher_r_sem;                // sem to unlock the blocking flush.
+    pthread_mutex_t flusher_d_mutex;    // mutex to release flusher data (race condition).
 };
-
 
 int get_number_of_cores();
 void *worker(void *ptr);
+void *flusher(void *ptr);
 int flush_results(struct tm_thread_data *d, int min_results, enum blocking b);
 void task_manager(struct tm_thread_data *d);
 void * jm_worker(void * ptr);

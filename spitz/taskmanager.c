@@ -67,7 +67,7 @@ void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
     int task_id;
-    struct tm_thread_data *d = ptr;
+    struct tm_thread_data *d = (struct tm_thread_data *) ptr;
     struct byte_array * task;
     struct result_node * result;
     uint64_t buffer;
@@ -95,7 +95,7 @@ void *worker(void *ptr)
         sem_post(&d->sem);
 
         byte_array_unpack64(task, &buffer);
-	task_id = (int) buffer;
+        task_id = (int) buffer;
         debug("[worker] Received TASK %d", task_id);
         
         //_byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.
@@ -245,14 +245,59 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
     return 0;
 }
 
+// Function responsible for the flusher thread. 
+void *flusher (void *ptr)
+{
+    struct tm_thread_data *d = (struct tm_thread_data *) ptr;
+    int min_results;
+    enum blocking b;
+    int flushed_tasks, tm_retries;
+
+    sem_wait(&d->flusher_r_sem);
+    while(d->flusher_min_results != -1) {
+        min_results = d->flusher_min_results;
+        b = d->flusher_b;
+        pthread_mutex_unlock(&d->flusher_d_mutex);
+
+        if(b == BLOCKING) {
+            min_results = d->tasks;
+        }
+
+        debug("FLUSHER: Flushing min_results : %d", min_results);
+        debug("FLUSHER: d->tasks: %d", d->tasks);
+        flushed_tasks = flush_results(d, min_results, b);
+        if(flushed_tasks < 0) {
+            info("Couldn't flush results. Is committer still alive?");
+            tm_retries = TM_CON_RETRIES;
+            if(COMM_connect_to_committer(&tm_retries)<0) {
+                info("If it is, I just couldn't find it. Closing.");
+                d->alive = 0;
+            }
+            else {
+                info("Reconnected to the committer.");
+            }
+        }
+        else {
+            if(flushed_tasks > 0) {
+                pthread_mutex_lock(&d->tasks_lock);
+                d->tasks = d->tasks - flushed_tasks;
+                pthread_mutex_unlock(&d->tasks_lock);
+            }
+            debug("I have sent %d tasks\n", flushed_tasks);
+        }
+
+        sem_wait(&d->flusher_r_sem);
+    }
+
+    pthread_exit(NULL);
+}
+
 // Responsible for the thread that manages the Task Manager: receiving tasks,
 // Sending results, requesting new tasks and etc.
 void task_manager(struct tm_thread_data *d)
 {
-    int alive = 1;                                                  // Indicate if it still alive.
     int end = 0;                                                    // To indicate a true ending. Dead but fine. 
     enum message_type type;                                         // Type of received message.
-    int tasks = 0;                                                  // Tasks received and not committed.
     int min_results = RESULT_BUFFER_SIZE;                           // Minimum of results to send at the same time. 
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
@@ -264,10 +309,12 @@ void task_manager(struct tm_thread_data *d)
     // Data structure to exchange message between processes. 
     struct byte_array * ba;
 
+    d->tasks = 0;                                                  // Tasks received and not committed.
+    d->alive = 1;                                                  // Indicate if it still alive.
     srand (time(NULL));
 
     info("Starting task manager main loop");
-    while (alive) {
+    while (d->alive) {
         ba = (struct byte_array *) malloc(sizeof(struct byte_array));
         byte_array_init(ba, 100);
 
@@ -299,13 +346,20 @@ void task_manager(struct tm_thread_data *d)
                 pthread_mutex_unlock(&d->tlock);
                 sem_post(&d->tcount);
                 
-                tasks++;
+                if(FLUSHER_THREAD > 0) {
+                    pthread_mutex_lock(&d->tasks_lock);
+                    d->tasks++;
+                    pthread_mutex_unlock(&d->tasks_lock);
+                } 
+                else {
+                    d->tasks++;
+                }
+
                 break;
             case MSG_KILL:
                 info("Got a KILL message");
-                alive = 0;
+                d->alive = 0;
                 end = 1;
-                min_results = tasks;
                 b = BLOCKING;
                 break;
             case MSG_EMPTY:
@@ -313,7 +367,7 @@ void task_manager(struct tm_thread_data *d)
                 tm_retries = TM_CON_RETRIES;
                 if(COMM_connect_to_job_manager(COMM_addr_manager, &tm_retries)!=0) {
                     info("Couldn't reconnect to the Job Manager. Closing Task Manager.");
-                    alive = 0;
+                    d->alive = 0;
                 }
                 else {
                     info("Reconnected to the Job Manager.");
@@ -332,30 +386,46 @@ void task_manager(struct tm_thread_data *d)
                 break;
         }
 
-        if (alive || end) {
+        if (d->alive || end) {
             debug("Trying to flush %d %s...", min_results, b == BLOCKING ? "blocking":"non blocking");
-            flushed_tasks = flush_results(d, min_results, b);
-            if(flushed_tasks < 0) {
-                info("Couldn't flush results. Is committer still alive?");
-                tm_retries = TM_CON_RETRIES;
-                if(COMM_connect_to_committer(&tm_retries)<0) {
-                    info("If it is, I just couldn't find it. Closing.");
-                    alive = 0;
-                }
-                else {
-                    info("Reconnected to the committer.");
+            if(FLUSHER_THREAD > 0) {
+                if((d->tasks >= min_results) || (b == BLOCKING)) {
+                    pthread_mutex_lock(&d->flusher_d_mutex);
+                    d->flusher_min_results = min_results;
+                    d->flusher_b = b;
+                    sem_post(&d->flusher_r_sem);
                 }
             }
             else {
-                tasks -= flushed_tasks; 
-                debug("I have sent %d tasks\n", flushed_tasks);
+                if(b == BLOCKING) {
+                    min_results = d->tasks;
+                }
+
+                flushed_tasks = 0;
+                if(d->tasks >= min_results) {
+                    flushed_tasks = flush_results(d, min_results, b);
+                }
+
+                if(flushed_tasks < 0) {
+                    info("Couldn't flush results. Is committer still alive?");
+                    tm_retries = TM_CON_RETRIES;
+                    if(COMM_connect_to_committer(&tm_retries)<0) {
+                        info("If it is, I just couldn't find it. Closing.");
+                        d->alive = 0;
+                    }
+                    else {
+                        info("Reconnected to the committer.");
+                    }
+                }
+                else {
+                    d->tasks = d->tasks - flushed_tasks; 
+                    debug("I have sent %d tasks\n", flushed_tasks);
+                }
             }
-            
         }
     }
 
     info("Terminating task manager");
     byte_array_free(ba);
     free(ba);
-    COMM_close_all_connections();
 }

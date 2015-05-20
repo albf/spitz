@@ -45,7 +45,6 @@
 #define NON_BUFFERED_STDOUT 1  
 
 int LOG_LEVEL = 0;
-int NTHREADS = 1; 
 
 void * jm_create_thread(void *ptr) {
 	struct jm_thread_data * td = ptr;
@@ -67,6 +66,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     pthread_t * t; 
     pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);   // set lib path variable
+    debug("Lib_path : %s", lib_path);                           // lib_path
     char * info, * filename;                                      // used to print registry info
 
     struct jm_thread_data td;
@@ -220,6 +220,10 @@ void start_slave_processes(int argc, char *argv[])
     int is_binary_correct=0;
     struct stat buffer;
     void *handle = NULL;
+    int i, tmid;                    // Auxiliary
+    pthread_t * t;                  // Worker threads
+    pthread_t * t_flusher;          // Flusher thread
+    int NTHREADS = 1;               // Number of threads
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -337,7 +341,7 @@ void start_slave_processes(int argc, char *argv[])
         }
         else {
  
-            // DEBUG START //
+            // DEBUG START - Check local multiple binary files. //
             /*char * path_debug;
             path_debug = (char *) (lib_path->ptr);
             switch(COMM_get_rank_id()) {
@@ -380,11 +384,14 @@ void start_slave_processes(int argc, char *argv[])
         } 
         else {                                  // Else : Task Manager or VM Task Manager
             //pthread_t t[NTHREADS];
-            if(NTHREADS == -1) {
+            if(IDENTIFY_CORES > 0) {
                 NTHREADS = get_number_of_cores();
             }
-            pthread_t * t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
-            
+            else {
+                NTHREADS = NUM_CORES;
+            }
+
+            t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
             
             struct tm_thread_data d;
             struct result_node * aux;
@@ -403,13 +410,29 @@ void start_slave_processes(int argc, char *argv[])
             d.argv = argv;
             d.is_blocking_flush = 0;            // Notify that is not in a blocking flush.
 
-            int i, tmid = COMM_get_rank_id();
+            tmid = COMM_get_rank_id();
             for (i = 0; i < NTHREADS; i++) {
                 d.id = NTHREADS * tmid + i;
                 pthread_create(&t[i], NULL, worker, &d);
             }
 
+            if(FLUSHER_THREAD > 0) {
+                t_flusher = (pthread_t *) malloc(sizeof (pthread_t)); 
+                sem_init(&d.flusher_r_sem, 0, 0);
+                pthread_mutex_init(&d.flusher_d_mutex, NULL);
+                pthread_mutex_init(&d.tasks_lock, NULL);
+                pthread_create(t_flusher, NULL, flusher, &d);
+            }
+
             task_manager(&d);
+
+            if(FLUSHER_THREAD > 0) {            // Finish Flusher
+                pthread_mutex_lock(&d.flusher_d_mutex);
+                d.flusher_min_results = -1;
+                sem_post(&d.flusher_r_sem);
+                pthread_join(*t_flusher, NULL);
+                free(t_flusher);
+            }
 
             d.running = 0;                      // Finish the running threads
             for(i=0; i< NTHREADS; i++) {
@@ -419,6 +442,8 @@ void start_slave_processes(int argc, char *argv[])
             for (i = 0; i < NTHREADS; i++) {    // Join them all
                 pthread_join(t[i], NULL);
             }
+
+            COMM_close_all_connections();       // Close connections, now that is safe.
 
             // clean memory from results, as it may have some there
             aux = d.results;
@@ -517,14 +542,6 @@ int main(int argc, char *argv[])
     }
     else {
         LOG_LEVEL = 2;
-    }
-
-    char *nthreads = getenv("SPITS_NUM_THREADS");
-    if (nthreads) {
-        NTHREADS = atoi(nthreads);
-    }
-    else {
-        NTHREADS=1;
     }
 
     if (type == JOB_MANAGER && LOG_LEVEL >= 1) {
