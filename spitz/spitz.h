@@ -33,6 +33,7 @@ extern "C" {
 #define IDENTIFY_CORES 1                // Find total cores availables and create one thread per core.
 #define NUM_CORES 1                     // Used only if IDENTIFY_CORES = 0. 
 #define FLUSHER_THREAD 1                // if should use a separated thread to flush results.
+#define NO_WAIT_FINAL_FLUSH 1           // If should do a immediate flush in final flush.
 
 // Arguments Checks                     // Used to remove warnings, as args may be used in the future.
 

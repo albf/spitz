@@ -424,6 +424,10 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_create(t_flusher, NULL, flusher, &d);
             }
 
+            if(NO_WAIT_FINAL_FLUSH > 0) {
+                sem_init(&d.no_wait_sem, 0, 0);
+            }
+
             task_manager(&d);
 
             if(FLUSHER_THREAD > 0) {            // Finish Flusher

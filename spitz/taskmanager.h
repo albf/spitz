@@ -61,6 +61,9 @@ struct tm_thread_data {
     pthread_mutex_t tasks_lock;         // lock the tasks variable, shared under this situation. 
     sem_t flusher_r_sem;                // sem to unlock the blocking flush.
     pthread_mutex_t flusher_d_mutex;    // mutex to release flusher data (race condition).
+
+    // No wait final flush
+    sem_t no_wait_sem;                // sem to unlock the blocking flush.
 };
 
 int get_number_of_cores();

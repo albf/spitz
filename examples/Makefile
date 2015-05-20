@@ -2,7 +2,7 @@ CPPFLAGS = -I..
 CFLAGS = -shared -Wall -Wextra -fPIC -g3 -O0
 CXXFLAGS = $(CFLAGS)
 LDFLAGS = -L../spitz -lspitz
-TASKS = 100
+TASKS = 20
 
 all: pi.so picpp.so prime.so
 
