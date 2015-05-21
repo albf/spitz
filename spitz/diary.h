@@ -19,30 +19,39 @@
 
  // Simple linked list used to store the ip and port from works and committers.
 
-#ifndef REGISTRY_H
-#define REGISTRY_H
+#ifndef DIARY_H
+#define DIARY_H
 
-#include "jobmanager.h"
+#include "taskmanager.h"
+#include <semaphore.h>
 
-struct task_registry {
-    int task_id;
-    int tm_id;
-    struct timeval * send_time;
-    struct timeval * completed_time;
-    struct task_registry *next;
+struct diary {
+    // Entries part.
+    struct entry ** entries;
+    int * size;
+    int * capacity;
+    int num_threads;
+    struct timeval zero;
+
+    // Id part.
+    pthread_mutex_t id_lock;
+    int c_id;
 };
 
-// Registry manipulation functions.
-void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id);
-int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id);
-void REGISTRY_add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id);
-void REGISTRY_free(struct jm_thread_data *td);
+struct entry {
+    char action;
+    struct timeval start;
+    struct timeval end;
+};
+
+// Diary manipulation functions.
+void DIARY_init(struct tm_thread_data *td, int num_threads);
+int DIARY_get_id(struct tm_thread_data *td);
+struct entry * DIARY_new_entry(struct tm_thread_data *td, int id);
+void DIARY_free(struct tm_thread_data *td);
 
 // Info
-char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename);
+char * DIARY_generate_info(struct tm_thread_data *td, char * filename);
 
-// Auxiliary
-int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1);
-
-#endif	/* LIST_H */
+#endif	/* DIARY_H */
 

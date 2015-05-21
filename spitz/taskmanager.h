@@ -64,6 +64,9 @@ struct tm_thread_data {
 
     // No wait final flush
     sem_t no_wait_sem;                // sem to unlock the blocking flush.
+
+    // Diary
+    struct diary * dia;
 };
 
 int get_number_of_cores();
