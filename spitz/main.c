@@ -224,6 +224,9 @@ void start_slave_processes(int argc, char *argv[])
     pthread_t * t;                  // Worker threads
     pthread_t * t_flusher;          // Flusher thread
     int NTHREADS = 1;               // Number of threads
+    struct tm_thread_data d;
+    struct cm_thread_data cd;
+    struct result_node * aux;
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -380,7 +383,26 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         if (COMM_get_rank_id() == (int) COMMITTER) {
-            committer(argc, argv, handle);
+            if(COMMIT_THREAD > 0 ) {
+                cd.results = NULL;
+                cd.head = NULL;
+                sem_init (&cd.r_counter, 0, 0);
+                pthread_mutex_init(&cd.r_lock, NULL);
+                pthread_mutex_init(&cd.f_lock, NULL);
+                pthread_mutex_trylock(&cd.f_lock);
+                cd.results = NULL;
+
+                t = (pthread_t *) malloc(sizeof (pthread_t)); 
+                pthread_create(t, NULL, commit_worker, &cd);
+            }
+
+            cd.handle = handle;
+            committer(argc, argv, &cd);
+
+            if(COMMIT_THREAD > 0 ) {
+                pthread_join(*t, NULL);
+            }
+
         } 
         else {                                  // Else : Task Manager or VM Task Manager
             //pthread_t t[NTHREADS];
@@ -392,10 +414,7 @@ void start_slave_processes(int argc, char *argv[])
             }
 
             t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
-            
-            struct tm_thread_data d;
-            struct result_node * aux;
-            
+             
             cfifo_init(&d.f, sizeof(struct byte_array *), TASK_BUFFER_SIZE);
             sem_init(&d.sem, 0, TASK_BUFFER_SIZE);
             sem_init (&d.tcount, 0, 0);

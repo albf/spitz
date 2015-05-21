@@ -135,7 +135,7 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 	UNUSED(user_data);
     
 	while(byte_array_unpack32(result, &x)) {
-		//printf("COMMITTING %d\n", x);
+		printf("COMMITTING %d\n", x);
 		insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
 		insertion->value = x;
 		insertion->next = list_pointer->next;

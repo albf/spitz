@@ -22,6 +22,25 @@
 #ifndef __SPITZ_COMMITTER_H__
 #define __SPITZ_COMMITTER_H__
 
-void committer(int argc, char *argv[], void *handle);
+#include <semaphore.h>
+#include "barray.h"
+
+struct cm_result_node {
+    struct byte_array *ba;
+    struct cm_result_node *next;
+};
+
+struct cm_thread_data {
+    void * user_data;
+    void * handle;
+    struct cm_result_node * results;
+    struct cm_result_node * head;
+    sem_t r_counter;
+    pthread_mutex_t r_lock;
+    pthread_mutex_t f_lock;
+};
+
+void * commit_worker(void *ptr);
+void committer(int argc, char *argv[], struct cm_thread_data * d);
 
 #endif /* __SPITZ_COMMITTER_H__ */

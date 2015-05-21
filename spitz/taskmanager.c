@@ -99,7 +99,7 @@ void *worker(void *ptr)
         debug("[worker] Received TASK %d", task_id);
         
         //_byte_array_pack64(task, (uint64_t) task_id);           // Put it back, might use in execute_pit.
-        result = malloc(sizeof(*result));
+        result = (struct result_node *) malloc(sizeof(struct result_node));
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
         byte_array_pack64(&result->ba, my_rank);
@@ -211,8 +211,11 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             n = d->results;
 
             pthread_mutex_lock(&d->rlock); 
-            for (aux = n; aux; aux = aux->next) {
+            if(n) {
                 len++;
+                for (aux = n; aux->next; aux = aux->next) {
+                    len++;
+                }
             }
             d->is_blocking_flush=1;
             d->bf_remaining_tasks = min_results - len;

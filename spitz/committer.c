@@ -26,9 +26,52 @@
 #include "barray.h"
 #include "log.h"
 #include "spitz.h"
+#include <pthread.h> 
 
 
-void committer(int argc, char *argv[], void *handle)
+// Responsible for the commit thread. May or not be used, check spitz.h. 
+void * commit_worker(void *ptr) {
+    struct cm_thread_data * cd = (struct cm_thread_data *) ptr;
+    int any_work = 1;
+    void (*commit_pit) (void *, struct byte_array *);
+    struct cm_result_node * res;
+
+    *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
+
+    while(any_work) {
+        sem_wait(&cd->r_counter); 
+        debug("Received work in Commit Worker.");
+
+        pthread_mutex_lock(&cd->r_lock);                          
+        res = cd->head;
+        if(res != NULL) {
+            if(cd->head == cd->results) {
+                cd->head = NULL;
+                cd->results = NULL;
+            }
+            else {
+                cd->head = cd->head->next;
+            }
+        }
+
+        pthread_mutex_unlock(&cd->r_lock);                          
+
+        if(res != NULL) {
+            commit_pit(cd->user_data, res->ba);
+            byte_array_free(res->ba);
+            free(res->ba);  
+        }
+        else {
+            any_work = 0;
+        }
+    } 
+
+    pthread_mutex_unlock(&cd->f_lock);
+    pthread_exit(NULL);
+}
+
+// Responsible for the committer. Receives results, warns JM, process them. May use commit_worker.
+void committer(int argc, char *argv[], struct cm_thread_data * cd)
 {
     int is_finished=0;                                              // Indicate if it's finished.
     int origin_socket=0;                                            // Socket of the requester, return by COMM_wait_request.
@@ -49,17 +92,20 @@ void committer(int argc, char *argv[], void *handle)
                                                                      // 1 for committed, 0 for not yet.
     int task_id;                                                     // Task id of received result.
     int tm_rank;                                                     // Rank id of the worker that completed the work.
+    struct cm_result_node * result;
     
     // Loads the user functions.
     void * (*setup) (int, char **);
     void (*commit_pit) (void *, struct byte_array *);
     void (*commit_job) (void *, struct byte_array *);
 
-    *(void **)(&setup)      = dlsym(handle, "spits_setup_commit");  // Loads the user functions.
-    *(void **)(&commit_pit) = dlsym(handle, "spits_commit_pit");
-    *(void **)(&commit_job) = dlsym(handle, "spits_commit_job");
+    *(void **)(&setup)      = dlsym(cd->handle, "spits_setup_commit");  // Loads the user functions.
+    if(COMMIT_THREAD <= 0) {
+        *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
+    }
+    *(void **)(&commit_job) = dlsym(cd->handle, "spits_commit_job");
     //setup_free = dlsym("spits_setup_free_commit");
-    void *user_data = setup(argc, argv);
+    cd->user_data = setup(argc, argv);
 
     for(i=0; i<cap; i++) {                                          // initialize the task array
         committed[i]=0;
@@ -90,17 +136,49 @@ void committer(int argc, char *argv[], void *handle)
 
                 if (committed[task_id] == 0) {                      // If not committed yet
                     committed[task_id] = 1;
-                    commit_pit(user_data, ba);
                     info("Sending task %d to Job Manager.", task_id);
                     COMM_send_message(ba, MSG_DONE, socket_manager);
+
+                    if(COMMIT_THREAD > 0) {
+                        result = (struct cm_result_node *) malloc(sizeof(struct cm_result_node));
+
+                        pthread_mutex_lock(&cd->r_lock);                          
+                        result->ba = ba;
+                        result->next = NULL;
+                        if(cd->results != NULL) {
+                            cd->results->next = result;
+                        }
+                        else {
+                            cd->head = result;
+                        }
+
+                        cd->results = result;
+                        pthread_mutex_unlock(&cd->r_lock);                          
+                        sem_post(&cd->r_counter);
+                        
+                        ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+                        byte_array_init(ba, 100);
+                    }
+
+                    else {
+                        commit_pit(cd->user_data, ba);
+                        byte_array_free(ba);
+                        free(ba);  
+                    }
                 }
 
                 break;
             case MSG_KILL:                                          // Received kill from Job Manager.
                 info("Got a KILL message, committing job");
                 byte_array_clear(ba);
+                
+                if(COMMIT_THREAD > 0) {
+                    sem_post(&cd->r_counter); 
+                    pthread_mutex_lock(&cd->f_lock);                          
+                }
+
                 if (commit_job) {
-                    commit_job(user_data, ba);
+                    commit_job(cd->user_data, ba);
                     COMM_send_message(ba, MSG_RESULT, origin_socket); 
                 }
                 is_finished = 1;
@@ -130,7 +208,7 @@ void committer(int argc, char *argv[], void *handle)
     }
 
     byte_array_free(ba);
-    free(user_data);
+    free(cd->user_data);
     free(committed);
     free(ba);
     info("Terminating committer");
