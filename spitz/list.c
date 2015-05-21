@@ -454,7 +454,7 @@ void LIST_update_tasks_info (struct LIST_data * data_pointer,char * adr, int prt
 }
 
 char * LIST_join_info(struct connected_ip * pointer, char * info) {
-    char buffer[15];
+    char buffer[16];
 
     if(pointer->next != NULL) {
         info = LIST_join_info(pointer->next, info);

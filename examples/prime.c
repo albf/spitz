@@ -67,7 +67,7 @@ void spits_worker_run(void *user_data, struct byte_array *task, struct byte_arra
 
     // Resize the byte array to fit all prime numbers.
     byte_array_resize(result, (size_t)(num_for_task*4));
-    printf("LEN: %d\n", (int)result->len);
+    //printf("LEN: %d\n", (int)result->len);
 
     sleep(5);
 
@@ -135,7 +135,7 @@ void spits_commit_pit(void *user_data, struct byte_array *result)
 	UNUSED(user_data);
     
 	while(byte_array_unpack32(result, &x)) {
-		printf("COMMITTING %d\n", x);
+		//printf("COMMITTING %d\n", x);
 		insertion = (struct prime_list *) malloc (sizeof(struct prime_list));
 		insertion->value = x;
 		insertion->next = list_pointer->next;

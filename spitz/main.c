@@ -559,12 +559,12 @@ int main(int argc, char *argv[])
         sleep(amount);
     }
 
-    char *loglvl = getenv("SPITS_LOG_LEVEL");
-    if (loglvl) {
-        LOG_LEVEL = atoi(loglvl);
+    if((SPITS_LOG_LEVEL < 0) || (SPITS_LOG_LEVEL > 2)) {
+        error("Not valid SPITS_LOG_LEVEL used, use a integer in [0, 2]. Using 2 for now");
+        LOG_LEVEL = 2;
     }
     else {
-        LOG_LEVEL = 2;
+        LOG_LEVEL = SPITS_LOG_LEVEL; 
     }
 
     if (type == JOB_MANAGER && LOG_LEVEL >= 1) {

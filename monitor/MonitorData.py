@@ -110,7 +110,7 @@ class MonitorData:
 
 					# If there is no instance, something is wrong.
 					if isThereInstance == 0:
-						Runner.Screen.makeCommandLayout(self, "No instance in following service: " + address)
+						print "No instance in following service: " + str(address)
 						status = "No Instance"
 
 					# If the VM is ok and running, try to establish a SSH connection.
@@ -131,16 +131,16 @@ class MonitorData:
 								isThereSpitz = "NO"
 								s_action = "Start"
 						except socket.gaierror as e1:
-							Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
+							print "Couldn't find " + str(address) + "."
 							status = "No SSH access."
 						except socket.error as e2:
-							Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
+							print "Connection refused in " + str(address) + "."
 							status = "SSH refused."
 						except paramiko.AuthenticationException as e3:
-							Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
+							print "Wrong credentials for " + str(address) + "."
 							status = "SSH denied."
 						except:
-							Runner.Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
+							print "unexpected error connecting to " + str(address) + "."
 							status = "SSH issue."
 					# If it's ok, but down, offer the possibility to start it.
 					else:
@@ -155,11 +155,11 @@ class MonitorData:
 			self.VMrowsInfo.append(["Debug", "Debug", "Debug", "Debug"])
 
 		except WindowsAzureError as WAE:
-			Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
+			print("Couldn't connect with Azure, is your credentials right?") 
 		except socket.gaierror as SGE:
-			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
+			print("Problem connecting to Azure, are your internet ok?")
 		except ssl.SSLError as SLE:
-			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
+			print("Problem connecting to Azure, are your certificates ok?")
 
 	# Update one or more VMs. Ids must be passed in a list by indexes [index1, index2, index3 ... ].
 	# Valid action strings : Start, Stop
@@ -211,7 +211,7 @@ class MonitorData:
 
 				# If there is no instance, something is wrong.
 				if isThereInstance == 0:
-					Runner.Screen.makeCommandLayout(self, "No instance in following service: " + address)
+					print ("No instance in following service: " + str(address))
 				# Start the VM 
 				elif action == "Start":
 					sms.start_role(hosted_service.service_name, d_result.name, instance_name)
@@ -220,14 +220,11 @@ class MonitorData:
 					sms.shutdown_role(hosted_service.service_name, d_result.name, instance_name, post_shutdown_action='StoppedDeallocated')
 
 		except WindowsAzureError as WAE:
-			Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
-			return False
+			print("Couldn't connect with Azure, is your credentials right?") 
 		except socket.gaierror as SGE:
-			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
-			return False
+			print("Problem connecting to Azure, are your internet ok?")
 		except ssl.SSLError as SLE:
-			Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
-			return False
+			print("Problem connecting to Azure, are your certificates ok?")
 
 	# Test if an unreachable VM is, now, reachable (using SSH). Also checks for SPITZ intance if it's on. 
 	# OLD:str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')),
@@ -256,16 +253,16 @@ class MonitorData:
 				s_action = "Start"
 
 		except socket.gaierror as e1:
-			Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
+			print( "Couldn't find " + str(address) + ".")
 			status = "No SSH access."
 		except socket.error as e2:
-			Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
+			print("Connection refused in " + str(address) + ".")
 			status = "SSH refused."
 		except paramiko.AuthenticationException as e3:
-			Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
+			print("Wrong credentials for " + str(address) + ".")
 			status = "SSH denied."
 		except:
-			Runner.Screen.makeCommandLayout(self, "unexpected error connecting to " + str(address) + ".")
+			print( "unexpected error connecting to " + str(address) + ".")
 			status = "SSH issue."
 
 		self.VMrows[i][2] = status
@@ -306,11 +303,9 @@ class MonitorData:
 	# Send a request to the monitor to launch the VM present in the provided dns (converted to a ip|port string).
 	# Kill : Kill existing if true ; Start : start new process if true ; Send : send data to JM if true.
 	# Note, invalid combination : true, false, true.
-	# OLD: str(Runner.Screen.AppInstance.config.get('example', 'ssh_login')), 
-	# OLD: str(Runner.Screen.AppInstance.config.get('example', 'ssh_pass'))) 
-	def launchVMnode(self, index, kill, update, start, send, username, password):
+	def launchVMnode(self, index, kill, update, start, send, username, password, jm_address, jm_port):
 		if (kill == True) and (start == False) and (send == True):
-			Runner.Screen.makeCommandLayout(self, "Invalid combination in MonitorData.launchVMnode.")
+			print ("Invalid combination in MonitorData.launchVMnode.")
 			return False
 
 		reach = "YES"
@@ -344,29 +339,28 @@ class MonitorData:
 					self.VMrows[index][5] = "Restart"
 			
 			except socket.gaierror as e1:
-				Runner.Screen.makeCommandLayout(self, "Couldn't find " + str(address) + ".")
+				print ("Couldn't find " + str(address) + ".")
 				reach = "NO"
 			except socket.error as e2:
-				Runner.Screen.makeCommandLayout(self, "Connection refused in " + str(address) + ".")
+				print ("Connection refused in " + str(address) + ".")
 				reach = "NO"
 			except paramiko.AuthenticationException as e3:
-				Runner.Screen.makeCommandLayout(self, "Wrong credentials for " + str(address) + ".")
+				print( "Wrong credentials for " + str(address) + ".")
 				reach = "NO"
 
 		# Second part, send info to the monitor. 
 		if (reach == "YES") and (send == True):
-			ret = COMM_connect_to_job_manager(Runner.Screen.AppInstance.config.get('example', 'jm_address'),
-							Runner.Screen.AppInstance.config.get('example', 'jm_port'))
+			ret = COMM_connect_to_job_manager(jm_address, jm_port)
 			
 			if ret == 0:
 				ret = COMM_send_vm_node(str(address), 22)
 				if ret == 0:
-					Runner.Screen.makeCommandLayout(self, "Spitz instance running in " + str(address) + ".")
+					print ("Spitz instance running in " + str(address) + ".")
 					return True
 				else:
-					Runner.Screen.makeCommandLayout(self, "Problem sendin vm_node to Job Manager" + str(address) + ".")
+					print ("Problem sendin vm_node to Job Manager" + str(address) + ".")
 			else:
-				Runner.Screen.makeCommandLayout(self, "Can't connect to Job Manager." + str(address) + ".")
+				print("Can't connect to Job Manager." + str(address) + ".")
 	
 		return False	
 
@@ -446,8 +440,6 @@ class MonitorData:
 								sshs.exec_command('rm -r spitz')
 								sshs.exec_command('mkdir spitz')
 								sftp = sshs.open_sftp()
-								#sftp.get('spitz/spitz/spitz', 'spitz_vm')
-								#sftp.get('spitz/spitz/libspitz.so', 'libspitz_vm.so')
 								#sftp.get('spitz/examples/prime.so', 'prime_vm.so')
 								sftp.put('spitz_vm', 'spitz/spitz') 
 								sshs.exec_command('chmod 555 ~/spitz/spitz')
@@ -455,18 +447,13 @@ class MonitorData:
 								sftp.put('libcmp_vm.so', 'spitz/libcmp.so') 
 								sftp.put('run_vm', 'spitz/run_vm') 
 								sshs.exec_command('chmod 555 ~/spitz/run_vm')
-								#sshs.exec_command('screen')
 								
-                                #sshs.exec_command('export LD_LIBRARY_PATH=$PWD/spitz && ' + str(command))
 								sshs.exec_command('./spitz/run_vm') 
 								
-                                #print 'stdout: ' + str(stdout.readlines())
-								#print 'stderr: ' + str(stderr.readlines())
 								print command
 								#sstdin, stdout, stderr = sshs.exec_command(command)
 								#print 'stdout: ' + str(stdout.readlines())
 								#print 'stderr: ' + str(stderr.readlines())
-								#print 'sleeping'
 								#time.sleep(5)
 								
 								ret = COMM_connect_to_job_manager(jm_address, jm_port)
@@ -494,26 +481,21 @@ class MonitorData:
 							except paramiko.AuthenticationException as e3:
 								print("Wrong credentials for " + str(address) + ".")
 								status = "SSH denied."
-							#except Exception as e3:
-							#	print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
-							#	status = "SSH issue."
+							except Exception as e3:
+								print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
+								status = "SSH issue."
 
 		except WindowsAzureError as WAE:
-			#Runner.Screen.makeCommandLayout(self, "Couldn't connect with Azure, is your credentials right?") 
 			print "Couldn't connect with Azure, is your credentials right?"
 		except socket.gaierror as SGE:
-			#Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your internet ok?")
 			print "Problem connecting to Azure, are your internet ok?"
 		except ssl.SSLError as SLE:
-			#Runner.Screen.makeCommandLayout(self, "Problem connecting to Azure, are your certificates ok?")
 			print "Problem connecting to Azure, are your certificates ok?"
 
 
 
 	def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
 		# Create linux config
-		print 'Linux user: ' + str(linux_user)
-		print 'Linux pass: ' + str(linux_pass)
 		linux_config = LinuxConfigurationSet(vm_name, linux_user, linux_pass, True)
 		linux_config.disable_ssh_password_authentication = False
 

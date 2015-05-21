@@ -617,6 +617,19 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_send_message(ba, MSG_STRING, origin_socket);
                 free(v);
                 break;
+            case MSG_GET_REGISTRY:
+                if(KEEP_REGISTRY > 0) {
+                    v = REGISTRY_generate_info(td, NULL);
+                    n = (size_t) (strlen(v)+1); 
+                    byte_array_init(ba, n);
+                    byte_array_pack8v(ba, v, n);
+                    COMM_send_message(ba, MSG_STRING, origin_socket);
+                    free(v);
+                }
+                else {
+                    COMM_send_message(NULL, MSG_EMPTY, origin_socket);
+                }
+                break;
             case MSG_EMPTY:
                 info("Nothing received: Timeout or problem in wait_request().");
                 break;

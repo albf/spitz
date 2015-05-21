@@ -26,11 +26,11 @@
 
 // Enums of actor and message type
 enum actor {
-    JOB_MANAGER  = 0,
-    COMMITTER    = 1,
-    TASK_MANAGER = 2,
-    MONITOR = 3,
-    VM_TASK_MANAGER = 4
+    JOB_MANAGER  =      0,
+    COMMITTER    =      1,
+    TASK_MANAGER =      2,
+    MONITOR =           3,
+    VM_TASK_MANAGER =   4
 };
 
 // Enums of possible messages. Keep this equal to the python comm.py header. 
@@ -40,7 +40,7 @@ enum message_type {
     MSG_RESULT                  = 2,    // A result, Task Manager to Committer.	
     MSG_KILL 	                = 3,    // Kill message, when there is nothing to send.
     MSG_DONE                    = 4,    // Indicates some task has finished.
-    MSG_GET_COMMITTER   	= 5,    // Task Manager to Job Manager 
+    MSG_GET_COMMITTER           = 5,    // Task Manager to Job Manager 
     MSG_GET_PATH                = 6,    // Task Manager to Job Manager
     MSG_GET_RUNNUM              = 7,    // Task Manager/Committer to Job Manager
     MSG_GET_ALIVE               = 8,    // Task Manager to JobManager
@@ -58,7 +58,8 @@ enum message_type {
     MSG_SET_TASK_MANAGER_ID     = 20,   // Task Manager to Job Manager, to restore ID. 
     MSG_NEW_VM_TASK_MANAGER     = 21,   // Monitor to JobManager, JobManager to Committer.
     MSG_SEND_VM_TO_COMMITTER    = 22,   // VM request to JobManager help to connect to Committer.
-    MSG_NO_TASK                 = 23    // JM sends to TM when there is no task to send but computation is not over..
+    MSG_NO_TASK                 = 23,   // JM sends to TM when there is no task to send but computation is not over..
+    MSG_GET_REGISTRY            = 24    // JM sends to TM when there is no task to send but computation is not over..
 };
 
 enum status_type {

@@ -59,9 +59,10 @@ extern "C" {
 
 #define COMMIT_THREAD 1                 // if should use a separate thread to the commit function.
 
-// Arguments Checks                     // Used to remove warnings, as args may be used in the future.
+// OTHER DEFINES                        
 
-#define CHECK_ARGS 0
+#define SPITS_LOG_LEVEL 2               // Log level used to limit what is showed on screen.
+#define CHECK_ARGS 0                    // Used to remove warnings, as args may be used in the future.
 #define ARGC_C 0
     
 /*

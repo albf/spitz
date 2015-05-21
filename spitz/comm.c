@@ -492,12 +492,13 @@ int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
 // Returns 0 if success and < 0 otherwise. 
 int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     int c_port;
-    char * token, * save_ptr;
+    char * token, * save_ptr, adr[16];
     struct sockaddr_in node_address;
     int socket_node;
     int is_connected = 0;
     int retries_left;
     int id_send; 
+    uint64_t cast;
 
     // Non-Blocking socket.
     long arg; 
@@ -505,6 +506,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     struct timeval tv; 
     int valopt; 
     socklen_t lon; 
+    struct connected_ip * look;
     
     // Verify if retries is valid.
     if(retries != NULL) {
@@ -518,14 +520,26 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     
     // Get the ip and port values.
     token = strtok_r((char *) ba->ptr, "|\0", &save_ptr);
-    debug("VM IP: %s", token);
+    debug("Incoming VM IP: %s", token);
+    adr[0] = '\0';
+    strcpy(adr, token);
     node_address.sin_addr.s_addr = inet_addr(token);
     node_address.sin_family = AF_INET;
     
     token = strtok_r(NULL, "|\0", &save_ptr);
-    debug("VM PORT : %s", token);
+    debug("Incoming VM PORT : %s", token);
     c_port = atoi(token);
     node_address.sin_port = htons(c_port);
+
+    if(COMM_my_rank == (int)JOB_MANAGER) {
+        look = LIST_search_ip_address(COMM_ip_list, adr, c_port);
+        if(look != NULL) {
+            if(look->connected > 0) {
+                info("VM passed (%s|%d) already connected.", adr, c_port);
+                return 0;
+            }
+        }
+    }
 
     //Create socket
     socket_node = socket(AF_INET , SOCK_STREAM , 0);
@@ -584,7 +598,6 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         }
 
         if(is_connected == 0) {
-            close(socket_node);
             if(retries_left == 0) {
                 error("Could not connect to the Vm Task Manager. No retries left.\n");
             }
@@ -606,10 +619,23 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
         
         // Add new connection to the list, assign rank id and send to the client (if the manager).
         if(COMM_my_rank == (int)JOB_MANAGER) {
-            COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, VM_TASK_MANAGER, &id_send); 
-            byte_array_clear(ba);
-            byte_array_pack64(ba, id_send);
-            COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
+            if(look == NULL) {
+                COMM_ip_list = LIST_add_ip_address(COMM_ip_list, inet_ntoa(node_address.sin_addr), ntohs(node_address.sin_port), socket_node, VM_TASK_MANAGER, &id_send); 
+                byte_array_clear(ba);
+                cast = (uint64_t) id_send;
+                byte_array_pack64(ba, cast);
+                COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
+            }
+            else {
+                look->connected = 1;
+                look->socket = socket_node;
+                look->type = VM_TASK_MANAGER;   
+
+                byte_array_clear(ba);
+                cast = (uint64_t) look->id;
+                byte_array_pack64(ba, cast);
+                COMM_send_message(ba,MSG_SET_JOB_MANAGER,socket_node);
+            }
         }
         else if(COMM_my_rank == (int) COMMITTER) {
             COMM_send_message(NULL,MSG_SET_COMMITTER,socket_node);
@@ -617,6 +643,9 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
 
         //add new socket to array of sockets
         COMM_add_client_socket(socket_node);
+    }
+    else {
+        close(socket_node);
     }
     return 0;
 }
