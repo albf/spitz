@@ -62,7 +62,7 @@ int JOURNAL_get_id(struct tm_thread_data *td, char my_type) {
     pthread_mutex_lock(&td->dia->id_lock);
     ret = td->dia->c_id;
     td->dia->c_id++;
-    pthread_mutex_lock(&td->dia->id_lock);
+    pthread_mutex_unlock(&td->dia->id_lock);
 
     td->dia->id_type[ret] = my_type;
     
@@ -79,7 +79,7 @@ struct j_entry * JOURNAL_new_entry(struct tm_thread_data *td, int id) {
     }
 
     td->dia->size[id]++;    
-    return td->dia->entries[index];
+    return &(td->dia->entries[id][index]);
 }
 
 // Free memory allocated by the journal.
@@ -129,9 +129,11 @@ char * JOURNAL_generate_info(struct tm_thread_data *td, char * filename) {
             strcat(info, "|");
             timeval_subtract(&td->dia->entries[i][j].start, &td->dia->entries[i][j].start, &td->dia->zero);
             sprintf(buffer, "%ld.%06ld", td->dia->entries[i][j].start.tv_sec, td->dia->entries[i][j].start.tv_usec);
+            strcat(info, buffer);
             strcat(info, "|");
             timeval_subtract(&td->dia->entries[i][j].end, &td->dia->entries[i][j].end, &td->dia->zero);
             sprintf(buffer, "%ld.%06ld", td->dia->entries[i][j].end.tv_sec, td->dia->entries[i][j].end.tv_usec);
+            strcat(info, buffer);
             strcat(info, ";\n");
         }
     }

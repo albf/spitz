@@ -507,7 +507,6 @@ void start_slave_processes(int argc, char *argv[])
                     free(j_info);
                 }
                 JOURNAL_free(&d);
-                free(d.dia);
             }
             
             cfifo_free(&d.f);

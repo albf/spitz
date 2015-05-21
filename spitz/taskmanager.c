@@ -81,11 +81,12 @@ int int_rand(int min, int max)
 void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
-    int task_id, j_id;                                          // j_id = journal id for current thread.
+    int task_id, j_id=0;                                        // j_id = journal id for current thread.
     struct tm_thread_data *d = (struct tm_thread_data *) ptr;
     struct byte_array * task;
     struct result_node * result;
     uint64_t buffer;
+    struct j_entry * entry;
 
     workerid = d->id;
 
@@ -122,7 +123,19 @@ void *worker(void *ptr)
         byte_array_init(&result->ba, 10);
         byte_array_pack64(&result->ba, task_id);                // Pack the ID in the result byte_array.
         byte_array_pack64(&result->ba, my_rank);
+
+        if(TM_KEEP_JOURNAL > 0) {
+            entry = JOURNAL_new_entry(d, j_id);
+            entry->action = 'P';
+            gettimeofday(&entry->start, NULL);
+        }
+
         execute_pit(user_data, task, &result->ba);              // Do the computation.
+
+        if(TM_KEEP_JOURNAL > 0) {
+            gettimeofday(&entry->end, NULL);
+        }
+
         byte_array_free(task);                                  // Free memory used in task and pointer.
         free(task);                                             // For now, each pointer is allocated in master thread.
 
@@ -162,10 +175,11 @@ void *worker(void *ptr)
 
 /* Send results to the committer, blocking or not.
  * Returns the number of tasks sent or -1 if found a connection problem. */
-int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
+int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, int j_id)
 {
     int i, len = 0;
     struct result_node *aux, *n = d->results;
+    struct j_entry * entry;
 
     if(n) {
         len++;
@@ -211,10 +225,26 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             }
             pthread_mutex_unlock(&d->rlock);
 
+            if(TM_KEEP_JOURNAL > 0) {
+                entry = JOURNAL_new_entry(d, j_id);
+                entry->action = 'S';
+                gettimeofday(&entry->start, NULL);
+            }
+
             if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
                 error("Problem to send result to committer. Aborting flush_results.");
+
+                if(TM_KEEP_JOURNAL > 0) {
+                    gettimeofday(&entry->end, NULL);
+                }
+
                 return -1;
             }
+
+            if(TM_KEEP_JOURNAL > 0) {
+                gettimeofday(&entry->end, NULL);
+            }
+
             byte_array_free(&n->ba);
             free(n);
         len++;
@@ -253,10 +283,27 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
 
                 // Send message and update list, all standard.
                 n = aux;
+
+                if(TM_KEEP_JOURNAL > 0) {
+                    entry = JOURNAL_new_entry(d, j_id);
+                    entry->action = 'S';
+                    gettimeofday(&entry->start, NULL);
+                }
+
                 if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
                     error("Problem to send result to committer. Aborting flush_results.");
+
+                    if(TM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+                    }
+
                     return -1;
                 }
+
+                if(TM_KEEP_JOURNAL > 0) {
+                    gettimeofday(&entry->end, NULL);
+                }
+
                 pthread_mutex_lock(&d->rlock);
                 if(aux->before != NULL) {
                     aux->before->next = NULL;
@@ -305,10 +352,25 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
                 }
                 pthread_mutex_unlock(&d->rlock);
 
+                if(TM_KEEP_JOURNAL > 0) {
+                    entry = JOURNAL_new_entry(d, j_id);
+                    entry->action = 'S';
+                    gettimeofday(&entry->start, NULL);
+                }
+
                 if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                    if(TM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+                    }
+
                     error("Problem to send result to committer. Aborting flush_results.");
                     return -1;
                 }
+
+                if(TM_KEEP_JOURNAL > 0) {
+                    gettimeofday(&entry->end, NULL);
+                }
+
                 byte_array_free(&n->ba);
                 free(n);
             len++;
@@ -325,9 +387,13 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
 void *flusher (void *ptr)
 {
     struct tm_thread_data *d = (struct tm_thread_data *) ptr;
-    int min_results;
+    int min_results, j_id=0;
     enum blocking b;
     int flushed_tasks, tm_retries;
+
+    if(TM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(d, 'F');
+    }
 
     // Wait for new things to flush.
     sem_wait(&d->flusher_r_sem);
@@ -345,7 +411,7 @@ void *flusher (void *ptr)
         // Try to flush, update tasks counter if succedded.
         debug("FLUSHER: Flushing min_results : %d", min_results);
         debug("FLUSHER: d->tasks: %d", d->tasks);
-        flushed_tasks = flush_results(d, min_results, b);
+        flushed_tasks = flush_results(d, min_results, b, j_id);
         if(flushed_tasks < 0) {
             info("Couldn't flush results. Is committer still alive?");
             tm_retries = TM_CON_RETRIES;
@@ -386,6 +452,8 @@ void task_manager(struct tm_thread_data *d)
     int tm_retries;                                                 // Count the number of times TM tries to reconnect.
     int task_wait_max=1;                                            // Current max time of wait in CASE MSG_NO_TASK (sec)
     int wait;                                                       // wait(sec) in CASE MSG_NO_TASK
+    int j_id=0;                                                     // Id from journal (if it exists).
+    struct j_entry * entry;                                         // new entry for journal.
 
     // Data structure to exchange message between processes. 
     struct byte_array * ba;
@@ -393,6 +461,10 @@ void task_manager(struct tm_thread_data *d)
     d->tasks = 0;                                                  // Tasks received and not committed.
     d->alive = 1;                                                  // Indicate if it still alive.
     srand (time(NULL));
+
+    if(TM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(d, 'M');
+    }
 
     info("Starting task manager main loop");
     while (d->alive) {
@@ -406,7 +478,19 @@ void task_manager(struct tm_thread_data *d)
             type = MSG_EMPTY;
         }
         else {
+            if(TM_KEEP_JOURNAL > 0) {
+                entry = JOURNAL_new_entry(d, j_id);
+                entry->action = 'R';
+                gettimeofday(&entry->start, NULL);
+            }
+
             comm_return = COMM_read_message(ba, &type, socket_manager);
+
+            if(TM_KEEP_JOURNAL > 0) {
+                gettimeofday(&entry->end, NULL);
+            }
+
+
             if(comm_return < 0) {
                 error("Problem found to read message from Job Manager");
                 type = MSG_EMPTY;
@@ -484,7 +568,7 @@ void task_manager(struct tm_thread_data *d)
 
                 flushed_tasks = 0;
                 if(d->tasks >= min_results) {
-                    flushed_tasks = flush_results(d, min_results, b);
+                    flushed_tasks = flush_results(d, min_results, b, j_id);
                 }
 
                 if(flushed_tasks < 0) {

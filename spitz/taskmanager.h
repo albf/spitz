@@ -72,7 +72,7 @@ struct tm_thread_data {
 int get_number_of_cores();
 void *worker(void *ptr);
 void *flusher(void *ptr);
-int flush_results(struct tm_thread_data *d, int min_results, enum blocking b);
+int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, int j_id);
 void task_manager(struct tm_thread_data *d);
 void * jm_worker(void * ptr);
 
