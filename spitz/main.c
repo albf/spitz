@@ -35,6 +35,7 @@
 #include "monitor.h"
 #include "comm.h"
 #include "registry.h"
+#include "journal.h"
 #include "spitz.h"
 #include <pthread.h>
 #include <sys/types.h>
@@ -227,6 +228,7 @@ void start_slave_processes(int argc, char *argv[])
     struct tm_thread_data d;
     struct cm_thread_data cd;
     struct result_node * aux;
+    char * j_info, * filename;
 
     // Request and get the path from the job manager. If get disconnected, retry.
     do {
@@ -429,6 +431,15 @@ void start_slave_processes(int argc, char *argv[])
             d.argv = argv;
             d.is_blocking_flush = 0;            // Notify that is not in a blocking flush.
 
+            if(TM_KEEP_JOURNAL > 0) {
+                i = 1 + NTHREADS;
+                if(FLUSHER_THREAD > 0) {
+                    i++;
+                }
+                d.dia = (struct journal *) malloc (sizeof(struct journal));
+                JOURNAL_init(&d, i);
+            }
+
             tmid = COMM_get_rank_id();
             for (i = 0; i < NTHREADS; i++) {
                 d.id = NTHREADS * tmid + i;
@@ -475,6 +486,28 @@ void start_slave_processes(int argc, char *argv[])
                 byte_array_free(&(aux->ba));
                 free(aux);
                 aux = d.results;
+            }
+
+            // Clean journal memory
+            if(TM_KEEP_JOURNAL > 0) {
+                if(TM_SAVE_JOURNAL > 0) {
+                    filename = (char *) malloc (sizeof((strlen((char *) lib_path->ptr)+5)));
+                    filename[0] = '\0';
+                    strcat(filename, (char *) lib_path->ptr);
+                    strcat(filename, ".dia");
+   
+                    j_info = JOURNAL_generate_info(&d, filename);
+                    debug(j_info);
+                    free(j_info);
+                    free(filename);
+                }
+                else {
+                    j_info = JOURNAL_generate_info(&d, NULL);
+                    debug(j_info);
+                    free(j_info);
+                }
+                JOURNAL_free(&d);
+                free(d.dia);
             }
             
             cfifo_free(&d.f);

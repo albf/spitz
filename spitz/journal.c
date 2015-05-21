@@ -17,7 +17,7 @@
  * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "diary.h"
+#include "journal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,24 +29,25 @@
 #include "registry.h"
 #include "taskmanager.h"
 
-#define DIARY_INITIAL_CAPACITY 16
+#define JOURNAL_INITIAL_CAPACITY 16
 
-// Init diary, allocate all necessary memory to start booking.
-void DIARY_init(struct tm_thread_data *td, int num_threads) {
+// Init journal, allocate all necessary memory to start booking.
+void JOURNAL_init(struct tm_thread_data *td, int num_threads) {
     int i;
     
-    td->dia = (struct diary *) malloc (sizeof(struct diary));
+    td->dia = (struct journal *) malloc (sizeof(struct journal));
 
     gettimeofday(&td->dia->zero, NULL);
 
     td->dia->size = (int *) malloc(sizeof(int)*num_threads);
     td->dia->capacity = (int *) malloc(sizeof(int)*num_threads);
-    td->dia->entries = (struct entry **) malloc(sizeof(struct entry *)*num_threads);
+    td->dia->entries = (struct j_entry **) malloc(sizeof(struct j_entry *)*num_threads);
+    td->dia->id_type = (char *) malloc(sizeof(char)*num_threads);
 
     for(i = 0; i < num_threads; i++) {
         td->dia->size[i] = 0;
-        td->dia->capacity[i] = DIARY_INITIAL_CAPACITY;
-        td->dia->entries[i] = (struct entry *) malloc(sizeof(struct entry)*DIARY_INITIAL_CAPACITY);
+        td->dia->capacity[i] = JOURNAL_INITIAL_CAPACITY;
+        td->dia->entries[i] = (struct j_entry *) malloc(sizeof(struct j_entry)*JOURNAL_INITIAL_CAPACITY);
     }
 
     pthread_mutex_init(&td->dia->id_lock, NULL);
@@ -55,32 +56,34 @@ void DIARY_init(struct tm_thread_data *td, int num_threads) {
 }
 
 // Get id to a thread. Each thread has a different id.
-int DIARY_get_id(struct tm_thread_data *td) {
+int JOURNAL_get_id(struct tm_thread_data *td, char my_type) {
     int ret;
 
     pthread_mutex_lock(&td->dia->id_lock);
     ret = td->dia->c_id;
     td->dia->c_id++;
     pthread_mutex_lock(&td->dia->id_lock);
+
+    td->dia->id_type[ret] = my_type;
     
     return ret;
 }
 
 // Get reference to the next entry. Update the values to the allocated entry.
-struct entry * DIARY_new_entry(struct tm_thread_data *td, int id) {
+struct j_entry * JOURNAL_new_entry(struct tm_thread_data *td, int id) {
     int index = td->dia->size[id];
 
     if(td->dia->capacity[id] == td->dia->size[id]) {
         td->dia->capacity[id] = td->dia->capacity[id]*2;
-        td->dia->entries[id] = (struct entry *) realloc (td->dia->entries[id], sizeof(struct entry)*td->dia->capacity[id]);
+        td->dia->entries[id] = (struct j_entry *) realloc (td->dia->entries[id], sizeof(struct j_entry)*td->dia->capacity[id]);
     }
 
     td->dia->size[id]++;    
     return td->dia->entries[index];
 }
 
-// Free memory allocated by the diary.
-void DIARY_free(struct tm_thread_data *td) {
+// Free memory allocated by the journal.
+void JOURNAL_free(struct tm_thread_data *td) {
     int i;
 
     free(td->dia->size);
@@ -96,20 +99,29 @@ void DIARY_free(struct tm_thread_data *td) {
 
 // Genereate info and save to filename (if filename != NULL)
 // Format: action(1) + | + start(30) + | + finish(30) + ;\n <= 70
-char * DIARY_generate_info(struct tm_thread_data *td, char * filename) {
+char * JOURNAL_generate_info(struct tm_thread_data *td, char * filename) {
     int size = 0;
     int i,j;
     char * info;
-    char aux[2], buffer[30];
+    char aux[10], buffer[30];
     FILE *f;
 
     for(i=0; i < td->dia->num_threads; i++) {
         size += td->dia->size[i];
     }
 
-    info = (char *) malloc (size*70*sizeof(char));
+    info = (char *) malloc (((size*70)+(td->dia->num_threads*5))*sizeof(char));
+    info[0] = '\0';
     
     for(i=0; i < td->dia->num_threads; i++) {
+            strcat(info, "\n");
+            sprintf(aux, "%d", i);
+            strcat(info, aux);
+            strcat(info, "|");
+            aux[1] = '\0';
+            aux[0] = td->dia->id_type[i];
+            strcat(info, aux);
+            strcat(info, "\n");
         for(j=0; j < td->dia->size[i]; j++) {
             aux[1] = '\0';
             aux[0] = td->dia->entries[i][j].action;

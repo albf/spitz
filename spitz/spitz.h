@@ -33,8 +33,8 @@ extern "C" {
 #define WAIT_REQUEST_TIMEOUT_USEC 0
 #define GEN_PARALLEL 0                  // if jm generation function can work in parallel. 
 #define KEEP_REGISTRY 1                 // if jm will keep registry and avoid sending repeated tasks.
-#define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required).
-#define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file.
+#define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
+#define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file. (*.so.list)
     
 // Comm DEFINEs
 
@@ -42,7 +42,7 @@ extern "C" {
 #define PORT_COMMITTER 10007
 #define PORT_VM 11006
 #define INITIAL_MAX_CONNECTIONS 30      // Initial max number of clientes conneceted (will increase if needed).
-#define max_pending_connections 3
+#define MAX_PENDING_CONNECTIONS 3
 
 // Task Manager DEFINEs
 
@@ -52,8 +52,10 @@ extern "C" {
 #define TM_MAX_SLEEP 16                 // Max sleep before asking again for a task (seconds).
 #define IDENTIFY_CORES 1                // Find total cores availables and create one thread per core.
 #define NUM_CORES 1                     // Used only if IDENTIFY_CORES = 0. 
-#define FLUSHER_THREAD 1                // if should use a separated thread to flush results.
+#define FLUSHER_THREAD 1                // If should use a separated thread to flush results.
 #define NO_WAIT_FINAL_FLUSH 1           // If should do a immediate flush in final flush.
+#define TM_KEEP_JOURNAL 1               // If should keep a journal of activities.
+#define TM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 
 // Committer DEFINEs
 

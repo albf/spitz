@@ -858,7 +858,7 @@ int COMM_setup_committer_network() {
     debug("Listener on port %d \n", PORT_COMMITTER);
      
     //try to specify maximum of max_pending_connections pending connections for the master socket
-    if (listen(COMM_master_socket, max_pending_connections) < 0) {
+    if (listen(COMM_master_socket, MAX_PENDING_CONNECTIONS) < 0) {
         return -1;
     }
     
@@ -921,7 +921,7 @@ int COMM_setup_vm_network() {
     debug("Listener on port %d \n", PORT_VM);
      
     //try to specify maximum of 3 pending connections for the master socket
-    if (listen(COMM_master_socket, max_pending_connections) < 0) {
+    if (listen(COMM_master_socket, MAX_PENDING_CONNECTIONS) < 0) {
         return -1;
     }
     
@@ -987,7 +987,7 @@ int COMM_setup_job_manager_network() {
     debug("Listener on port %d \n", PORT_MANAGER);
      
     //try to specify maximum of 3 pending connections for the master socket
-    if (listen(COMM_master_socket, max_pending_connections) < 0) {
+    if (listen(COMM_master_socket, MAX_PENDING_CONNECTIONS) < 0) {
         return -1;
     }
     

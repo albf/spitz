@@ -1,4 +1,4 @@
-SRC = cfifo.c log.c comm.c main.c jobmanager.c committer.c taskmanager.c list.c md5.c monitor.c registry.c diary.c
+SRC = cfifo.c log.c comm.c main.c jobmanager.c committer.c taskmanager.c list.c md5.c monitor.c registry.c journal.c
 COMM = comm
 
 CPPFLAGS = -I.

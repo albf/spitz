@@ -35,6 +35,7 @@
 #include <sys/time.h>           // Wait some seconds in NO_TASK case.
 #include "comm.h"
 #include "log.h"
+#include "journal.h"
 #include "spitz.h"
 
 extern __thread int workerid;
@@ -80,7 +81,7 @@ int int_rand(int min, int max)
 void *worker(void *ptr)
 {
     int my_rank = COMM_get_rank_id(); 
-    int task_id;
+    int task_id, j_id;                                          // j_id = journal id for current thread.
     struct tm_thread_data *d = (struct tm_thread_data *) ptr;
     struct byte_array * task;
     struct result_node * result;
@@ -98,6 +99,10 @@ void *worker(void *ptr)
     worker_free = dlsym(d->handle, "spits_worker_free");
 
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
+
+    if(TM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(d, 'W');
+    }
 
     sem_wait (&d->tcount);                                      // wait for the first task to arrive.
     while (d->running) {
