@@ -204,6 +204,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
     }
 
     else if (b == BLOCKING) {
+        // Optional optimization. Will flush everything it got, as soon it arrives at the end.
         if(NO_WAIT_FINAL_FLUSH > 0) {
 
             // If it's blocking and not yet complete.
@@ -211,6 +212,8 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             n = d->results;
 
             pthread_mutex_lock(&d->rlock); 
+            
+            // Count and get a pointer to the last (older) result.
             if(n) {
                 len++;
                 for (aux = n; aux->next; aux = aux->next) {
@@ -221,12 +224,15 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
             d->bf_remaining_tasks = min_results - len;
             pthread_mutex_unlock(&d->rlock);
 
+            // Will send everyone.
             for(i=0; i<min_results; i++) {
+                // But first the ones already here (i < len). Don't have to wait. Then, wait (i >= len)
                 if(i >= len) {
                     sem_wait(&d->no_wait_sem);
                     for (aux = d->results; aux->next; aux = aux->next);
                 }
 
+                // Send message and update list, all standard.
                 n = aux;
                 if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
                     error("Problem to send result to committer. Aborting flush_results.");
@@ -296,7 +302,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b)
     return 0;
 }
 
-// Function responsible for the flusher thread. 
+// Function responsible for the flusher thread. Will make flushing parallel. 
 void *flusher (void *ptr)
 {
     struct tm_thread_data *d = (struct tm_thread_data *) ptr;
@@ -304,16 +310,20 @@ void *flusher (void *ptr)
     enum blocking b;
     int flushed_tasks, tm_retries;
 
+    // Wait for new things to flush.
     sem_wait(&d->flusher_r_sem);
     while(d->flusher_min_results != -1) {
+        // Get data to flush.
         min_results = d->flusher_min_results;
         b = d->flusher_b;
         pthread_mutex_unlock(&d->flusher_d_mutex);
 
+        // Check if its exiting or not.
         if(b == BLOCKING) {
             min_results = d->tasks;
         }
 
+        // Try to flush, update tasks counter if succedded.
         debug("FLUSHER: Flushing min_results : %d", min_results);
         debug("FLUSHER: d->tasks: %d", d->tasks);
         flushed_tasks = flush_results(d, min_results, b);
@@ -337,6 +347,7 @@ void *flusher (void *ptr)
             debug("I have sent %d tasks\n", flushed_tasks);
         }
 
+        // Wait for new tasks to flush.
         sem_wait(&d->flusher_r_sem);
     }
 

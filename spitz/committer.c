@@ -36,12 +36,14 @@ void * commit_worker(void *ptr) {
     void (*commit_pit) (void *, struct byte_array *);
     struct cm_result_node * res;
 
+    // Main reason for this function: make this work in parallel.
     *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
 
     while(any_work) {
         sem_wait(&cd->r_counter); 
         debug("Received work in Commit Worker.");
 
+        // Get/Pop head result to compute.
         pthread_mutex_lock(&cd->r_lock);                          
         res = cd->head;
         if(res != NULL) {
@@ -56,6 +58,7 @@ void * commit_worker(void *ptr) {
 
         pthread_mutex_unlock(&cd->r_lock);                          
 
+        // If found anything, commit, if not, just exit.
         if(res != NULL) {
             commit_pit(cd->user_data, res->ba);
             byte_array_free(res->ba);
@@ -66,6 +69,7 @@ void * commit_worker(void *ptr) {
         }
     } 
 
+    // Warn main thread about the end. It will then commit_job.
     pthread_mutex_unlock(&cd->f_lock);
     pthread_exit(NULL);
 }
@@ -123,7 +127,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 tm_rank = (int) buffer;
 
                 debug("Got a RESULT message for task %d from %d", task_id, tm_rank);
-                debug("Size of Result: %d", (int)ba->len);
+                //debug("Size of Result: %d", (int)ba->len);
                 if(task_id>=cap) {                                   // If id higher them actual cap
                     old_cap = cap;
                     cap=2*task_id;
@@ -139,9 +143,11 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                     info("Sending task %d to Job Manager.", task_id);
                     COMM_send_message(ba, MSG_DONE, socket_manager);
 
+                    // Optional optimization.                    
                     if(COMMIT_THREAD > 0) {
                         result = (struct cm_result_node *) malloc(sizeof(struct cm_result_node));
 
+                        // Push result obtained to FIFO. 
                         pthread_mutex_lock(&cd->r_lock);                          
                         result->ba = ba;
                         result->next = NULL;
@@ -153,14 +159,18 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                         }
 
                         cd->results = result;
-                        pthread_mutex_unlock(&cd->r_lock);                          
+                        pthread_mutex_unlock(&cd->r_lock);
+
+                        // Warn thread responsible for committing pits.
                         sem_post(&cd->r_counter);
                         
+                        // HAVE TO ALLOCATE NEW BA: the other one is linked in result FIFO.
                         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
                         byte_array_init(ba, 100);
                     }
 
                     else {
+                        // Wihout optimization: Just commit in the same thread.
                         commit_pit(cd->user_data, ba);
                         byte_array_free(ba);
                         free(ba);  

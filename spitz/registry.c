@@ -1,20 +1,20 @@
 /*
- * Copyright 2015 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
+ * Copyright 2014 Alexandre Luiz Brisighello Filho <albf.unicamp@gmail.com>
  *
- * This file is part of CFIFO.
- * 
- * CFIFO is free software: you can redistribute it and/or modify
+ * This file is part of spitz.
+ *
+ * spitz is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
+ * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
- * CFIFO is distributed in the hope that it will be useful,
+ *
+ * spitz is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with CFIFO.  If not, see <http://www.gnu.org/licenses/>.
+ * along with spitz.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "registry.h"
@@ -37,6 +37,7 @@ void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
     debug("Registry: adding registry for task : %d to taskmanager : %d", task_id, tm_id);
     pthread_mutex_lock(&td->registry_lock);
 
+    // First check the size, if found a task never registered before.
     initial_size = td->registry_capacity;
     while(task_id >= (td->registry_capacity)) {
         changed = 1;
@@ -50,8 +51,8 @@ void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
         }
     }
 
+    // Create new entry
     ptr = (struct task_registry *) malloc (sizeof(struct task_registry));
-
     ptr->tm_id = tm_id;
     ptr->task_id = task_id;
 
@@ -60,6 +61,8 @@ void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
     gettimeofday(ptr->send_time, NULL);
     ptr->completed_time = NULL;
     ptr->next = NULL;
+
+    // Insert new entry in registry.
     if(td->registry[task_id] == NULL) {
         td->registry[task_id] = ptr;
     }
@@ -74,26 +77,29 @@ void REGISTRY_add_registry(struct jm_thread_data *td, int task_id, int tm_id) {
     pthread_mutex_unlock(&td->registry_lock);
 }
 
-// Add information about task completion.
+// Add information about task completion (creating completed time for this entry).
 void REGISTRY_add_completion_registry (struct jm_thread_data *td, size_t task_id, int tm_id) {
     struct task_registry * ptr;
     pthread_mutex_lock(&td->registry_lock);
     ptr = td->registry[task_id];
     debug("Adding Completion Registry: Task %d for TaskManager %d", task_id, tm_id);
 
+    // Look for entry that completed task in registry.
     while((ptr != NULL)&&(ptr->tm_id != tm_id)) {
         ptr = ptr->next;
     }
 
+    // How can it be completed if it wasn't registered during the send?
     if(ptr == NULL) {
         error("Error in registry update. Couldn't found Task Manager %d in Registry[%d]", tm_id, (int) task_id);
         pthread_mutex_unlock(&td->registry_lock);
         return;
     }
-
+ 
+    // Add completion time.
     ptr->completed_time = (struct timeval *) malloc(sizeof(struct timeval));
     gettimeofday(ptr->completed_time, NULL);
-    debug("Completion Registry added.");
+    //debug("Completion Registry added.");
     pthread_mutex_unlock(&td->registry_lock);
 }
 
@@ -102,29 +108,38 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id) 
     struct task_registry * ptr;
     pthread_mutex_lock(&td->registry_lock);
 
+    // Don't even have the space for this index.
     if(task_id >= (td->registry_capacity)) {
         error("Registry check of unregistered task (not allocated space) : %d", task_id);
         pthread_mutex_unlock(&td->registry_lock);
         return 0;
     }
+
     ptr = td->registry[task_id];
+    
+    // Nothing registered for this task. Will be send for the first time.
     if(ptr == NULL) {
         error("Registry check of unregistered task (NULL pointer) : %d", task_id);
         pthread_mutex_unlock(&td->registry_lock);
         return 0;
     }
 
+    // Look for this particular task manager.
     while((ptr!=NULL)&&(ptr->tm_id != tm_id)) {
         ptr=ptr->next;
     }
 
     pthread_mutex_unlock(&td->registry_lock);
+
+    // check if it was sent or not.
     if(ptr == NULL) {
         return 0;
     }
     else {
         return 1;
     }
+
+    // You never know. 
     error("check_registry bug exit.");
 }
 
@@ -134,8 +149,10 @@ void REGISTRY_free(struct jm_thread_data *td) {
     struct task_registry * ptr;
     struct task_registry * free_ptr;
 
+    // Each index
     for(i=0; i < td->registry_capacity; i++) {
         ptr = td->registry[i];
+        // Each entry in index
         while(ptr != NULL) {
             free_ptr = ptr;	
             ptr = ptr->next;
@@ -180,9 +197,10 @@ char * REGISTRY_generate_info(struct jm_thread_data *td, char * filename) {
     struct timeval * now = (struct timeval *) malloc(sizeof(struct timeval));
     FILE *f;
     
-    // Get current time, might use for incompleted tasks.
+    // Get current time, might use for incomplete tasks.
     gettimeofday(now , NULL);
 
+    // Count how many entriers have, in fact, entriers.
     for(i=0; i<td->registry_capacity; i++) {
         if(td->registry[i] != NULL) {
             counter++;
