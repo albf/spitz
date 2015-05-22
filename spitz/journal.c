@@ -121,7 +121,7 @@ char * JOURNAL_generate_info(struct tm_thread_data *td, char * filename) {
             aux[1] = '\0';
             aux[0] = td->dia->id_type[i];
             strcat(info, aux);
-            strcat(info, "\n");
+            strcat(info, ";\n");
         for(j=0; j < td->dia->size[i]; j++) {
             aux[1] = '\0';
             aux[0] = td->dia->entries[i][j].action;

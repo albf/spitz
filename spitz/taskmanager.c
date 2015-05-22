@@ -472,24 +472,27 @@ void task_manager(struct tm_thread_data *d)
         byte_array_init(ba, 100);
 
         debug("Sending READY message to JOB_MANAGER");
+
+        if(TM_KEEP_JOURNAL > 0) {
+            entry = JOURNAL_new_entry(d, j_id);
+            entry->action = 'R';
+            gettimeofday(&entry->start, NULL);
+        }
+
         comm_return = COMM_send_message(NULL, MSG_READY, socket_manager);
         if(comm_return < 0) {
-            error("Problem found to send message to Job Manager");
-            type = MSG_EMPTY;
-        }
-        else {
-            if(TM_KEEP_JOURNAL > 0) {
-                entry = JOURNAL_new_entry(d, j_id);
-                entry->action = 'R';
-                gettimeofday(&entry->start, NULL);
-            }
-
-            comm_return = COMM_read_message(ba, &type, socket_manager);
-
             if(TM_KEEP_JOURNAL > 0) {
                 gettimeofday(&entry->end, NULL);
             }
 
+            error("Problem found to send message to Job Manager");
+            type = MSG_EMPTY;
+        }
+        else {
+            comm_return = COMM_read_message(ba, &type, socket_manager);
+            if(TM_KEEP_JOURNAL > 0) {
+                gettimeofday(&entry->end, NULL);
+            }
 
             if(comm_return < 0) {
                 error("Problem found to read message from Job Manager");
