@@ -32,107 +32,110 @@
 #define JOURNAL_INITIAL_CAPACITY 16
 
 // Init journal, allocate all necessary memory to start booking.
-void JOURNAL_init(struct tm_thread_data *td, int num_threads) {
+void JOURNAL_init(struct journal *dia, int num_threads) {
     int i;
     
-    td->dia = (struct journal *) malloc (sizeof(struct journal));
+    gettimeofday(&dia->zero, NULL);
 
-    gettimeofday(&td->dia->zero, NULL);
-
-    td->dia->size = (int *) malloc(sizeof(int)*num_threads);
-    td->dia->capacity = (int *) malloc(sizeof(int)*num_threads);
-    td->dia->entries = (struct j_entry **) malloc(sizeof(struct j_entry *)*num_threads);
-    td->dia->id_type = (char *) malloc(sizeof(char)*num_threads);
+    dia->size = (int *) malloc(sizeof(int)*num_threads);
+    dia->capacity = (int *) malloc(sizeof(int)*num_threads);
+    dia->entries = (struct j_entry **) malloc(sizeof(struct j_entry *)*num_threads);
+    dia->id_type = (char *) malloc(sizeof(char)*num_threads);
 
     for(i = 0; i < num_threads; i++) {
-        td->dia->size[i] = 0;
-        td->dia->capacity[i] = JOURNAL_INITIAL_CAPACITY;
-        td->dia->entries[i] = (struct j_entry *) malloc(sizeof(struct j_entry)*JOURNAL_INITIAL_CAPACITY);
+        dia->size[i] = 0;
+        dia->capacity[i] = JOURNAL_INITIAL_CAPACITY;
+        dia->entries[i] = (struct j_entry *) malloc(sizeof(struct j_entry)*JOURNAL_INITIAL_CAPACITY);
     }
 
-    pthread_mutex_init(&td->dia->id_lock, NULL);
-    td->dia->c_id = 0;
-    td->dia->num_threads = num_threads;
+    pthread_mutex_init(&dia->id_lock, NULL);
+    dia->c_id = 0;
+    dia->num_threads = num_threads;
 }
 
 // Get id to a thread. Each thread has a different id.
-int JOURNAL_get_id(struct tm_thread_data *td, char my_type) {
+int JOURNAL_get_id(struct journal *dia, char my_type) {
     int ret;
 
-    pthread_mutex_lock(&td->dia->id_lock);
-    ret = td->dia->c_id;
-    td->dia->c_id++;
-    pthread_mutex_unlock(&td->dia->id_lock);
+    pthread_mutex_lock(&dia->id_lock);
+    ret = dia->c_id;
+    dia->c_id++;
+    pthread_mutex_unlock(&dia->id_lock);
 
-    td->dia->id_type[ret] = my_type;
+    dia->id_type[ret] = my_type;
     
     return ret;
 }
 
 // Get reference to the next entry. Update the values to the allocated entry.
-struct j_entry * JOURNAL_new_entry(struct tm_thread_data *td, int id) {
-    int index = td->dia->size[id];
+struct j_entry * JOURNAL_new_entry(struct journal *dia, int id) {
+    int index = dia->size[id];
 
-    if(td->dia->capacity[id] == td->dia->size[id]) {
-        td->dia->capacity[id] = td->dia->capacity[id]*2;
-        td->dia->entries[id] = (struct j_entry *) realloc (td->dia->entries[id], sizeof(struct j_entry)*td->dia->capacity[id]);
+    if(dia->capacity[id] == dia->size[id]) {
+        dia->capacity[id] = dia->capacity[id]*2;
+        dia->entries[id] = (struct j_entry *) realloc (dia->entries[id], sizeof(struct j_entry)*dia->capacity[id]);
     }
 
-    td->dia->size[id]++;    
-    return &(td->dia->entries[id][index]);
+    dia->size[id]++;    
+    return &(dia->entries[id][index]);
+}
+
+// Used to fix id, removing a entry from the journal. Used only with committer at the moment.
+void JOURNAL_remove_entry(struct journal *dia, int id) {
+    dia->size[id]--;
 }
 
 // Free memory allocated by the journal.
-void JOURNAL_free(struct tm_thread_data *td) {
+void JOURNAL_free(struct journal *dia) {
     int i;
 
-    free(td->dia->size);
-    free(td->dia->capacity);
+    free(dia->size);
+    free(dia->capacity);
 
-    for(i = 0; i < td->dia->num_threads; i++) {
-        free(td->dia->entries[i]);
+    for(i = 0; i < dia->num_threads; i++) {
+        free(dia->entries[i]);
     }
 
-    free(td->dia->entries);
-    free(td->dia);
+    free(dia->entries);
+    free(dia);
 }
 
 // Genereate info and save to filename (if filename != NULL)
 // Format: action(1) + | + start(30) + | + finish(30) + ;\n <= 70
-char * JOURNAL_generate_info(struct tm_thread_data *td, char * filename) {
+char * JOURNAL_generate_info(struct journal *dia, char * filename) {
     int size = 0;
     int i,j;
     char * info;
     char aux[10], buffer[30];
     FILE *f;
 
-    for(i=0; i < td->dia->num_threads; i++) {
-        size += td->dia->size[i];
+    for(i=0; i < dia->num_threads; i++) {
+        size += dia->size[i];
     }
 
-    info = (char *) malloc (((size*70)+(td->dia->num_threads*5))*sizeof(char));
+    info = (char *) malloc (((size*70)+(dia->num_threads*5))*sizeof(char));
     info[0] = '\0';
     
-    for(i=0; i < td->dia->num_threads; i++) {
+    for(i=0; i < dia->num_threads; i++) {
             strcat(info, "\n");
             sprintf(aux, "%d", i);
             strcat(info, aux);
             strcat(info, "|");
             aux[1] = '\0';
-            aux[0] = td->dia->id_type[i];
+            aux[0] = dia->id_type[i];
             strcat(info, aux);
             strcat(info, ";\n");
-        for(j=0; j < td->dia->size[i]; j++) {
+        for(j=0; j < dia->size[i]; j++) {
             aux[1] = '\0';
-            aux[0] = td->dia->entries[i][j].action;
+            aux[0] = dia->entries[i][j].action;
             strcat(info, aux);
             strcat(info, "|");
-            timeval_subtract(&td->dia->entries[i][j].start, &td->dia->entries[i][j].start, &td->dia->zero);
-            sprintf(buffer, "%ld.%06ld", td->dia->entries[i][j].start.tv_sec, td->dia->entries[i][j].start.tv_usec);
+            timeval_subtract(&dia->entries[i][j].start, &dia->entries[i][j].start, &dia->zero);
+            sprintf(buffer, "%ld.%06ld", dia->entries[i][j].start.tv_sec, dia->entries[i][j].start.tv_usec);
             strcat(info, buffer);
             strcat(info, "|");
-            timeval_subtract(&td->dia->entries[i][j].end, &td->dia->entries[i][j].end, &td->dia->zero);
-            sprintf(buffer, "%ld.%06ld", td->dia->entries[i][j].end.tv_sec, td->dia->entries[i][j].end.tv_usec);
+            timeval_subtract(&dia->entries[i][j].end, &dia->entries[i][j].end, &dia->zero);
+            sprintf(buffer, "%ld.%06ld", dia->entries[i][j].end.tv_sec, dia->entries[i][j].end.tv_usec);
             strcat(info, buffer);
             strcat(info, ";\n");
         }

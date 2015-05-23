@@ -24,6 +24,7 @@
 
 #include <semaphore.h>
 #include "barray.h"
+#include "journal.h"
 
 struct cm_result_node {
     struct byte_array *ba;
@@ -38,6 +39,7 @@ struct cm_thread_data {
     sem_t r_counter;
     pthread_mutex_t r_lock;
     pthread_mutex_t f_lock;
+    struct journal * dia;
 };
 
 void * commit_worker(void *ptr);

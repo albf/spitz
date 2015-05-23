@@ -330,7 +330,7 @@ int COMM_vm_connection(int waitJM, char waitCM) {
 
     // Will only stop waiting when both connections are alive.
     while ((is_there_jm == 0) || (is_there_cm ==0)) {
-        COMM_wait_request(&type, &origin_socket, ba, NULL); 
+        COMM_wait_request(&type, &origin_socket, ba, NULL, -1, NULL); 
          
         switch (type) {
             case MSG_SET_JOB_MANAGER:
@@ -1005,19 +1005,20 @@ int COMM_setup_job_manager_network() {
 
 // Job Manager function, returns _ in origin socket variable _ the socket that have a request to do, or -1 if doesn't have I/O
 // Returns 0 if ok, -1 if got out the select for no reason and -2 if ba is null. 
-int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv) {
+int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal *dia) {
     int i, activity, valid_request=0;               // Indicates if a valid request was made. 
     int max_sd;                                     // Auxiliary value to select.
     int socket_found=0;                             // Indicates if the socket was found.
     int sd;                                         // last socket used
     fd_set readfds;                                 // set of socket descriptors
+    struct j_entry * entry;                         // Used only for committer journal for now.
    
     if (ba==NULL) {
         error("Null byte array passed to wait_request function.");
         *type = MSG_EMPTY;
         return -2;
     }
-    
+ 
     debug("Waiting for request \n");
      
     while(valid_request == 0) {
@@ -1053,7 +1054,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             return 0;
         }
 
-	debug("Received some request from select().");       
+        debug("Received some request from select().");       
  
         // wait until get an activity without EINTR error.
         if ((activity < 0)&&(errno == EINTR)) { 
@@ -1091,8 +1092,23 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             socket_found=1;
         }
     }
-    
+
+    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)) {
+        entry = JOURNAL_new_entry(dia, j_id);
+        entry->action = 'R';
+        gettimeofday(&entry->start, NULL);
+    }
+ 
     COMM_read_message(ba,type,sd);                      // Receive the request.
+
+    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)) {
+        if((*(type)) == MSG_RESULT) {
+            gettimeofday(&entry->end, NULL);
+        }
+        else {
+            JOURNAL_remove_entry(dia, j_id);
+        }
+    }
    
     if ((*(type)) == MSG_EMPTY)                         // Someone is closing
     {

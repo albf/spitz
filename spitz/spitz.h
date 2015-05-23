@@ -35,6 +35,8 @@ extern "C" {
 #define KEEP_REGISTRY 1                 // if jm will keep registry and avoid sending repeated tasks.
 #define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
 #define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file. (*.so.list)
+#define JM_KEEP_JOURNAL 1               // If should keep a journal of activities.
+#define JM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
     
 // Comm DEFINEs
 
@@ -60,6 +62,8 @@ extern "C" {
 // Committer DEFINEs
 
 #define COMMIT_THREAD 1                 // if should use a separate thread to the commit function.
+#define CM_KEEP_JOURNAL 1               // If should keep a journal of activities.
+#define CM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 
 // OTHER DEFINES                        
 

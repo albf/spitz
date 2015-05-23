@@ -22,6 +22,7 @@
 
 #include "barray.h"
 #include "list.h"               // List of ips connected.
+#include "journal.h"
 #include "spitz.h"
 
 // Enums of actor and message type
@@ -90,7 +91,7 @@ void COMM_close_connection(int sock);
 void COMM_create_new_connection();
 int COMM_setup_job_manager_network();
 int COMM_setup_committer_network();
-int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv);
+int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal * dia);
 
 // 2. Server functions : variable oriented.
 void COMM_increment_run_num();

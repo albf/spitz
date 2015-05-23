@@ -102,7 +102,7 @@ void *worker(void *ptr)
     void *user_data = worker_new ? worker_new(d->argc, d->argv) : NULL;
 
     if(TM_KEEP_JOURNAL > 0) {
-        j_id = JOURNAL_get_id(d, 'W');
+        j_id = JOURNAL_get_id(d->dia, 'W');
     }
 
     sem_wait (&d->tcount);                                      // wait for the first task to arrive.
@@ -125,7 +125,7 @@ void *worker(void *ptr)
         byte_array_pack64(&result->ba, my_rank);
 
         if(TM_KEEP_JOURNAL > 0) {
-            entry = JOURNAL_new_entry(d, j_id);
+            entry = JOURNAL_new_entry(d->dia, j_id);
             entry->action = 'P';
             gettimeofday(&entry->start, NULL);
         }
@@ -226,7 +226,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
             pthread_mutex_unlock(&d->rlock);
 
             if(TM_KEEP_JOURNAL > 0) {
-                entry = JOURNAL_new_entry(d, j_id);
+                entry = JOURNAL_new_entry(d->dia, j_id);
                 entry->action = 'S';
                 gettimeofday(&entry->start, NULL);
             }
@@ -285,7 +285,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 n = aux;
 
                 if(TM_KEEP_JOURNAL > 0) {
-                    entry = JOURNAL_new_entry(d, j_id);
+                    entry = JOURNAL_new_entry(d->dia, j_id);
                     entry->action = 'S';
                     gettimeofday(&entry->start, NULL);
                 }
@@ -353,7 +353,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 pthread_mutex_unlock(&d->rlock);
 
                 if(TM_KEEP_JOURNAL > 0) {
-                    entry = JOURNAL_new_entry(d, j_id);
+                    entry = JOURNAL_new_entry(d->dia, j_id);
                     entry->action = 'S';
                     gettimeofday(&entry->start, NULL);
                 }
@@ -392,7 +392,7 @@ void *flusher (void *ptr)
     int flushed_tasks, tm_retries;
 
     if(TM_KEEP_JOURNAL > 0) {
-        j_id = JOURNAL_get_id(d, 'F');
+        j_id = JOURNAL_get_id(d->dia, 'F');
     }
 
     // Wait for new things to flush.
@@ -463,7 +463,7 @@ void task_manager(struct tm_thread_data *d)
     srand (time(NULL));
 
     if(TM_KEEP_JOURNAL > 0) {
-        j_id = JOURNAL_get_id(d, 'M');
+        j_id = JOURNAL_get_id(d->dia, 'M');
     }
 
     info("Starting task manager main loop");
@@ -474,7 +474,7 @@ void task_manager(struct tm_thread_data *d)
         debug("Sending READY message to JOB_MANAGER");
 
         if(TM_KEEP_JOURNAL > 0) {
-            entry = JOURNAL_new_entry(d, j_id);
+            entry = JOURNAL_new_entry(d->dia, j_id);
             entry->action = 'R';
             gettimeofday(&entry->start, NULL);
         }

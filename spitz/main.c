@@ -68,7 +68,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);   // set lib path variable
     debug("Lib_path : %s", lib_path);                           // lib_path
-    char * info, * filename;                                      // used to print registry info
+    char * info, * filename, *j_info;                           // used to print registry info
 
     struct jm_thread_data td;
 
@@ -127,6 +127,16 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.argv = argv;
     pthread_create(t_loading, NULL, jm_create_thread, &td);
 
+    if(JM_KEEP_JOURNAL > 0) {
+        i = 1 + JM_EXTRA_THREADS;
+        if(GEN_PARALLEL <= 0) {
+            i++;
+        }
+        td.dia = (struct journal *) malloc (sizeof(struct journal));
+        debug("Creating journal with %d ids.", i);
+        JOURNAL_init(td.dia, i);
+    }
+
     // Create extra-thread(s)
     for (i=0; i < JM_EXTRA_THREADS; i++) {
         pthread_create(&t[i], NULL, jm_worker, &td);
@@ -174,6 +184,27 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         free(filename);
     }
     
+    // Clean journal memory
+    if(JM_KEEP_JOURNAL > 0) {
+        if(JM_SAVE_JOURNAL > 0) {
+            filename = (char *) malloc (sizeof(char)*(strlen(so)+8));
+            filename[0] = '\0';
+            strcat(filename, (char *) so);
+            strcat(filename, ".jm.dia");
+
+            j_info = JOURNAL_generate_info(td.dia, filename);
+            debug(j_info);
+            free(j_info);
+            free(filename);
+        }
+        else {
+            j_info = JOURNAL_generate_info(td.dia, NULL);
+            debug(j_info);
+            free(j_info);
+        }
+        JOURNAL_free(td.dia);
+    }
+            
     LIST_free_data(COMM_ip_list);
     free(lib_path);
 }
@@ -398,11 +429,41 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_create(t, NULL, commit_worker, &cd);
             }
 
+            if(CM_KEEP_JOURNAL > 0) {
+                i = 1;
+                if(COMMIT_THREAD > 0) {
+                    i++;
+                }
+                cd.dia = (struct journal *) malloc (sizeof(struct journal));
+                JOURNAL_init(cd.dia, i);
+            }
+
             cd.handle = handle;
             committer(argc, argv, &cd);
 
             if(COMMIT_THREAD > 0 ) {
                 pthread_join(*t, NULL);
+            }
+
+            // Clean journal memory
+            if(CM_KEEP_JOURNAL > 0) {
+                if(CM_SAVE_JOURNAL > 0) {
+                    filename = (char *) malloc (sizeof(char) * (strlen((char *) lib_path->ptr)+8));
+                    filename[0] = '\0';
+                    strcat(filename, (char *) lib_path->ptr);
+                    strcat(filename, ".cm.dia");
+   
+                    j_info = JOURNAL_generate_info(cd.dia, filename);
+                    debug(j_info);
+                    free(j_info);
+                    free(filename);
+                }
+                else {
+                    j_info = JOURNAL_generate_info(cd.dia, NULL);
+                    debug(j_info);
+                    free(j_info);
+                }
+                JOURNAL_free(cd.dia);
             }
 
         } 
@@ -437,7 +498,7 @@ void start_slave_processes(int argc, char *argv[])
                     i++;
                 }
                 d.dia = (struct journal *) malloc (sizeof(struct journal));
-                JOURNAL_init(&d, i);
+                JOURNAL_init(d.dia, i);
             }
 
             tmid = COMM_get_rank_id();
@@ -491,22 +552,22 @@ void start_slave_processes(int argc, char *argv[])
             // Clean journal memory
             if(TM_KEEP_JOURNAL > 0) {
                 if(TM_SAVE_JOURNAL > 0) {
-                    filename = (char *) malloc (sizeof((strlen((char *) lib_path->ptr)+5)));
+                    filename = (char *) malloc (sizeof(char) * (strlen((char *) lib_path->ptr)+8));
                     filename[0] = '\0';
                     strcat(filename, (char *) lib_path->ptr);
-                    strcat(filename, ".dia");
+                    strcat(filename, ".tm.dia");
    
-                    j_info = JOURNAL_generate_info(&d, filename);
+                    j_info = JOURNAL_generate_info(d.dia, filename);
                     debug(j_info);
                     free(j_info);
                     free(filename);
                 }
                 else {
-                    j_info = JOURNAL_generate_info(&d, NULL);
+                    j_info = JOURNAL_generate_info(d.dia, NULL);
                     debug(j_info);
                     free(j_info);
                 }
-                JOURNAL_free(&d);
+                JOURNAL_free(d.dia);
             }
             
             cfifo_free(&d.f);

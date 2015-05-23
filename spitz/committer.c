@@ -25,8 +25,10 @@
 #include "comm.h"
 #include "barray.h"
 #include "log.h"
+#include "journal.h"
 #include "spitz.h"
 #include <pthread.h> 
+#include <sys/time.h>
 
 
 // Responsible for the commit thread. May or not be used, check spitz.h. 
@@ -35,9 +37,15 @@ void * commit_worker(void *ptr) {
     int any_work = 1;
     void (*commit_pit) (void *, struct byte_array *);
     struct cm_result_node * res;
+    int j_id=0;
+    struct j_entry * entry;
 
     // Main reason for this function: make this work in parallel.
     *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
+
+    if(CM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(cd->dia, 'W');
+    }
 
     while(any_work) {
         sem_wait(&cd->r_counter); 
@@ -60,7 +68,18 @@ void * commit_worker(void *ptr) {
 
         // If found anything, commit, if not, just exit.
         if(res != NULL) {
+            if(CM_KEEP_JOURNAL > 0) {
+                entry = JOURNAL_new_entry(cd->dia, j_id);
+                entry->action = 'P';
+                gettimeofday(&entry->start, NULL);
+            }
+
             commit_pit(cd->user_data, res->ba);
+
+            if(CM_KEEP_JOURNAL > 0) {
+                gettimeofday(&entry->end, NULL);
+            }
+
             byte_array_free(res->ba);
             free(res->ba);  
         }
@@ -103,6 +122,10 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     void (*commit_pit) (void *, struct byte_array *);
     void (*commit_job) (void *, struct byte_array *);
 
+    // Journal
+    int j_id=0;
+    struct j_entry * entry;
+
     *(void **)(&setup)      = dlsym(cd->handle, "spits_setup_commit");  // Loads the user functions.
     if(COMMIT_THREAD <= 0) {
         *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
@@ -114,10 +137,14 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     for(i=0; i<cap; i++) {                                          // initialize the task array
         committed[i]=0;
     }
+
+    if(CM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(cd->dia, 'C');
+    }
         
     info("Starting committer main loop");
     while (1) {
-        COMM_wait_request(&type, &origin_socket, ba, NULL);
+        COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia);
         
         switch (type) {
             case MSG_RESULT:
@@ -188,7 +215,18 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 }
 
                 if (commit_job) {
+                    if(CM_KEEP_JOURNAL > 0) {
+                        entry = JOURNAL_new_entry(cd->dia, j_id);
+                        entry->action = 'J';
+                        gettimeofday(&entry->start, NULL);
+                    }
+
                     commit_job(cd->user_data, ba);
+
+                    if(CM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+                    }
+
                     COMM_send_message(ba, MSG_RESULT, origin_socket); 
                 }
                 is_finished = 1;

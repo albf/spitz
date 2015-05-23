@@ -65,7 +65,7 @@ def g_task_per_node(filename):
 
 # Graph 3 : TaskManager Event Journal
 def g_taskmanager_journal(filename, is_debug = False):
-    with open(filename + ".dia") as f:
+    with open(filename + ".jm.dia") as f:
         data_list = f.read()
         data_list = data_list.split(';\n')
         data_list = [row.split('|') for row in data_list]

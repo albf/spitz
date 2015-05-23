@@ -46,13 +46,14 @@ struct j_entry {
 };
 
 // Diary manipulation functions.
-void JOURNAL_init(struct tm_thread_data *td, int num_threads);
-int JOURNAL_get_id(struct tm_thread_data *td, char my_type);
-struct j_entry * JOURNAL_new_entry(struct tm_thread_data *td, int id);
-void JOURNAL_free(struct tm_thread_data *td);
+void JOURNAL_init(struct journal *dia, int num_threads);
+int JOURNAL_get_id(struct journal *dia, char my_type);
+struct j_entry * JOURNAL_new_entry(struct journal *dia, int id);
+void JOURNAL_remove_entry(struct journal *dia, int id);
+void JOURNAL_free(struct journal *dia);
 
 // Info
-char * JOURNAL_generate_info(struct tm_thread_data *td, char * filename);
+char * JOURNAL_generate_info(struct journal *dia, char * filename);
 
 #endif	/* JOURNAL_H */
 

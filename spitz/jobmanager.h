@@ -60,6 +60,9 @@ struct jm_thread_data {
     struct task_registry ** registry;   // Registry itself.
     int registry_capacity;              // Capacity of registry.
     struct timeval * abs_zero;
+
+    // Journal related variables
+    struct journal * dia;               // Journal of activities.
 };
 
 // Regular first in first out list. 

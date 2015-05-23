@@ -24,10 +24,12 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include "comm.h"
 #include "log.h"
 #include "barray.h"
 #include "registry.h"
+#include "journal.h"
 #include "spitz.h"
 #include <pthread.h>
 #include <unistd.h>
@@ -251,7 +253,12 @@ int next_task_num(struct jm_thread_data *td) {
 void * jm_gen_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
-    int tid;
+    int tid, j_id=0;
+    struct j_entry * entry;
+
+    if(JM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(td->dia, 'G');
+    }
 
     while(1) {
         // Wait for requests.
@@ -269,11 +276,23 @@ void * jm_gen_worker(void * ptr) {
         pthread_mutex_lock(&td->gc_lock);
         td->g_counter++;
         pthread_mutex_unlock(&td->gc_lock);
+
+        if(JM_KEEP_JOURNAL > 0) {
+            entry = JOURNAL_new_entry(td->dia, j_id);
+            entry->action = 'G';
+            gettimeofday(&entry->start, NULL);
+        }
+
         if(!(tgen(td->user_data, td->gen_ba))) {
             debug("ALL GENERATED");
             * (td->gen_tid) = -1;
             td->all_generated = 1;
         }
+
+        if(JM_KEEP_JOURNAL > 0) {
+            gettimeofday(&entry->end, NULL);
+        }
+
         pthread_mutex_lock(&td->gc_lock);
         td->g_counter--;
         pthread_mutex_unlock(&td->gc_lock);
@@ -293,13 +312,16 @@ void * jm_worker(void * ptr) {
     spitz_tgen_t tgen;
     struct task *node;                                              // Pointer of new task.
     struct connected_ip *client;
-    int rank;
+    int rank, j_id=0;
+    int tid, task_generated;
+    struct j_entry * entry;
 
-    int tid;
-    int task_generated;
-
-    if(GEN_PARALLEL != 0) {
+    if(GEN_PARALLEL > 0) {
         tgen = dlsym(td ->handle, "spits_job_manager_next_task");
+    }
+
+    if(JM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(td->dia, 'E');
     }
 
     while (1) {
@@ -341,6 +363,13 @@ void * jm_worker(void * ptr) {
                         td->g_counter++;
                         pthread_mutex_unlock(&td->gc_lock);
 
+                        // Make new entry in journal.
+                        if(JM_KEEP_JOURNAL > 0) {
+                            entry = JOURNAL_new_entry(td->dia, j_id);
+                            entry->action = 'G';
+                            gettimeofday(&entry->start, NULL);
+                        }
+
                         // try to generate task.
                         if(tgen(td->user_data, my_request->ba)) {
                             task_generated = 1;
@@ -348,6 +377,11 @@ void * jm_worker(void * ptr) {
                         else {
                             debug("ALL TASKS WERE GENERATED");
                             td->all_generated = 1;
+                        }
+
+                        // Get end time of entry in journal.
+                        if(JM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
                         }
 
                         // Update current_gen value
@@ -397,7 +431,18 @@ void * jm_worker(void * ptr) {
                     if(KEEP_REGISTRY>0) {
                         REGISTRY_add_registry(td, tid,rank);
                     }
+
+                    if(JM_KEEP_JOURNAL > 0) {
+                        entry = JOURNAL_new_entry(td->dia, j_id);
+                        entry->action = 'S';
+                        gettimeofday(&entry->start, NULL);
+                    }
+
                     COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
+
+                    if(JM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+                    }
                 }
                 else {
                     // Can't generate, assume this is the end.
@@ -436,7 +481,19 @@ void * jm_worker(void * ptr) {
                             if(KEEP_REGISTRY>0) {
                                 REGISTRY_add_registry(td, node->id,rank);
                             }
+
+                            if(JM_KEEP_JOURNAL > 0) {
+                                entry = JOURNAL_new_entry(td->dia, j_id);
+                                entry->action = 'S';
+                                gettimeofday(&entry->start, NULL);
+                            }
+
                             COMM_send_message(node->data, MSG_TASK, my_request->socket);
+
+                            if(JM_KEEP_JOURNAL > 0) {
+                                gettimeofday(&entry->end, NULL);
+                            }
+
                             break;
                         }
                     }
@@ -476,9 +533,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int counter=0;                                                  // Counts requests to restore VMs Task Managers.
     int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
     
-    //struct task *home = NULL, *mark = NULL, *head = NULL;         // Pointer to represent the FIFO.
-    
-    
     // Data structure to exchange message between processes. 
     struct byte_array * ba; 
 
@@ -506,6 +560,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int rank_rcv;
     int rank_original;
 
+    //Journal related
+    struct j_entry * entry;
+    int j_id=0;
+
     if(CHECK_ARGS > 0) {
         if(argc < ARGC_C) {
             error("Wrong number of arguments in argc");
@@ -518,6 +576,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         }
     }
 
+    if(JM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(td->dia, 'M');
+    }
+
     while (1) {
         ba = (struct byte_array *) malloc (sizeof(struct byte_array));
         byte_array_init(ba, 10);
@@ -526,20 +588,25 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         // Set timeout values for wait_request.
         tv.tv_sec = WAIT_REQUEST_TIMEOUT_SEC;
         tv.tv_usec = WAIT_REQUEST_TIMEOUT_USEC;
-        COMM_wait_request(&type, &origin_socket, ba, &tv); 
+        COMM_wait_request(&type, &origin_socket, ba, &tv, -1, NULL); 
+
+        if(JM_KEEP_JOURNAL > 0) {
+            entry = JOURNAL_new_entry(td->dia, j_id);
+            entry->action = 'R';
+            gettimeofday(&entry->start, NULL);
+        }
         
         switch (type) {
             case MSG_READY:
-		if(td->is_done_loading == 1) {
-                        free_ba = 0;
-			byte_array_clear(ba);
-			append_request(td, ba, type, origin_socket);
-		}
-		else {
-			debug("Received task request from %d but shared data is still being load.", LIST_search_socket(COMM_ip_list, origin_socket));
-			COMM_send_message(NULL, MSG_NO_TASK, origin_socket);
-		}
-               
+                if(td->is_done_loading == 1) {
+                    free_ba = 0;
+                    byte_array_clear(ba);
+                    append_request(td, ba, type, origin_socket);
+                }
+                else {
+                    debug("Received task request from %d but shared data is still being load.", LIST_search_socket(COMM_ip_list, origin_socket));
+                    COMM_send_message(NULL, MSG_NO_TASK, origin_socket);
+                } 
                 break;
             case MSG_DONE:;
                 byte_array_unpack64(ba, &buffer);
@@ -682,6 +749,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
         }
 
+        if(JM_KEEP_JOURNAL > 0) {
+            gettimeofday(&entry->end, NULL);
+        }
+
         if(free_ba > 0) {
             byte_array_free(ba);
             free(ba);
@@ -704,7 +775,19 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             if (is_there_any_vm == 1){
                 counter++;
                 if(counter>=RESTORE_RATE) {
+
+                    if(JM_KEEP_JOURNAL > 0) {
+                        entry = JOURNAL_new_entry(td->dia, j_id);
+                        entry->action = 'V';
+                        gettimeofday(&entry->start, NULL);
+                    }
+
                     total_restores = check_VM_nodes(COMM_ip_list); 
+
+                    if(JM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+                    }
+
                     debug("%d nodes were restored.", total_restores);
                     counter=0;
                 }
