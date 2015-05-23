@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 3
+which = 5
 filename = "prime.so"
 
 # Graph 1: Number of Completed Tasks vs Time
@@ -65,7 +65,7 @@ def g_task_per_node(filename):
 
 # Graph 3 : TaskManager Event Journal
 def g_taskmanager_journal(filename, is_debug = False):
-    with open(filename + ".jm.dia") as f:
+    with open(filename + ".tm.dia") as f:
         data_list = f.read()
         data_list = data_list.split(';\n')
         data_list = [row.split('|') for row in data_list]
@@ -109,6 +109,97 @@ def g_taskmanager_journal(filename, is_debug = False):
     plt.title('TaskManager ' + filename)
     plt.show()
 
+# Graph 4 : Committer Event Journal
+def g_committer_journal(filename, is_debug = False):
+    with open(filename + ".cm.dia") as f:
+        data_list = f.read()
+        data_list = data_list.split(';\n')
+        data_list = [row.split('|') for row in data_list]
+        data_list.pop(-1)
+        if(is_debug):
+            print data_list
+
+    actors = []
+    left = []
+    ypos = []
+    duration = []
+
+    for d in data_list:
+        if(is_debug):
+            print d
+        if (len(d) == 3): 
+            left.append(float(d[1]))
+            duration.append(float(d[2]) - float(d[1]))
+            if(d[0] == 'P'):
+                actors.append("Commit_Pit")
+                ypos.append(1)
+            if(d[0] == 'R'):
+                actors.append("In (Result)")
+                ypos.append(0)
+            if(d[0] == 'J'):
+                actors.append("Commit Job")
+                ypos.append(2)
+
+    if(is_debug):
+        print actors
+        print left
+        print duration
+        print ypos
+
+    plt.barh(ypos, duration, left=left, align='center', alpha=0.4)
+    plt.yticks(ypos, actors)
+    plt.xlabel('Time(s)')
+    plt.title('Committer ' + filename)
+    plt.show()
+
+# Graph 5 : JobManager Event Journal
+def g_jobmanager_journal(filename, is_debug = False):
+    with open(filename + ".jm.dia") as f:
+        data_list = f.read()
+        data_list = data_list.split(';\n')
+        data_list = [row.split('|') for row in data_list]
+        data_list.pop(-1)
+        if(is_debug):
+            print data_list
+
+    actors = []
+    left = []
+    ypos = []
+    duration = []
+
+    s_count = -1
+    for d in data_list:
+        if(is_debug):
+            print d
+        if (len(d) == 2) and (d[1] == 'E'):
+            s_count += 1
+        elif (len(d) == 3): 
+            left.append(float(d[1]))
+            duration.append(float(d[2]) - float(d[1]))
+            if(d[0] == 'S'):
+                actors.append("Send_" + str(s_count))
+                ypos.append(2 + s_count)
+            if(d[0] == 'G'):
+                actors.append("Gen")
+                ypos.append(1)
+            if(d[0] == 'R'):
+                actors.append("Req")
+                ypos.append(0)
+
+    if(is_debug):
+        print actors
+        print left
+        print duration
+        print ypos
+
+    plt.barh(ypos, duration, left=left, align='center', alpha=0.4)
+    plt.yticks(ypos, actors)
+    plt.xlabel('Time(s)')
+    plt.title('JobManager ' + filename)
+    plt.show()
+
+
+
 if(which == 1):
     g_completed_tasks(filename)
 
@@ -117,3 +208,9 @@ elif(which == 2):
 
 elif(which == 3):
     g_taskmanager_journal(filename, is_debug=False)
+
+elif(which == 4):
+    g_committer_journal(filename, is_debug=False)
+
+elif(which == 5):
+    g_jobmanager_journal(filename, is_debug=False)
