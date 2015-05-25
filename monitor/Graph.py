@@ -178,13 +178,17 @@ def g_jobmanager_journal(filename, is_debug = False):
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'S'):
                 actors.append("Send_" + str(s_count))
-                ypos.append(2 + s_count)
+                ypos.append(3 + s_count)
             if(d[0] == 'G'):
                 actors.append("Gen")
-                ypos.append(1)
+                ypos.append(2)
             if(d[0] == 'R'):
-                actors.append("Req")
+                actors.append("Request")
+                ypos.append(1)
+            if(d[0] == 'V'):
+                actors.append("VMRestore")
                 ypos.append(0)
+
 
     if(is_debug):
         print actors

@@ -41,7 +41,6 @@ class MonitorData:
         self.rows = []          # Rows representing the status values.
         self.index = 0          # Index of the current page 
         self.npp = NodesPerPage     # Nodes displayed in each status page.
-        self.wid = [factor*50,factor*250,factor*100,factor*50,factor*50,factor*150,factor*150]
         self.factor = factor        # Factor of screen size.
         self.total_rcvd = 0
         self.total_compl = 0        # Total completed tasks.
@@ -54,8 +53,7 @@ class MonitorData:
 
         # VM Variables.
         self.IsVMsListed = False    # Indicate if VMs are listed alredy.
-        self.VMcolumns = ['Service', 'Location','Port', 'Status', 'Spitz'] 
-        self.VMwid = [factor*75, factor*175, factor*175,factor*125, factor*125, factor*125] 
+        self.VMcolumns = ['Service', 'Location','SSH Port', 'Status', 'Spitz', 'SPITZ Port']
         self.VMrows = []
         self.VMrowsInfo =[]     # stores service names: [service_name, deployment_name, instance_name, azure status]
         self.VMlastIndex= -1 
@@ -104,7 +102,8 @@ class MonitorData:
                         original_status = status
 
                         offset = int(instance_name[5:])
-                        port = offset+22
+                        port = 22+offset
+                        spitz_port = PORT_VM + offset
 
                         if(verbose):
                             print "Status: "+status
@@ -113,13 +112,15 @@ class MonitorData:
                         if (status != "StoppedVM") and (status!= "StoppedDeallocated"):
                             try:
                                 sshs.connect(address, username=str(ssh_login), password=str(ssh_pass), port=port) 
-
-                                stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
-                                pid = stdouts.readlines()
-                                if len(pid) != 0:
-                                    isThereSpitz = "YES"
+                                stdins, stdouts, stderrs = sshs.exec_command('if test -f "spitz/spitz";then echo "s" ;fi')
+                                if len(stdouts.readlines()) > 0:
+                                    stdins, stdouts, stderrs = sshs.exec_command('pgrep spitz')
+                                    if len(stdouts.readlines()) > 0:
+                                        isThereSpitz = "Running"
+                                    else:
+                                        isThereSpitz = "Stopped"
                                 else:
-                                    isThereSpitz = "NO"
+                                    isThereSpitz = "No"
                             except socket.gaierror as e1:
                                 if(verbose):
                                     print "Couldn't find " + str(address) + "."
@@ -132,13 +133,13 @@ class MonitorData:
                                 if(verbose):
                                     print "Wrong credentials for " + str(address) + "."
                                 status = "SSH denied."
-                            except:
+                            except Exception as exc:
                                 if(verbose):
-                                    print "unexpected error connecting to " + str(address) + "."
+                                    print "unexpected error (" + str(exc) + ") connecting to " + str(address) + "."
                                 status = "SSH issue."
 
                         # Append service.
-                        self.VMrows.append([hosted_service.service_name, address, port, status, isThereSpitz])
+                        self.VMrows.append([hosted_service.service_name, address, port, status, isThereSpitz, spitz_port])
                         self.VMrowsInfo.append([hosted_service.service_name, deployment_name, instance_name, original_status])
 
             self.printTable(self.VMcolumns, self.VMrows, 5);
@@ -149,6 +150,9 @@ class MonitorData:
             print("Problem connecting to Azure, are your internet ok?")
         except ssl.SSLError as SLE:
             print("Problem connecting to Azure, are your certificates ok?")
+        except Exception as exc:
+            if(verbose):
+                print "unexpected error (" + str(exc) + ")" 
 
     def printTable(self, names, table, spacing):
         maxsize = []
@@ -267,106 +271,103 @@ class MonitorData:
 
 
     # Check if it's on and if there is a spitz instance running.
-    def startAllNodes(self, subscription_id, certificate_path, command, ssh_user, ssh_pass, jm_address, jm_port):
+    def startAllNodes(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False):
+        #ret = COMM_connect_to_job_manager(jm_address, jm_port)
+        #ret = COMM_send_vm_node(socket.gethostbyname('spitz0.cloudapp.net'), VM_PORT)
+        #ret = COMM_send_vm_node('127.0.0.1', PORT_VM)
+        #return
+
         # Get credentials and instanciate SMS
-        sms = ServiceManagementService(subscription_id, certificate_path)
+        self.listSpitzVMs(subscription_id, certificate_path, ssh_user, ssh_pass, verbose=True)
 
-        try:
-            # Get service list
-            result = sms.list_hosted_services()
-            for hosted_service in result:
-                print hosted_service.service_name
-                # Get only services with SPITZ in its name.
-                if "spitz" in str(hosted_service.service_name).lower() :
-                    address = str(hosted_service.service_name) + ".cloudapp.net"
-                    status = "None"
-                    instance_name = ""
+        if(len(self.VMrows) == 0):
+            print "Couldn't find any VM with a SPITZ name."
+            return
 
-                    # Get deployment information.
-                    d_result = sms.get_deployment_by_slot(hosted_service.service_name,'Production')
-                    deployment_name = d_result.name
+        # Iterate through list and upload sptiz
+        for service in self.VMrows:
+            address = service[1]
 
-                    # Get instance information.
-                    for instance in d_result.role_instance_list:
-                        instance_name = instance.instance_name
-                        status = instance.instance_status
-                        offset = int(instance_name[5:])
-                        port = offset+22
+            if(service[3] != "ReadyRole"):
+                continue
 
-                        # If the VM is ok and running, try to establish a SSH connection.
-                        if (status != "StoppedVM") and (status!= "StoppedDeallocated"):
-                            sshs = paramiko.SSHClient()
-                            sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                            try:
-                                print "name: " + str(instance_name)
-                                print "address: " + str(address)
-                                print "port: " + str(port)
-                                print "ip: " + str(socket.gethostbyname(str(address)))
-                                print "port: " + str(PORT_VM+offset)
-                                sshs.connect(address,
-                                    username=ssh_user,
-                                    password=ssh_pass, 
-                                    port = port,
-                                    timeout = float(2)) 
+            try:
+                sshs = paramiko.SSHClient()
+                sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-                                
-                                sshs.exec_command('pkill spitz')
-                                sshs.exec_command('rm -r spitz')
-                                sshs.exec_command('mkdir spitz')
-                                sftp = sshs.open_sftp()
-                                #sftp.get('spitz/examples/prime.so', 'prime_vm.so')
-                                sftp.put('spitz_vm', 'spitz/spitz') 
-                                sshs.exec_command('chmod 555 ~/spitz/spitz')
-                                sftp.put('libspitz_vm.so', 'spitz/libspitz.so') 
-                                sftp.put('libcmp_vm.so', 'spitz/libcmp.so') 
-                                sftp.put('run_vm', 'spitz/run_vm') 
-                                sshs.exec_command('chmod 555 ~/spitz/run_vm')
-                                
-                                sshs.exec_command('./spitz/run_vm') 
-                                
-                                print command
-                                #sstdin, stdout, stderr = sshs.exec_command(command)
-                                #print 'stdout: ' + str(stdout.readlines())
-                                #print 'stderr: ' + str(stderr.readlines())
-                                #time.sleep(5)
-                                
-                                ret = COMM_connect_to_job_manager(jm_address, jm_port)
+                sshs.connect(service[1], username=ssh_user,
+                    password=ssh_pass, port = service[2],
+                    timeout = float(1))
 
-                                #ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
-                                if ret == 0:
-                                    ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
-                                    #ret = COMM_send_vm_node('127.0.0.1', PORT_VM+offset)
-                                    #return
+                if(service[4] == "Running"):
+                    sshs.exec_command('pkill spitz')
+                    service[4] = "Stopped"
 
-                                    if ret == 0:
-                                        print("Spitz instance running in " + str(address) + "|" + str(PORT_VM+offset) + ".")
-                                    else:
-                                        print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(port) + ".")
-                                else:
-                                    print("Can't connect to Job Manager.")
+                if (upgrade) or (service[4] == "No"):
+                    sshs.exec_command('rm -r spitz')
+                    sshs.exec_command('mkdir spitz')
+                    sftp = sshs.open_sftp()
+                    sftp.put('spitz', 'spitz/spitz') 
+                    sshs.exec_command('chmod 555 ~/spitz/spitz')
+                    sftp.put('libspitz.so', 'spitz/libspitz.so') 
+                    sftp.put(lib_file, 'spitz/' + lib_file) 
+                    sftp.put(script, 'spitz/' + script) 
+                    sshs.exec_command('chmod 555 ~/spitz/' + script)
+                    service[4] = "Stopped"
+            except socket.gaierror as e1:
+                print ("Couldn't find " + str(address) + ".")
+            except socket.error as e2:
+                print("Connection refused in " + str(address) + ".")
+            except paramiko.AuthenticationException as e3:
+                print("Wrong credentials for " + str(address) + ".")
+            except Exception as e3:
+                print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
+
+        # Everyone is set up, run everyone!
+        for service in self.VMrows:
+            address = service[1]
+            print service[1] 
+            print service[2]
+            print service[3]
+            print service[4]
+
+            if(service[4] != "Stopped"):
+                continue
+                       
+            try:
+                sshs = paramiko.SSHClient()
+                sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+                sshs.connect(service[1], username=ssh_user,
+                    password=ssh_pass, port = service[2],
+                    timeout = float(1))
+
+                sshs.exec_command('./spitz/' + script) 
+                service[4] = "Running"
+                                    
+                ret = COMM_connect_to_job_manager(jm_address, jm_port)
+
+                #ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
+                if ret == 0:
+                    ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+
+                    if ret == 0:
+                        print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                    else:
+                        print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
+                else:
+                    print("Can't connect to Job Manager.")
                         
+            except socket.gaierror as e1:
+                print ("Couldn't find " + str(address) + ".")
+            except socket.error as e2:
+                print("Connection refused in " + str(address) + ".")
+            except paramiko.AuthenticationException as e3:
+                print("Wrong credentials for " + str(address) + ".")
+            except Exception as e3:
+                print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
 
-                            except socket.gaierror as e1:
-                                print ("Couldn't find " + str(address) + ".")
-                                status = "No SSH access."
-                            except socket.error as e2:
-                                print("Connection refused in " + str(address) + ".")
-                                status = "SSH refused."
-                            except paramiko.AuthenticationException as e3:
-                                print("Wrong credentials for " + str(address) + ".")
-                                status = "SSH denied."
-                            except Exception as e3:
-                                print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
-                                status = "SSH issue."
-
-        except WindowsAzureError as WAE:
-            print "Couldn't connect with Azure, is your credentials right?"
-        except socket.gaierror as SGE:
-            print "Problem connecting to Azure, are your internet ok?"
-        except ssl.SSLError as SLE:
-            print "Problem connecting to Azure, are your certificates ok?"
-
-
+        self.printTable(self.VMcolumns, self.VMrows, 5)
 
     def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
         # Create linux config

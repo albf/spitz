@@ -3,7 +3,7 @@ CFLAGS = -shared -Wall -Wextra -fPIC -g3 -O0
 CXXFLAGS = $(CFLAGS)
 LDFLAGS = -L../spitz -lspitz
 
-TASKS = 25
+TASKS = 200
 LIBSO = prime.so
 
 all: pi.so picpp.so prime.so
