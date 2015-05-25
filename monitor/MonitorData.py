@@ -26,7 +26,9 @@ from azure import *
 from azure.servicemanagement import *
 import ssl
 import time
+import threading
 from Comm import *
+from ompy import *
 import sys
 
 ''' ----- 
@@ -271,14 +273,14 @@ class MonitorData:
 
 
     # Check if it's on and if there is a spitz instance running.
-    def startAllNodes(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False):
+    def startAllNodes(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False, verbose=False):
         #ret = COMM_connect_to_job_manager(jm_address, jm_port)
         #ret = COMM_send_vm_node(socket.gethostbyname('spitz0.cloudapp.net'), VM_PORT)
         #ret = COMM_send_vm_node('127.0.0.1', PORT_VM)
         #return
 
         # Get credentials and instanciate SMS
-        self.listSpitzVMs(subscription_id, certificate_path, ssh_user, ssh_pass, verbose=True)
+        self.listSpitzVMs(subscription_id, certificate_path, ssh_user, ssh_pass, verbose=verbose)
 
         if(len(self.VMrows) == 0):
             print "Couldn't find any VM with a SPITZ name."
@@ -326,10 +328,11 @@ class MonitorData:
         # Everyone is set up, run everyone!
         for service in self.VMrows:
             address = service[1]
-            print service[1] 
-            print service[2]
-            print service[3]
-            print service[4]
+            if(verbose):
+                print service[1] 
+                print service[2]
+                print service[3]
+                print service[4]
 
             if(service[4] != "Stopped"):
                 continue
@@ -367,6 +370,23 @@ class MonitorData:
             except Exception as e3:
                 print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
 
+        self.printTable(self.VMcolumns, self.VMrows, 5)
+
+
+    # Check if it's on and if there is a spitz instance running.
+    def startAllNodesPar(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False, verbose=False):
+
+        # Get credentials and instanciate SMS
+        self.listSpitzVMs(subscription_id, certificate_path, ssh_user, ssh_pass, verbose=verbose)
+
+        if(len(self.VMrows) == 0):
+            print "Couldn't find any VM with a SPITZ name."
+            return
+
+        SendMutex = threading.Lock()
+
+        OMPY = OMPY_Execution(4)
+        OMPY.forExecution(ParExec, 0, len(self.VMrows), [ssh_user, ssh_pass, lib_file, script, jm_address, jm_port, upgrade, self.VMrows, SendMutex])
         self.printTable(self.VMcolumns, self.VMrows, 5)
 
     def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
@@ -509,3 +529,66 @@ class MonitorData:
                     self.createNode(sms, ServiceList[sv_num], VMHeader + str(vm_num), windows_blob_url, 
                         image, vm_num, linux_user, linux_pass, False)
 
+
+def ParExec(i, ssh_user, ssh_pass, lib_file, script, jm_address, jm_port, upgrade, VMrows, SendMutex):
+    service = VMrows[i]
+    address = service[1]
+
+    print i
+    print ssh_user
+    print ssh_pass
+    print VMrows
+
+    if(service[3] != "ReadyRole"):
+        return 
+
+    try:
+        sshs = paramiko.SSHClient()
+        sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        sshs.connect(service[1], username=ssh_user,
+            password=ssh_pass, port = service[2],
+            timeout = float(1))
+
+        if(service[4] == "Running"):
+            sshs.exec_command('pkill spitz')
+            service[4] = "Stopped"
+
+        if (upgrade) or (service[4] == "No"):
+            sshs.exec_command('rm -r spitz')
+            sshs.exec_command('mkdir spitz')
+            sftp = sshs.open_sftp()
+            sftp.put('spitz', 'spitz/spitz') 
+            sshs.exec_command('chmod 555 ~/spitz/spitz')
+            sftp.put('libspitz.so', 'spitz/libspitz.so') 
+            sftp.put(lib_file, 'spitz/' + lib_file) 
+            sftp.put(script, 'spitz/' + script) 
+            sshs.exec_command('chmod 555 ~/spitz/' + script)
+            service[4] = "Stopped"
+
+        if (service[4] == "Stopped"):
+            sshs.exec_command('./spitz/' + script) 
+            service[4] = "Running"
+
+        SendMutex.acquire()
+        ret = COMM_connect_to_job_manager(jm_address, jm_port)
+
+        if ret == 0:
+            ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+
+            if ret == 0:
+                print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+            else:
+                print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
+        else:
+            print("Can't connect to Job Manager.")
+        SendMutex.release()
+             
+    except socket.gaierror as e1:
+        print ("Couldn't find " + str(address) + ".")
+    except socket.error as e2:
+        print("Connection refused in " + str(address) + ".")
+    except paramiko.AuthenticationException as e3:
+        print("Wrong credentials for " + str(address) + ".")
+    except Exception as e3:
+        print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
