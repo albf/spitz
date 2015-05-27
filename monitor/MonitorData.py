@@ -557,63 +557,63 @@ def ParExec(i, ssh_user, ssh_pass, lib_file, script, jm_address, jm_port, upgrad
     if(service[3] != "ReadyRole"):
         return 
 
-   # try:
-    sshs = paramiko.SSHClient()
-    sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        sshs = paramiko.SSHClient()
+        sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    sshs.connect(service[1], username=ssh_user,
-        password=ssh_pass, port = service[2],
-        timeout = float(1))
+        sshs.connect(service[1], username=ssh_user,
+            password=ssh_pass, port = service[2],
+            timeout = float(1))
 
-    if(service[4] == "Running"):
-        sshs.exec_command('pkill spitz')
-        service[4] = "Stopped"
+        if(service[4] == "Running"):
+            sshs.exec_command('pkill spitz')
+            service[4] = "Stopped"
 
-    if (upgrade) or (service[4] == "No"):
-        sshs.exec_command('rm *')
-        #sshs.exec_command('rm -r spitz')
-        #sshs.exec_command('mkdir spitz')
-        sftp = sshs.open_sftp()
-        sftp.put('spitz', 'spitz') 
-        sshs.exec_command('chmod 555 ~/spitz')
-        sftp.put('libspitz.so', 'libspitz.so') 
-        sftp.put(lib_file, lib_file) 
-        sftp.put(script, script) 
-        sshs.exec_command('chmod 555 ' + script)
-        service[4] = "Stopped"
+        if (upgrade) or (service[4] == "No"):
+            sshs.exec_command('rm *')
+            #sshs.exec_command('rm -r spitz')
+            #sshs.exec_command('mkdir spitz')
+            sftp = sshs.open_sftp()
+            sftp.put('spitz', 'spitz') 
+            sshs.exec_command('chmod 555 ~/spitz')
+            sftp.put('libspitz.so', 'libspitz.so') 
+            sftp.put(lib_file, lib_file) 
+            sftp.put(script, script) 
+            sshs.exec_command('chmod 555 ' + script)
+            service[4] = "Stopped"
 
-    if (service[4] == "Stopped") and ((i!=0) or (jump_first==False)):
-        sshs.exec_command('pkill spitz')
-        sshs.exec_command('./' + script) 
-        service[4] = "Running"
+        if (service[4] == "Stopped") and ((i!=0) or (jump_first==False)):
+            sshs.exec_command('pkill spitz')
+            sshs.exec_command('./' + script) 
+            service[4] = "Running"
 
-    SendMutex.acquire()
-    ret = COMM_connect_to_job_manager(jm_address, jm_port)
-
-    if ret == 0:
-        ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+        SendMutex.acquire()
+        ret = COMM_connect_to_job_manager(jm_address, jm_port)
 
         if ret == 0:
-            msg, msg_type = COMM_read_message(socket_manager)
-            if (verbose):
-                print "MSG: " + str(msg)
-                print "MSG_TYPE: " + str(msg_type)
-                print "MSG_STRING: " + str(MSG_STRING)
-            if (str(msg_type) == str(MSG_STRING)) and (str(msg) == "Y"):
-                print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+            ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+
+            if ret == 0:
+                msg, msg_type = COMM_read_message(socket_manager)
+                if (verbose):
+                    print "MSG: " + str(msg)
+                    print "MSG_TYPE: " + str(msg_type)
+                    print "MSG_STRING: " + str(MSG_STRING)
+                if (str(msg_type) == str(MSG_STRING)) and (str(msg) == "Y"):
+                    print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                else:
+                    print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
             else:
                 print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
         else:
-            print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
-    else:
-        print("Can't connect to Job Manager.")
-    SendMutex.release()
-             
-#    except socket.gaierror as e1:
-#        print ("Couldn't find " + str(address) + ".")
-#    except socket.error as e2:
-#        print("Connection refused in " + str(address) + ".")
-#    except paramiko.AuthenticationException as e3:
-#        print("Wrong credentials for " + str(address) + ".")
-#    except Exception as e3:
-#        print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
+            print("Can't connect to Job Manager.")
+        SendMutex.release()
+                 
+    except socket.gaierror as e1:
+        print ("Couldn't find " + str(address) + ".")
+    except socket.error as e2:
+        print("Connection refused in " + str(address) + ".")
+    except paramiko.AuthenticationException as e3:
+        print("Wrong credentials for " + str(address) + ".")
+    except Exception as e3:
+        print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
