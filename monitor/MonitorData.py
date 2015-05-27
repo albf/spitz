@@ -35,6 +35,8 @@ import sys
     MonitorData 
     ----- '''
 
+JUMP_FIRST = False 
+
 # Represent all the data in the main screen.
 class MonitorData:
     # Initialize the class.
@@ -104,7 +106,7 @@ class MonitorData:
                         original_status = status
 
                         offset = int(instance_name[5:])
-                        port = 22+offset
+                        port = 1000+offset
                         spitz_port = PORT_VM + offset
 
                         if(verbose):
@@ -113,6 +115,9 @@ class MonitorData:
                         # If the VM is ok and running, try to establish a SSH connection.
                         if (status != "StoppedVM") and (status!= "StoppedDeallocated"):
                             try:
+                                if verbose:
+                                    print address
+                                    print port
                                 sshs.connect(address, username=str(ssh_login), password=str(ssh_pass), port=port) 
                                 stdins, stdouts, stderrs = sshs.exec_command('if test -f "spitz/spitz";then echo "s" ;fi')
                                 if len(stdouts.readlines()) > 0:
@@ -306,15 +311,16 @@ class MonitorData:
                     service[4] = "Stopped"
 
                 if (upgrade) or (service[4] == "No"):
-                    sshs.exec_command('rm -r spitz')
-                    sshs.exec_command('mkdir spitz')
+                    sshs.exec_command('rm *')
+                    #sshs.exec_command('rm -r spitz')
+                    #sshs.exec_command('mkdir spitz')
                     sftp = sshs.open_sftp()
-                    sftp.put('spitz', 'spitz/spitz') 
-                    sshs.exec_command('chmod 555 ~/spitz/spitz')
-                    sftp.put('libspitz.so', 'spitz/libspitz.so') 
-                    sftp.put(lib_file, 'spitz/' + lib_file) 
-                    sftp.put(script, 'spitz/' + script) 
-                    sshs.exec_command('chmod 555 ~/spitz/' + script)
+                    sftp.put('spitz', 'spitz') 
+                    sshs.exec_command('chmod 555 ~/spitz')
+                    sftp.put('libspitz.so', 'libspitz.so') 
+                    sftp.put(lib_file, lib_file) 
+                    sftp.put(script, script) 
+                    sshs.exec_command('chmod 555 ' + script)
                     service[4] = "Stopped"
             except socket.gaierror as e1:
                 print ("Couldn't find " + str(address) + ".")
@@ -345,7 +351,8 @@ class MonitorData:
                     password=ssh_pass, port = service[2],
                     timeout = float(1))
 
-                sshs.exec_command('./spitz/' + script) 
+                sshs.exec_command('pkill spitz')
+                sshs.exec_command('./' + script) 
                 service[4] = "Running"
                                     
                 ret = COMM_connect_to_job_manager(jm_address, jm_port)
@@ -355,7 +362,15 @@ class MonitorData:
                     ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
 
                     if ret == 0:
-                        print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                        msg, msg_type = COMM_read_message(socket_manager)
+                        if (verbose):
+                            print "MSG: " + str(msg)
+                            print "MSG_TYPE: " + str(msg_type)
+                            print "MSG_STRING: " + str(MSG_STRING)
+                        if (str(msg_type) == str(MSG_STRING)) and (str(msg) == "Y"):
+                            print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                        else:
+                            print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
                     else:
                         print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
                 else:
@@ -407,7 +422,7 @@ class MonitorData:
         print "local_port: " + str(PORT_VM)
         endpoint1 = ConfigurationSetInputEndpoint(name='SPITZ', protocol='tcp', port=str(PORT_VM+offset), local_port=str(PORT_VM),
                                                     load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
-        endpoint2 = ConfigurationSetInputEndpoint(name='SSH', protocol='tcp', port=str(22+offset), local_port='22', 
+        endpoint2 = ConfigurationSetInputEndpoint(name='SSH', protocol='tcp', port=str(1000+offset), local_port='22', 
                                                     load_balanced_endpoint_set_name=None, enable_direct_server_return=False)
 
         endpoint_config.input_endpoints.input_endpoints.append(endpoint1)
@@ -542,53 +557,63 @@ def ParExec(i, ssh_user, ssh_pass, lib_file, script, jm_address, jm_port, upgrad
     if(service[3] != "ReadyRole"):
         return 
 
-    try:
-        sshs = paramiko.SSHClient()
-        sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+   # try:
+    sshs = paramiko.SSHClient()
+    sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        sshs.connect(service[1], username=ssh_user,
-            password=ssh_pass, port = service[2],
-            timeout = float(1))
+    sshs.connect(service[1], username=ssh_user,
+        password=ssh_pass, port = service[2],
+        timeout = float(1))
 
-        if(service[4] == "Running"):
-            sshs.exec_command('pkill spitz')
-            service[4] = "Stopped"
+    if(service[4] == "Running"):
+        sshs.exec_command('pkill spitz')
+        service[4] = "Stopped"
 
-        if (upgrade) or (service[4] == "No"):
-            sshs.exec_command('rm -r spitz')
-            sshs.exec_command('mkdir spitz')
-            sftp = sshs.open_sftp()
-            sftp.put('spitz', 'spitz/spitz') 
-            sshs.exec_command('chmod 555 ~/spitz/spitz')
-            sftp.put('libspitz.so', 'spitz/libspitz.so') 
-            sftp.put(lib_file, 'spitz/' + lib_file) 
-            sftp.put(script, 'spitz/' + script) 
-            sshs.exec_command('chmod 555 ~/spitz/' + script)
-            service[4] = "Stopped"
+    if (upgrade) or (service[4] == "No"):
+        sshs.exec_command('rm *')
+        #sshs.exec_command('rm -r spitz')
+        #sshs.exec_command('mkdir spitz')
+        sftp = sshs.open_sftp()
+        sftp.put('spitz', 'spitz') 
+        sshs.exec_command('chmod 555 ~/spitz')
+        sftp.put('libspitz.so', 'libspitz.so') 
+        sftp.put(lib_file, lib_file) 
+        sftp.put(script, script) 
+        sshs.exec_command('chmod 555 ' + script)
+        service[4] = "Stopped"
 
-        if (service[4] == "Stopped"):
-            sshs.exec_command('./spitz/' + script) 
-            service[4] = "Running"
+    if (service[4] == "Stopped") and ((i!=0) or (jump_first==False)):
+        sshs.exec_command('pkill spitz')
+        sshs.exec_command('./' + script) 
+        service[4] = "Running"
 
-        SendMutex.acquire()
-        ret = COMM_connect_to_job_manager(jm_address, jm_port)
+    SendMutex.acquire()
+    ret = COMM_connect_to_job_manager(jm_address, jm_port)
+
+    if ret == 0:
+        ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
 
         if ret == 0:
-            ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
-
-            if ret == 0:
+            msg, msg_type = COMM_read_message(socket_manager)
+            if (verbose):
+                print "MSG: " + str(msg)
+                print "MSG_TYPE: " + str(msg_type)
+                print "MSG_STRING: " + str(MSG_STRING)
+            if (str(msg_type) == str(MSG_STRING)) and (str(msg) == "Y"):
                 print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
             else:
                 print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
         else:
-            print("Can't connect to Job Manager.")
-        SendMutex.release()
+            print("Problemg sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
+    else:
+        print("Can't connect to Job Manager.")
+    SendMutex.release()
              
-    except socket.gaierror as e1:
-        print ("Couldn't find " + str(address) + ".")
-    except socket.error as e2:
-        print("Connection refused in " + str(address) + ".")
-    except paramiko.AuthenticationException as e3:
-        print("Wrong credentials for " + str(address) + ".")
-    except Exception as e3:
-        print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")
+#    except socket.gaierror as e1:
+#        print ("Couldn't find " + str(address) + ".")
+#    except socket.error as e2:
+#        print("Connection refused in " + str(address) + ".")
+#    except paramiko.AuthenticationException as e3:
+#        print("Wrong credentials for " + str(address) + ".")
+#    except Exception as e3:
+#        print("unexpected error (" + str(e3) + ") connecting to " + str(address) + ".")

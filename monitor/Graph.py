@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 5
+which = 2
 filename = "prime.so"
 
 # Graph 1: Number of Completed Tasks vs Time

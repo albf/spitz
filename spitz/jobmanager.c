@@ -549,6 +549,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     // Connected_ip array used to find VM info to send to Committer. Used for VM connection.
     struct connected_ip * vm_node;
     char port[10];                              // port of node.
+    char ack[2];                                // ack message sent to monitor.
     
     //void *user_data = ctor((argc), (argv));
 
@@ -708,9 +709,22 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
                 //COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
-                COMM_connect_to_vm_task_manager(&retries, ba);
+                if(COMM_connect_to_vm_task_manager(&retries, ba)<0) {
+                    ack[0] = 'N';
+                    info("Could not connect to VM Task Manager.");
+                }
+                else {
+                    ack[0] = 'Y'; 
+                }
+                ack[1] = '\0';
+
+                n = (size_t) 2; 
+                byte_array_init(ba, n);
+                byte_array_pack8v(ba, ack, n);  
+                COMM_send_message(ba, MSG_STRING, origin_socket);
                 break;
             case MSG_SEND_VM_TO_COMMITTER:
+                info("MSG_SEND_VM_TO_COMMITTER request received!");
                 // xxx.xxx.xxx.xxx|yyyyyyyy\0
                 v = malloc(sizeof(char)*25);
                 v[0] = '\0';
@@ -730,6 +744,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
                 // packs the string and try to connect.
                 byte_array_pack8v(ba, v, n);  
+                info("MSG_SEND_VM_TO_COMMITTER was done by %s!", v);
                 COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 free(v);
                 break;
