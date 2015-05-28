@@ -67,6 +67,7 @@ struct tm_thread_data {
 
     // Diary
     struct journal * dia;
+    pthread_mutex_t vm_dia;
 };
 
 int get_number_of_cores();

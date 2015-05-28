@@ -37,6 +37,7 @@
 #include "log.h"
 #include "journal.h"
 #include "spitz.h"
+#include <string.h>
 
 extern __thread int workerid;
 
@@ -173,6 +174,29 @@ void *worker(void *ptr)
     pthread_exit(NULL);
 }
 
+void vm_dump_journal(struct tm_thread_data *d) {
+    char * filename, * j_info;
+
+    pthread_mutex_lock(&d->vm_dia);
+
+    error("Starting dump");
+    //filename = (char *) malloc (sizeof(char) * (strlen((char *) lib_path)+8));
+    filename = (char *) malloc (sizeof(char) *15);
+    filename[0] = 'v';
+    filename[1] = 'm'; 
+    filename[2] = '\0'; 
+    //strcat(filename, (char *) lib_path);
+    strcat(filename, ".tm.dia");
+
+    j_info = JOURNAL_generate_info(d->dia, filename);
+    debug(j_info);
+    free(j_info);
+    free(filename);
+
+    error("End dump");
+    pthread_mutex_unlock(&d->vm_dia);
+}
+
 /* Send results to the committer, blocking or not.
  * Returns the number of tasks sent or -1 if found a connection problem. */
 int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, int j_id)
@@ -232,11 +256,16 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
             }
 
             if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
-                error("Problem to send result to committer. Aborting flush_results.");
-
                 if(TM_KEEP_JOURNAL > 0) {
                     gettimeofday(&entry->end, NULL);
+
+                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                        error("Dumping VM journal");
+                        vm_dump_journal(d);
+                    }
                 }
+
+                error("Problem to send result to committer. Aborting flush_results.");
 
                 return -1;
             }
@@ -291,12 +320,17 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 }
 
                 if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
-                    error("Problem to send result to committer. Aborting flush_results.");
 
                     if(TM_KEEP_JOURNAL > 0) {
                         gettimeofday(&entry->end, NULL);
                     }
 
+                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                        error("Dumping VM journal");
+                        vm_dump_journal(d);
+                    }
+
+                    error("Problem sending result to committer. Aborting flush_results.");
                     return -1;
                 }
 
@@ -363,7 +397,12 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                         gettimeofday(&entry->end, NULL);
                     }
 
-                    error("Problem to send result to committer. Aborting flush_results.");
+                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                        error("Dumping VM journal");
+                        vm_dump_journal(d);
+                    }
+
+                    error("Problem sending result to committer. Aborting flush_results.");
                     return -1;
                 }
 
@@ -418,6 +457,10 @@ void *flusher (void *ptr)
             if(COMM_connect_to_committer(&tm_retries)<0) {
                 info("If it is, I just couldn't find it. Closing.");
                 d->alive = 0;
+
+                if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                    vm_dump_journal(d);
+                }
             }
             else {
                 info("Reconnected to the committer.");
@@ -444,7 +487,7 @@ void *flusher (void *ptr)
 void task_manager(struct tm_thread_data *d)
 {
     int end = 0;                                                    // To indicate a true ending. Dead but fine. 
-    enum message_type type;                                         // Type of received message.
+    enum message_type mtype;                                        // Type of received message.
     int min_results = RESULT_BUFFER_SIZE;                           // Minimum of results to send at the same time. 
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
@@ -485,22 +528,33 @@ void task_manager(struct tm_thread_data *d)
                 gettimeofday(&entry->end, NULL);
             }
 
-            error("Problem found to send message to Job Manager");
-            type = MSG_EMPTY;
+
+            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                error("Dumping VM journal");
+                vm_dump_journal(d);
+            }
+
+            error("Problem found sending message to Job Manager");
+            mtype = MSG_EMPTY;
         }
         else {
-            comm_return = COMM_read_message(ba, &type, socket_manager);
+            comm_return = COMM_read_message(ba, &mtype, socket_manager);
             if(TM_KEEP_JOURNAL > 0) {
                 gettimeofday(&entry->end, NULL);
             }
 
             if(comm_return < 0) {
                 error("Problem found to read message from Job Manager");
-                type = MSG_EMPTY;
+                mtype = MSG_EMPTY;
+
+                if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                    error("Dumping VM journal");
+                    vm_dump_journal(d);
+                }
             } 
         }
 
-        switch (type) {
+        switch (mtype) {
             case MSG_TASK:
                 // Received at least one, mark to reuse id if connection problem occurs.
                 if(received_one ==0 ) {

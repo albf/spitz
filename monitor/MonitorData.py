@@ -35,8 +35,6 @@ import sys
     MonitorData 
     ----- '''
 
-JUMP_FIRST = False 
-
 # Represent all the data in the main screen.
 class MonitorData:
     # Initialize the class.
@@ -406,6 +404,8 @@ class MonitorData:
 
     def createNode(self, sms, service_name, vm_name, blob_url, image, offset, linux_user, linux_pass, is_first, wait=10):
         # Create linux config
+        print linux_user
+        print linux_pass
         linux_config = LinuxConfigurationSet(vm_name, linux_user, linux_pass, True)
         linux_config.disable_ssh_password_authentication = False
 

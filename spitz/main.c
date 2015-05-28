@@ -247,7 +247,7 @@ void start_slave_processes(int argc, char *argv[])
     struct byte_array * ba_binary = (struct byte_array *) malloc(sizeof(struct byte_array));
     struct byte_array * ba_hash = (struct byte_array *) malloc(sizeof(struct byte_array));
     struct byte_array * ba_hash_jm = (struct byte_array *) malloc(sizeof(struct byte_array));
-    enum message_type type;
+    enum message_type mtype;
     int msg_return;
     int is_binary_correct=0;
     struct stat buffer;
@@ -269,7 +269,7 @@ void start_slave_processes(int argc, char *argv[])
         }
         else {
             byte_array_init(lib_path, 0);
-            msg_return = COMM_read_message(lib_path, &type, socket_manager);
+            msg_return = COMM_read_message(lib_path, &mtype, socket_manager);
 
             if(msg_return < 0) {
                 error("Problem reading GET_PATH from Job Manager.");
@@ -294,7 +294,7 @@ void start_slave_processes(int argc, char *argv[])
         }
         else {
             byte_array_init(ba_hash_jm, 0);
-            msg_return = COMM_read_message(ba_hash_jm, &type, socket_manager);
+            msg_return = COMM_read_message(ba_hash_jm, &mtype, socket_manager);
 
             if(msg_return < 0) {
                 error("Problem reading GET_HASH from Job Manager.");
@@ -343,7 +343,7 @@ void start_slave_processes(int argc, char *argv[])
         }
         else {
             byte_array_init(ba_binary, 0);
-            msg_return = COMM_read_message(ba_binary, &type, socket_manager);
+            msg_return = COMM_read_message(ba_binary, &mtype, socket_manager);
 
             if(msg_return < 0) {
                 error("Problem reading GET_BINARY from Job Manager.");
@@ -491,6 +491,10 @@ void start_slave_processes(int argc, char *argv[])
             d.argc = argc;
             d.argv = argv;
             d.is_blocking_flush = 0;            // Notify that is not in a blocking flush.
+    
+            if(type == VM_TASK_MANAGER) {
+                pthread_mutex_init(&d.rlock, NULL);
+            }
 
             if(TM_KEEP_JOURNAL > 0) {
                 i = 1 + NTHREADS;
@@ -636,7 +640,7 @@ int main(int argc, char *argv[])
         COMM_connect_to_job_manager(COMM_addr_manager,NULL);
         lib_path = NULL;                                            // Will get the lib_path later.
         
-        if(type==COMMITTER) { 		                            // The committer sets itself in the Job Manager
+        if(type==COMMITTER) { 		                                // The committer sets itself in the Job Manager
             COMM_setup_committer_network();
         }
         else if(type==TASK_MANAGER) {                	            // Task Managers get and connect to the committer

@@ -2,12 +2,11 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 
-which = 5
-filename = "prime.so"
+which = 6
+filename = "libcmp.so"
 ending = ".tm.dia"
-action = "S" 
+action = "P" 
 debug = True
 
 # Used to determine the number of bins used.
