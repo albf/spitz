@@ -1,9 +1,20 @@
 #!/usr/bin/python
+import math
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
-which = 2
+which = 5
 filename = "prime.so"
+ending = ".tm.dia"
+action = "S" 
+debug = True
+
+# Used to determine the number of bins used.
+def FDrule(l):
+    l_s = sorted(l)
+    IQR = l_s[int(3*len(l)/4)] - l_s[int(len(l)/4)]
+    return 2*IQR*math.pow(len(l), -1/float(3))
 
 # Graph 1: Number of Completed Tasks vs Time
 def g_completed_tasks(filename):
@@ -77,6 +88,7 @@ def g_taskmanager_journal(filename, is_debug = False):
     left = []
     ypos = []
     duration = []
+    leg = {}
 
     w_count = -1
     for d in data_list:
@@ -88,25 +100,44 @@ def g_taskmanager_journal(filename, is_debug = False):
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'P'):
+                l_e = "Worker_" + str(w_count)
                 actors.append("Worker_" + str(w_count))
                 ypos.append(2 + w_count)
             if(d[0] == 'R'):
+                l_e = "In"
                 actors.append("In")
                 ypos.append(0)
             if(d[0] == 'S'):
+                l_e = "Out"
                 actors.append("Out")
                 ypos.append(1)
+            if(l_e in leg):
+                leg[l_e][0] += (float(d[2])-float(d[1]))
+                leg[l_e][2] = float(d[2])
+            else:
+                leg[l_e] = [float(d[2])-float(d[1]), float(d[1]),float(d[2])]
 
     if(is_debug):
         print actors
         print left
         print duration
         print ypos
+        print leg
+
+    for k in leg.keys():
+        perc = float(leg[k][0])/(float(leg[k][2]-leg[k][1]))*100
+        perc_t = "%.2f" % perc
+        label = k + " : " + perc_t + "%"
+        leg[k].append(label)
+
+    for i in range(len(actors)):
+        actors[i] = leg[actors[i]][3] 
 
     plt.barh(ypos, duration, left=left, align='center', alpha=0.4)
     plt.yticks(ypos, actors)
     plt.xlabel('Time(s)')
     plt.title('TaskManager ' + filename)
+
     plt.show()
 
 # Graph 4 : Committer Event Journal
@@ -123,6 +154,7 @@ def g_committer_journal(filename, is_debug = False):
     left = []
     ypos = []
     duration = []
+    leg = {}
 
     for d in data_list:
         if(is_debug):
@@ -131,20 +163,38 @@ def g_committer_journal(filename, is_debug = False):
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'P'):
+                l_e = "Commit_Pit"
                 actors.append("Commit_Pit")
                 ypos.append(1)
             if(d[0] == 'R'):
-                actors.append("In (Result)")
+                l_e = "In"
+                actors.append("In")
                 ypos.append(0)
             if(d[0] == 'J'):
+                l_e = "Commit Job"
                 actors.append("Commit Job")
                 ypos.append(2)
+            if(l_e in leg):
+                leg[l_e][0] += (float(d[2])-float(d[1]))
+                leg[l_e][2] = float(d[2])
+            else:
+                leg[l_e] = [float(d[2])-float(d[1]), float(d[1]),float(d[2])]
 
     if(is_debug):
         print actors
         print left
         print duration
         print ypos
+        print leg
+
+    for k in leg.keys():
+        perc = float(leg[k][0])/(float(leg[k][2]-leg[k][1]))*100
+        perc_t = "%.2f" % perc
+        label = k + " : " + perc_t + "%"
+        leg[k].append(label)
+
+    for i in range(len(actors)):
+        actors[i] = leg[actors[i]][3] 
 
     plt.barh(ypos, duration, left=left, align='center', alpha=0.4)
     plt.yticks(ypos, actors)
@@ -166,6 +216,7 @@ def g_jobmanager_journal(filename, is_debug = False):
     left = []
     ypos = []
     duration = []
+    leg = {}
 
     s_count = -1
     for d in data_list:
@@ -177,18 +228,26 @@ def g_jobmanager_journal(filename, is_debug = False):
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'S'):
+                l_e = "Send_" + str(s_count)
                 actors.append("Send_" + str(s_count))
                 ypos.append(3 + s_count)
             if(d[0] == 'G'):
+                l_e = "Gen"
                 actors.append("Gen")
                 ypos.append(2)
             if(d[0] == 'R'):
+                l_e = "Request"
                 actors.append("Request")
                 ypos.append(1)
             if(d[0] == 'V'):
+                l_e = "VMRestore"
                 actors.append("VMRestore")
                 ypos.append(0)
-
+            if(l_e in leg):
+                leg[l_e][0] += (float(d[2])-float(d[1]))
+                leg[l_e][2] = float(d[2])
+            else:
+                leg[l_e] = [float(d[2])-float(d[1]), float(d[1]),float(d[2])]
 
     if(is_debug):
         print actors
@@ -196,13 +255,49 @@ def g_jobmanager_journal(filename, is_debug = False):
         print duration
         print ypos
 
+    for k in leg.keys():
+        perc = float(leg[k][0])/(float(leg[k][2]-leg[k][1]))*100
+        perc_t = "%.2f" % perc
+        label = k + " : " + perc_t + "%"
+        leg[k].append(label)
+
+    for i in range(len(actors)):
+        actors[i] = leg[actors[i]][3] 
+
     plt.barh(ypos, duration, left=left, align='center', alpha=0.4)
     plt.yticks(ypos, actors)
     plt.xlabel('Time(s)')
     plt.title('JobManager ' + filename)
     plt.show()
 
+# Graph 6 : Histogram 
+def g_hist(filename, ending, action, is_debug = False):
+    with open(filename + ending) as f:
+        data_list = f.read()
+        data_list = data_list.split(';\n')
+        data_list = [row.split('|') for row in data_list]
+        data_list.pop(-1)
+        if(is_debug):
+            print data_list
 
+    data = []
+
+    for d in data_list:
+        if(is_debug):
+            print d
+        if (len(d) == 3) and (d[0] == action): 
+            data.append(float(d[2]) - float(d[1]))
+
+    if(is_debug):
+        print data 
+
+    binwidth = FDrule(data)
+    if(is_debug):
+        print "binwidth: " + str(binwidth)
+    plt.hist(data, bins=np.arange(min(data), max(data) + binwidth, binwidth)) 
+    plt.xlabel('Time(s)')
+    plt.title(action + " - " + filename)
+    plt.show()
 
 if(which == 1):
     g_completed_tasks(filename)
@@ -211,10 +306,13 @@ elif(which == 2):
     g_task_per_node(filename)
 
 elif(which == 3):
-    g_taskmanager_journal(filename, is_debug=False)
+    g_taskmanager_journal(filename, is_debug=debug)
 
 elif(which == 4):
-    g_committer_journal(filename, is_debug=False)
+    g_committer_journal(filename, is_debug=debug)
 
 elif(which == 5):
-    g_jobmanager_journal(filename, is_debug=False)
+    g_jobmanager_journal(filename, is_debug=debug)
+
+elif(which == 6):
+    g_hist(filename, ending, action, is_debug=debug)
