@@ -3,7 +3,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 6
+which = 1
 filename = "libcmp.so"
 ending = ".tm.dia"
 action = "P" 

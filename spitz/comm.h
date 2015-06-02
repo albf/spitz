@@ -60,7 +60,8 @@ enum message_type {
     MSG_NEW_VM_TASK_MANAGER     = 21,   // Monitor to JobManager, JobManager to Committer.
     MSG_SEND_VM_TO_COMMITTER    = 22,   // VM request to JobManager help to connect to Committer.
     MSG_NO_TASK                 = 23,   // JM sends to TM when there is no task to send but computation is not over..
-    MSG_GET_REGISTRY            = 24    // JM sends to TM when there is no task to send but computation is not over..
+    MSG_GET_REGISTRY            = 24,   // JM sends to TM when there is no task to send but computation is not over..
+    MSG_OFFER_RESULT            = 25    // TM sends to CM to warn it about a new result and wait for an answer. 
 };
 
 enum status_type {

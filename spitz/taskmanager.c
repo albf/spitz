@@ -144,6 +144,7 @@ void *worker(void *ptr)
         pthread_mutex_lock(&d->rlock);                          // Pack the result to send it later.
         result->next = d->results; 
         result->before = NULL;
+        result->task_id = task_id;
         if(d->results != NULL) {
             d->results->before = result;
         }
@@ -201,9 +202,12 @@ void vm_dump_journal(struct tm_thread_data *d) {
  * Returns the number of tasks sent or -1 if found a connection problem. */
 int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, int j_id)
 {
-    int i, len = 0;
+    int i, temp, len = 0;
+    uint64_t buffer;
     struct result_node *aux, *n = d->results;
     struct j_entry * entry;
+    struct byte_array * perm = NULL;
+    enum message_type mtype;
 
     if(n) {
         len++;
@@ -217,6 +221,11 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
     }
 
     else if (len >= min_results && b == NONBLOCKING) {
+
+        if(TM_ASK_TO_SEND_RESULT>0) {
+            perm = (struct byte_array *) malloc (sizeof(struct byte_array));
+            byte_array_init(perm , 10);
+        }
 
         /* DEBUG
         int i=0;
@@ -255,19 +264,86 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 gettimeofday(&entry->start, NULL);
             }
 
-            if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
-                if(TM_KEEP_JOURNAL > 0) {
-                    gettimeofday(&entry->end, NULL);
+            if(TM_ASK_TO_SEND_RESULT > 0) {
+                debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                byte_array_clear(perm);
+                buffer = (uint64_t) n->task_id;
+                debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                byte_array_pack64(perm, buffer);
+                if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
+                    if(TM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
 
-                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
-                        error("Dumping VM journal");
-                        vm_dump_journal(d);
+                        if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                            error("Dumping VM journal");
+                            vm_dump_journal(d);
+                        }
+                    }
+
+                    error("Problem to send result to committer. Aborting flush_results.");
+
+                    byte_array_free(perm);
+                    free(perm);
+                    return -1;
+                }
+
+                byte_array_clear(perm);
+                if(COMM_read_message(perm, &mtype, socket_committer)<0) {
+                    if(TM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
+
+                        if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                            error("Dumping VM journal");
+                            vm_dump_journal(d);
+                        }
+                    }
+
+                    error("Problem receiving data from committer. Aborting flush_results.");
+
+                    byte_array_free(perm);
+                    free(perm);
+                    return -1;
+                }
+                
+                byte_array_unpack64(perm, &buffer);
+                temp = (int) buffer;
+                debug("TM_ASK_TO_SEND_RESULT -> temp: %d", temp);
+
+                if(temp > 0) {
+                    if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem sending result to committer. Aborting flush_results.");
+
+                        byte_array_free(perm);
+                        free(perm);
+                        return -1;
                     }
                 }
 
-                error("Problem to send result to committer. Aborting flush_results.");
+            }
+            else {
+                if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                    if(TM_KEEP_JOURNAL > 0) {
+                        gettimeofday(&entry->end, NULL);
 
-                return -1;
+                        if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                            error("Dumping VM journal");
+                            vm_dump_journal(d);
+                        }
+                    }
+
+                    error("Problem sending result to committer. Aborting flush_results.");
+
+                    return -1;
+                }
             }
 
             if(TM_KEEP_JOURNAL > 0) {
@@ -319,19 +395,86 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                     gettimeofday(&entry->start, NULL);
                 }
 
-                if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                if(TM_ASK_TO_SEND_RESULT > 0) {
+                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                    buffer = (uint64_t) n->task_id;
+                    byte_array_clear(perm);
+                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                    byte_array_pack64(perm, buffer);
+                    if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
 
-                    if(TM_KEEP_JOURNAL > 0) {
-                        gettimeofday(&entry->end, NULL);
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem to send result to committer. Aborting flush_results.");
+
+                        byte_array_free(perm);
+                        free(perm);
+                        return -1;
                     }
 
-                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
-                        error("Dumping VM journal");
-                        vm_dump_journal(d);
+                    byte_array_clear(perm);
+                    if(COMM_read_message(perm, &mtype, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem receiving data from committer. Aborting flush_results.");
+
+                        byte_array_free(perm);
+                        free(perm);
+                        return -1;
+                    }
+                    
+                    byte_array_unpack64(perm, &buffer);
+                    temp = (int) buffer;
+
+                    if(temp > 0) {
+
+                        if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                            if(TM_KEEP_JOURNAL > 0) {
+                                gettimeofday(&entry->end, NULL);
+
+                                if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                    error("Dumping VM journal");
+                                    vm_dump_journal(d);
+                                }
+                            }
+
+                            error("Problem sending result to committer. Aborting flush_results.");
+
+                            byte_array_free(perm);
+                            free(perm);
+                            return -1;
+                        }
                     }
 
-                    error("Problem sending result to committer. Aborting flush_results.");
-                    return -1;
+                }
+                else {
+                    if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem sending result to committer. Aborting flush_results.");
+
+                        return -1;
+                    }
                 }
 
                 if(TM_KEEP_JOURNAL > 0) {
@@ -392,18 +535,86 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                     gettimeofday(&entry->start, NULL);
                 }
 
-                if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
-                    if(TM_KEEP_JOURNAL > 0) {
-                        gettimeofday(&entry->end, NULL);
+                if(TM_ASK_TO_SEND_RESULT > 0) {
+                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                    buffer = (uint64_t) n->task_id;
+                    byte_array_clear(perm);
+                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                    byte_array_pack64(perm, buffer);
+                    if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem to send result to committer. Aborting flush_results.");
+
+                        byte_array_free(perm);
+                        free(perm);
+                        return -1;
                     }
 
-                    if(COMM_get_actor_type() == VM_TASK_MANAGER) {
-                        error("Dumping VM journal");
-                        vm_dump_journal(d);
+                    byte_array_clear(perm);
+                    if(COMM_read_message(perm, &mtype, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem receiving data from committer. Aborting flush_results.");
+
+                        byte_array_free(perm);
+                        free(perm);
+                        return -1;
+                    }
+                    
+                    byte_array_unpack64(perm, &buffer);
+                    temp = (int) buffer;
+
+                    if(temp > 0) {
+
+                        if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                            if(TM_KEEP_JOURNAL > 0) {
+                                gettimeofday(&entry->end, NULL);
+
+                                if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                    error("Dumping VM journal");
+                                    vm_dump_journal(d);
+                                }
+                            }
+
+                            error("Problem sending result to committer. Aborting flush_results.");
+
+                            byte_array_free(perm);
+                            free(perm);
+                            return -1;
+                        }
                     }
 
-                    error("Problem sending result to committer. Aborting flush_results.");
-                    return -1;
+                }
+                else {
+                    if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
+                        if(TM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+
+                            if(COMM_get_actor_type() == VM_TASK_MANAGER) {
+                                error("Dumping VM journal");
+                                vm_dump_journal(d);
+                            }
+                        }
+
+                        error("Problem sending result to committer. Aborting flush_results.");
+
+                        return -1;
+                    }
                 }
 
                 if(TM_KEEP_JOURNAL > 0) {

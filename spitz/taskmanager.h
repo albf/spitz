@@ -33,6 +33,7 @@ enum blocking {
 
 struct result_node {
     struct byte_array ba;
+    int task_id;
     struct result_node *next;
     struct result_node *before;
 };

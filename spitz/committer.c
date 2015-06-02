@@ -101,11 +101,13 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     enum message_type type;                                         // Type of received message.
     uint64_t socket_cl;                                             // Closing socket, packed by the COMM_wait_request.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
-    uint64_t buffer;                                                // Used for receiving 64 bits.
+    uint64_t buffer, buffer2;                                       // Used for receiving 64 bits.
    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+    struct byte_array * msg = (struct byte_array *) malloc(sizeof(struct byte_array));
     byte_array_init(ba, 100);
+    byte_array_init(msg, 32);
 
     // Changed: Indexing by task id, 0 for not committed and 1 for already committed.
     // Once a new task arrive, if it's more them actual cap, realloc using it's id*2
@@ -150,8 +152,8 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
             case MSG_RESULT:
                 byte_array_unpack64(ba, &buffer);
                 task_id = (int) buffer;
-                byte_array_unpack64(ba, &buffer);
-                tm_rank = (int) buffer;
+                byte_array_unpack64(ba, &buffer2);
+                tm_rank = (int) buffer2;
 
                 debug("Got a RESULT message for task %d from %d", task_id, tm_rank);
                 //debug("Size of Result: %d", (int)ba->len);
@@ -168,7 +170,12 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 if (committed[task_id] == 0) {                      // If not committed yet
                     committed[task_id] = 1;
                     info("Sending task %d to Job Manager.", task_id);
-                    COMM_send_message(ba, MSG_DONE, socket_manager);
+
+                    byte_array_clear(msg);
+                    byte_array_pack64(msg, buffer);
+                    byte_array_pack64(msg, buffer2);
+
+                    COMM_send_message(msg, MSG_DONE, socket_manager);
 
                     // Optional optimization.                    
                     if(COMMIT_THREAD > 0) {
@@ -243,6 +250,34 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 info("Received information about VM task manager waiting connection.");
                 COMM_connect_to_vm_task_manager(&retries, ba);
                 break;
+            case MSG_OFFER_RESULT: ;
+                byte_array_unpack64(ba, &buffer);
+                task_id = (int) buffer;
+                debug("Received result offer for task %d.", task_id); 
+
+                if(task_id>=cap) {                                   // If id higher them actual cap
+                    old_cap = cap;
+                    cap=2*task_id;
+                    committed = realloc(committed, sizeof(size_t)*cap);
+
+                    for(i=old_cap; i<cap; i++) {
+                        committed[i]=0;
+                    }
+                }
+
+                if(committed[task_id] == 0) {
+                    //debug("Will ask for the task. \n");
+                    buffer2 = 1;
+                }
+                else {
+                    //debug("Will drop the request. \n");
+                    buffer2 = -1;
+                }
+
+                byte_array_clear(msg);
+                byte_array_pack64(msg, buffer);
+                COMM_send_message(msg, MSG_DONE, origin_socket);
+
             default:
                 break;
         }
@@ -251,13 +286,17 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
         if (is_finished==1){
             info("Work is done, time to die");
             COMM_close_all_connections(); 
+            if (committed[task_id] == 0)
+
             break;
         }
     }
 
     byte_array_free(ba);
+    byte_array_free(msg);
     free(cd->user_data);
     free(committed);
     free(ba);
+    free(msg);
     info("Terminating committer");
 }
