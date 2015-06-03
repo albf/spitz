@@ -37,12 +37,11 @@
 #define ARGS_C 0
 
 // Push a task into the thread FIFO.
-void append_request(struct jm_thread_data * td, struct byte_array * ba, enum message_type type, int socket) {
+void append_request(struct jm_thread_data * td, enum message_type type, int socket) {
     struct request_elem * new_elem = (struct request_elem *) malloc (sizeof(struct request_elem));
     struct request_FIFO * FIFO = td->request_list;
    
     // Allocate new element.
-    new_elem->ba = ba;
     new_elem->type = type;
     new_elem->socket = socket;
     new_elem->next = NULL;
@@ -112,7 +111,7 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
 
     // Check if mark is null, if it is the computation is over or busy generating other tasks.
     if(td->tasks->home == NULL) {
-        if (td->task_counter >= td->num_tasks_total) {
+        if ((td->is_num_tasks_total_found > 0) && (td->task_counter >= td->num_tasks_total)) {
             td->is_finished = 1;
         }
         ret = NULL;
@@ -165,6 +164,10 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
     }
     // Let the FIFO go.
     pthread_mutex_unlock(&td->tl_lock);
+
+    if(ret != NULL) {
+        ret->send_counter++;
+    }
     
     return ret;
 }
@@ -234,15 +237,9 @@ int next_task_num(struct jm_thread_data *td) {
     // Get current task and just add one.
     pthread_mutex_lock(&td->tc_lock);
 
-    // if all tasks were generated or computation is over, just stops.
-    if((td->task_counter >= td->num_tasks_total)||(td->all_generated > 0)) {
-        ret = -1;
-    }
-    // if there are still tasks to generate. 
-    else {
-        ret = td->task_counter;
-        td->task_counter++;
-    }
+    // Get current task counter value and update counter. 
+    ret = td->task_counter;
+    td->task_counter++;
     
     pthread_mutex_unlock(&td->tc_lock);
     
@@ -253,52 +250,78 @@ int next_task_num(struct jm_thread_data *td) {
 void * jm_gen_worker(void * ptr) {
     struct jm_thread_data * td = ptr;
     spitz_tgen_t tgen = dlsym(td ->handle, "spits_job_manager_next_task");
-    int tid, j_id=0;
+    int j_id=0, len=0;
+    uint64_t buffer;
     struct j_entry * entry;
+    struct task * node;
+    struct byte_array * ba;
 
     if(JM_KEEP_JOURNAL > 0) {
         j_id = JOURNAL_get_id(td->dia, 'G');
     }
 
-    while(1) {
+    // Dies only when gen_kill is set to > 0
+    while(td->gen_kill <= 0) {
         // Wait for requests.
-        pthread_mutex_lock(&td->jm_gen_lock);
-
-        // Check if gen_ba is null.
-        if(td->gen_ba == NULL) {
-            break;
-        }
+        sem_wait(&td->gen_request);
 
         // Try to generate task.
-        tid = * (td->gen_tid); 
-        debug("[jm_gen_worker] Received task %d to generate.", tid);
+        debug("[jm_gen_worker] Received task to generate.");
         
-        pthread_mutex_lock(&td->gc_lock);
-        td->g_counter++;
-        pthread_mutex_unlock(&td->gc_lock);
+        if(td->all_generated == 0) {
 
-        if(JM_KEEP_JOURNAL > 0) {
-            entry = JOURNAL_new_entry(td->dia, j_id);
-            entry->action = 'G';
-            gettimeofday(&entry->start, NULL);
+            if(JM_KEEP_JOURNAL > 0) {
+                entry = JOURNAL_new_entry(td->dia, j_id);
+                entry->action = 'G';
+                gettimeofday(&entry->start, NULL);
+            }
+
+            ba = (struct byte_array *) malloc (sizeof(struct byte_array)); 
+            byte_array_init(ba, 10);
+            // Keep room to the task_id.
+            buffer = 0;
+            byte_array_pack64(ba, buffer);
+
+            if(!(tgen(td->user_data, ba))) {
+                // Can't generate, assume this is the end.
+                pthread_mutex_lock(&td->tc_lock);
+                td->num_tasks_total = td->task_counter;
+                td->is_num_tasks_total_found = 1;
+                pthread_mutex_unlock(&td->tc_lock);
+
+                debug("All tasks have been generated");
+                td->all_generated = 1;
+
+                // Free ba memory, as it's not used.
+                byte_array_free(ba);
+                free(ba);
+            } 
+            else {
+                // If task was generated, add it to queue and send it.
+                node = (struct task *) malloc (sizeof(struct task));
+                node->id = next_task_num(td);
+
+                // Magic recover of ID.
+                len = ba->len;
+                ba->len = 0;
+                buffer = (uint64_t) node->id;
+                byte_array_pack64(ba, buffer);
+                ba->len = len;
+
+                node->data = ba;
+                node->send_counter = 0;
+                add_task(td, node);
+            }
+
+            if(JM_KEEP_JOURNAL > 0) {
+                gettimeofday(&entry->end, NULL);
+            }
+
+
         }
-
-        if(!(tgen(td->user_data, td->gen_ba))) {
-            debug("ALL GENERATED");
-            * (td->gen_tid) = -1;
-            td->all_generated = 1;
-        }
-
-        if(JM_KEEP_JOURNAL > 0) {
-            gettimeofday(&entry->end, NULL);
-        }
-
-        pthread_mutex_lock(&td->gc_lock);
-        td->g_counter--;
-        pthread_mutex_unlock(&td->gc_lock);
         
         // Release waiting task.
-        pthread_mutex_unlock(&td->gen_ready_lock);
+        sem_post(&td->gen_completed);
     }
     
     debug("[jm_gen_worker] Exiting, end of computation.");
@@ -312,11 +335,12 @@ void * jm_worker(void * ptr) {
     spitz_tgen_t tgen;
     struct task *node;                                              // Pointer of new task.
     struct connected_ip *client;
-    int rank, j_id=0;
-    int tid, task_generated;
+    int rank, j_id=0, len;
+    uint64_t buffer;
     struct j_entry * entry;
+    struct byte_array * ba;
 
-    if(GEN_PARALLEL > 0) {
+    if(JM_GEN_THREADS <= 0) {
         tgen = dlsym(td ->handle, "spits_job_manager_next_task");
     }
 
@@ -338,7 +362,6 @@ void * jm_worker(void * ptr) {
 
         else if(my_request->type == MSG_READY) {
             debug("[jm_worker] Received MSG_READY.");
-            task_generated = 0;
 
             client = LIST_search_socket(COMM_ip_list, my_request->socket);
 
@@ -348,20 +371,17 @@ void * jm_worker(void * ptr) {
 
             else {
                 rank = client->id;
-                tid = next_task_num(td);
-                byte_array_clear(my_request->ba); 
+                debug("Trying to generate a task for TM %d", rank);
 
-                debug("Trying to generate task : %d for TM %d", tid, rank);
-
-                if (tid >= 0) {
+                if (td->all_generated <= 0) {
                     // Generate task, if possible in parallel. 
-                    if(GEN_PARALLEL > 0) {
-                        byte_array_pack64(my_request->ba, tid);
-
+                    if(JM_GEN_THREADS <= 0) {
                         // Update current_gen value
-                        pthread_mutex_lock(&td->gc_lock);
-                        td->g_counter++;
-                        pthread_mutex_unlock(&td->gc_lock);
+                        if(JM_SEND_THREADS > 1) {
+                            pthread_mutex_lock(&td->gc_lock);
+                            td->g_counter++;
+                            pthread_mutex_unlock(&td->gc_lock);
+                        }
 
                         // Make new entry in journal.
                         if(JM_KEEP_JOURNAL > 0) {
@@ -370,13 +390,42 @@ void * jm_worker(void * ptr) {
                             gettimeofday(&entry->start, NULL);
                         }
 
+                        ba = (struct byte_array *) malloc (sizeof(struct byte_array)); 
+                        byte_array_init(ba, 10);
+                        // Keep room to the task_id.
+                        buffer = 0;
+                        byte_array_pack64(ba, buffer);
+
                         // try to generate task.
-                        if(tgen(td->user_data, my_request->ba)) {
-                            task_generated = 1;
+                        if(tgen(td->user_data, ba)) {
+                            // If task was generated, add it to queue and send it.
+                            node = (struct task *) malloc (sizeof(struct task));
+                            node->id = next_task_num(td);
+ 
+                            // Magic recover of ID.
+                            len = ba->len;
+                            ba->len = 0;
+                            buffer = (uint64_t) node->id;
+                            byte_array_pack64(ba, buffer);
+                            ba->len = len;
+ 
+                           node->data = ba;
+                            node->send_counter = 0;
+                            add_task(td, node);
                         }
                         else {
-                            debug("ALL TASKS WERE GENERATED");
+                            // Can't generate, assume this is the end.
+                            pthread_mutex_lock(&td->tc_lock);
+                            td->num_tasks_total = td->task_counter;
+                            td->is_num_tasks_total_found = 1;
+                            pthread_mutex_unlock(&td->tc_lock);
+
+                            debug("All tasks have been generated");
                             td->all_generated = 1;
+
+                            // Free ba memory, as it's not used.
+                            byte_array_free(ba);
+                            free(ba);
                         }
 
                         // Get end time of entry in journal.
@@ -384,122 +433,95 @@ void * jm_worker(void * ptr) {
                             gettimeofday(&entry->end, NULL);
                         }
 
+
                         // Update current_gen value
-                        pthread_mutex_lock(&td->gc_lock);
-                        td->g_counter--;
-                        pthread_mutex_unlock(&td->gc_lock);
+                        if(JM_SEND_THREADS > 1) {
+                            pthread_mutex_lock(&td->gc_lock);
+                            td->g_counter--;
+                            pthread_mutex_unlock(&td->gc_lock);
+                        }
 
                     }
 
-                    // Can't generate in parallel.
+                    // Have one or more gen_threads. 
                     else {
-                        byte_array_pack64(my_request->ba, tid);
-                        
-                        // Lock task generation region.
-                        pthread_mutex_lock(&td->gen_region_lock);
+                        // Update current_gen value
+                        if(JM_SEND_THREADS > 1) {
+                            pthread_mutex_lock(&td->gc_lock);
+                            td->g_counter++;
+                            pthread_mutex_unlock(&td->gc_lock);
+                        }
 
-                        // Pack task info to be generated.
-                        td->gen_tid = &tid;
-                        td->gen_ba = my_request->ba;
+                        // Request task to be generated.  
+                        sem_post(&td->gen_request);
+                        // Wait for a feedback from gen_thread.
+                        sem_wait(&td->gen_completed); 
 
-                        // Release jm_gen_worker/
-                        pthread_mutex_unlock(&td->jm_gen_lock);
-
-                        // Wait for it to be ready.
-                        pthread_mutex_lock(&td->gen_ready_lock);
-
-                        pthread_mutex_unlock(&td->gen_region_lock);
-
-                        if(tid >= 0 ) {
-                            task_generated = 1;
+                        // Update current_gen value
+                        if(JM_SEND_THREADS > 1) {
+                            pthread_mutex_lock(&td->gc_lock);
+                            td->g_counter--;
+                            pthread_mutex_unlock(&td->gc_lock);
                         }
                     }
                 }
-                else {
-                   td->all_generated = 1;
-                }
-
-                // If task was generated, add it to queue and send it.
-                if(task_generated == 1) {
-                    node = (struct task *) malloc (sizeof(struct task));
-                    node->id = tid;
-                    node->data = my_request->ba;
-                    add_task(td, node);
-                    
-                    debug("Sending generated task %d to %d", tid, rank);
-                    LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
-                    if(KEEP_REGISTRY>0) {
-                        REGISTRY_add_registry(td, tid,rank);
-                    }
-
-                    if(JM_KEEP_JOURNAL > 0) {
-                        entry = JOURNAL_new_entry(td->dia, j_id);
-                        entry->action = 'S';
-                        gettimeofday(&entry->start, NULL);
-                    }
-
-                    COMM_send_message(my_request->ba, MSG_TASK, my_request->socket);
-
-                    if(JM_KEEP_JOURNAL > 0) {
-                        gettimeofday(&entry->end, NULL);
-                    }
-                }
-                else {
-                    // Can't generate, assume this is the end.
-                    pthread_mutex_lock(&td->tc_lock);
-                    td->num_tasks_total = td->task_counter;
-                    pthread_mutex_unlock(&td->tc_lock);
-
-                    // If couldn't generate, try to send a repeated one.
-                    while(task_generated == 0) {
-                        node = next_task(td, rank);
-                        if (node == NULL) {
-                            // Couldn't find a task because computation is finished.
-                            // Logic: If it's finished or there is no one generating anything, why couldn't I find anything to send?
-                            //if((td->is_finished > 0)||(GEN_PARALLEL == 0)||(td->g_counter == 0)) {
-                            if((td->is_finished > 0) || ((td->all_generated > 0) && (td->g_counter == 0))) {
-                                debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
-                                debug("td->is_finished: %d",td->is_finished);
-                                debug("td->all_generated: %d",td->all_generated);
-                                debug("td->g_counter: %d",td->g_counter);
-                                COMM_send_message(NULL, MSG_KILL, my_request->socket);
-                                break;
-                            }
-                            // Couldn't find a task because the computation isn't finished. Wait?
-                            else {
-                                debug("Sleeping rank %d ---",rank);
-                                debug("td->is_finished: %d",td->is_finished);
-                                debug("td->all_generated: %d",td->all_generated);
-                                debug("td->g_counter: %d",td->g_counter);
-                                sleep(1);
-                            }
-                        }
-                        // Found a task, will replicate to another node.
-                        else {
-                            debug("Replicating task %d to rank %d",node->id,rank);
-                            LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
-                            if(KEEP_REGISTRY>0) {
-                                REGISTRY_add_registry(td, node->id,rank);
-                            }
-
-                            if(JM_KEEP_JOURNAL > 0) {
-                                entry = JOURNAL_new_entry(td->dia, j_id);
-                                entry->action = 'S';
-                                gettimeofday(&entry->start, NULL);
-                            }
-
-                            COMM_send_message(node->data, MSG_TASK, my_request->socket);
-
-                            if(JM_KEEP_JOURNAL > 0) {
-                                gettimeofday(&entry->end, NULL);
-                            }
-
+ 
+                // If couldn't generate, try to send a repeated one.
+                while(1) {
+                    node = next_task(td, rank);
+                    if (node == NULL) {
+                        // Couldn't find a task because computation is finished.
+                        // Logic: If it's finished or there is no one generating anything, why couldn't I find anything to send?
+                        //if((td->is_finished > 0)||(GEN_PARALLEL == 0)||(td->g_counter == 0)) {
+                        if((td->is_finished > 0) || ((td->all_generated > 0) && (td->g_counter == 0))) {
+                            debug("Sending kill message to rank %d and killing worker, nothing to be done",rank);
+                            debug("td->is_finished: %d",td->is_finished);
+                            debug("td->all_generated: %d",td->all_generated);
+                            debug("td->g_counter: %d",td->g_counter);
+                            COMM_send_message(NULL, MSG_KILL, my_request->socket);
                             break;
                         }
+                        // Couldn't find a task because the computation isn't finished. Wait?
+                        else {
+                            debug("Sleeping rank %d ---",rank);
+                            debug("td->is_finished: %d",td->is_finished);
+                            debug("td->all_generated: %d",td->all_generated);
+                            debug("td->g_counter: %d",td->g_counter);
+                            sleep(1);
+                        }
+                    }
+                    // Found a task, will replicate to another node.
+                    else {
+                        if(node->send_counter == 1) {
+                            debug("Sending generated task %d to %d", node->id, rank);
+                        }
+                        else {
+                            debug("Replicating task %d to rank %d",node->id,rank);
+                        }
+
+                        LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
+                        if(KEEP_REGISTRY>0) {
+                            REGISTRY_add_registry(td, node->id,rank);
+                        }
+
+                        if(JM_KEEP_JOURNAL > 0) {
+                            entry = JOURNAL_new_entry(td->dia, j_id);
+                            entry->action = 'S';
+                            gettimeofday(&entry->start, NULL);
+                        }
+
+                        COMM_send_message(node->data, MSG_TASK, my_request->socket);
+
+                        if(JM_KEEP_JOURNAL > 0) {
+                            gettimeofday(&entry->end, NULL);
+                        }
+
+                        break;
                     }
                 }
-
             }
+
+            
         }
 
         else {
@@ -526,7 +548,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     uint64_t buffer;                                                // buffer used for received uint64_t values 
     struct timeval tv;                                              // Timeout for select.
     int i;                                                          // Iterator
-    int free_ba;                                                    // Indicate if ba should be released.
     int total_restores;                                             // Total of VMs restored.
 
     // VM restore management.
@@ -534,7 +555,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
     
     // Data structure to exchange message between processes. 
-    struct byte_array * ba; 
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array)); 
+    byte_array_init(ba, 10);
 
     // Binary Array used to store the binary, the .so. 
     struct byte_array * ba_binary = (struct byte_array *) malloc (sizeof(struct byte_array));
@@ -582,9 +604,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     }
 
     while (1) {
-        ba = (struct byte_array *) malloc (sizeof(struct byte_array));
-        byte_array_init(ba, 10);
-        free_ba = 1;
 
         // Set timeout values for wait_request.
         tv.tv_sec = WAIT_REQUEST_TIMEOUT_SEC;
@@ -600,9 +619,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         switch (type) {
             case MSG_READY:
                 if(td->is_done_loading == 1) {
-                    free_ba = 0;
-                    byte_array_clear(ba);
-                    append_request(td, ba, type, origin_socket);
+                    append_request(td, type, origin_socket);
                 }
                 else {
                     debug("Received task request from %d but shared data is still being load.", LIST_search_socket(COMM_ip_list, origin_socket));
@@ -767,12 +784,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         if(JM_KEEP_JOURNAL > 0) {
             gettimeofday(&entry->end, NULL);
         }
-
-        if(free_ba > 0) {
-            byte_array_free(ba);
-            free(ba);
-        }
-        
+ 
         // If computation is over, closes all sockets and exits. 
         if (td->is_finished==1){
             info("Sending kill to committer");
@@ -789,7 +801,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         else {
             if (is_there_any_vm == 1){
                 counter++;
-                if(counter>=RESTORE_RATE) {
+                if(counter>=JM_VM_RESTORE_RATE) {
 
                     if(JM_KEEP_JOURNAL > 0) {
                         entry = JOURNAL_new_entry(td->dia, j_id);
@@ -811,25 +823,21 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     }
 
     // Send kill to all extra threads.
-    for (i = 0; i < JM_EXTRA_THREADS; i++) {    
-        append_request(td, NULL, MSG_KILL, 0);
+    for (i = 0; i < JM_SEND_THREADS; i++) {    
+        append_request(td, MSG_KILL, 0);
     }
 
     // If exist, quit the gen_thread.
-    if(GEN_PARALLEL == 0 ) {
-        pthread_mutex_lock(&td->gen_region_lock);       // Lock task generation region.
-
-        td->gen_ba = NULL; 
-        pthread_mutex_unlock(&td->jm_gen_lock);         // Release jm_gen_worker 
-
-        pthread_mutex_unlock(&td->gen_region_lock);
+    for (i = 0; i < JM_GEN_THREADS; i++) {    
+        td->gen_kill = 1; 
+        sem_post(&td->gen_request);         // Release jm_gen_worker 
     }
 
     // Free memory allocated in byte arrays.
-    //byte_array_free(ba);
+    byte_array_free(ba);
     byte_array_free(ba_binary);
     byte_array_free(ba_hash);
-    //free(ba);
+    free(ba);
     free(ba_binary);
     free(ba_hash);
 

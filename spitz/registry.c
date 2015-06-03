@@ -110,7 +110,7 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id) 
 
     // Don't even have the space for this index.
     if(task_id >= (td->registry_capacity)) {
-        error("Registry check of unregistered task (not allocated space) : %d", task_id);
+        debug("Registry check of unregistered task (not allocated space) : %d", task_id);
         pthread_mutex_unlock(&td->registry_lock);
         return 0;
     }
@@ -119,7 +119,7 @@ int REGISTRY_check_registry(struct jm_thread_data * td, int task_id, int tm_id) 
     
     // Nothing registered for this task. Will be send for the first time.
     if(ptr == NULL) {
-        error("Registry check of unregistered task (NULL pointer) : %d", task_id);
+        debug("Registry check of unregistered task (NULL pointer) : %d", task_id);
         pthread_mutex_unlock(&td->registry_lock);
         return 0;
     }

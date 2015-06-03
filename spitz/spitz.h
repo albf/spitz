@@ -25,19 +25,6 @@
 extern "C" {
 #endif
 
-// Job Manager DEFINEs.
-
-#define RESTORE_RATE 10                 // Rate of JM loops/VM connection check.
-#define JM_EXTRA_THREADS 4              // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
-#define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
-#define WAIT_REQUEST_TIMEOUT_USEC 0
-#define GEN_PARALLEL 0                  // if jm generation function can work in parallel. 
-#define KEEP_REGISTRY 1                 // if jm will keep registry and avoid sending repeated tasks.
-#define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
-#define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file. (*.so.list)
-#define JM_KEEP_JOURNAL 1               // If should keep a journal of activities.
-#define JM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
-    
 // Comm DEFINEs
 
 #define PORT_MANAGER 8898               // Number of ports used to communicate.
@@ -46,6 +33,20 @@ extern "C" {
 #define INITIAL_MAX_CONNECTIONS 30      // Initial max number of clientes conneceted (will increase if needed).
 #define MAX_PENDING_CONNECTIONS 3
 
+// Job Manager DEFINEs.
+
+#define JM_VM_RESTORE_RATE 10           // Rate of JM loops/VM connection check.
+#define JM_SEND_THREADS 4               // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
+#define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
+#define WAIT_REQUEST_TIMEOUT_USEC 0
+#define JM_GEN_THREADS 1                // if jm generation function can work in parallel. 
+#define JM_GEN_BUFFER 10                // if jm will start generating tasks as earlier as possible.
+#define KEEP_REGISTRY 1                 // if jm will keep registry and avoid sending repeated tasks.
+#define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
+#define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file. (*.so.list)
+#define JM_KEEP_JOURNAL 1               // If should keep a journal of activities.
+#define JM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
+    
 // Task Manager DEFINEs
 
 #define TM_CON_RETRIES 3                // Retries of connection. Used when have a connection problem (not at start).
@@ -62,7 +63,7 @@ extern "C" {
 
 // Committer DEFINEs
 
-#define COMMIT_THREAD 1                 // if should use a separate thread to the commit function.
+#define CM_COMMIT_THREAD 1                 // if should use a separate thread to the commit function.
 #define CM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define CM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 

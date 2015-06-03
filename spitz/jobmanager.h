@@ -33,6 +33,7 @@ struct jm_thread_data {
     pthread_mutex_t lock;               // lock responsible for the FIFO of requests.
     sem_t num_requests;                 // number of pending requests to deal with. task_id = 0.
     int num_tasks_total;                // number of tasks to do in current instance. 
+    int is_num_tasks_total_found;       // indicate if variable above is found or not. 
     int task_counter;                   // Current/Next task.
     pthread_mutex_t tc_lock;            // lock responsible for task_counter.
     int all_generated;                  // Indicates (0=No, 1=Yes) if all tasks were already generated.
@@ -46,10 +47,9 @@ struct jm_thread_data {
     
     // jm_gen_worker-related variables.
     pthread_mutex_t gen_region_lock;    // Separate generate region on worker thread. 
-    pthread_mutex_t gen_ready_lock;     // Indicate if task generation is complete.
-    pthread_mutex_t jm_gen_lock;        // Control jm_gen_worker behaviour.
-    struct byte_array * gen_ba;         // Byte array used for generating tasks.
-    int * gen_tid;                      // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
+    sem_t gen_request;                  // Control requests to generate tasks.
+    sem_t gen_completed;                // Don't let sender threads pass without tasks avaiable (or nothing to generate).
+    int gen_kill;                       // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
 
     // Control exit condition.
     int g_counter;                      // Counts how many tasks are being generated.
@@ -72,7 +72,6 @@ struct request_FIFO{
 };
 
 struct request_elem {
-    struct byte_array * ba;             // Byte array of message received.
     enum message_type type;             // Type of message received. 
     int socket;
     struct request_elem * next;         // Pointer to next task.
@@ -86,6 +85,7 @@ struct task_list {
 
 struct task {
     int id;
+    int send_counter;
     struct byte_array * data;
     struct task *next;
 };

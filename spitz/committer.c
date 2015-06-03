@@ -129,7 +129,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     struct j_entry * entry;
 
     *(void **)(&setup)      = dlsym(cd->handle, "spits_setup_commit");  // Loads the user functions.
-    if(COMMIT_THREAD <= 0) {
+    if(CM_COMMIT_THREAD <= 0) {
         *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
     }
     *(void **)(&commit_job) = dlsym(cd->handle, "spits_commit_job");
@@ -178,7 +178,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                     COMM_send_message(msg, MSG_DONE, socket_manager);
 
                     // Optional optimization.                    
-                    if(COMMIT_THREAD > 0) {
+                    if(CM_COMMIT_THREAD > 0) {
                         result = (struct cm_result_node *) malloc(sizeof(struct cm_result_node));
 
                         // Push result obtained to FIFO. 
@@ -216,7 +216,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 info("Got a KILL message, committing job");
                 byte_array_clear(ba);
                 
-                if(COMMIT_THREAD > 0) {
+                if(CM_COMMIT_THREAD > 0) {
                     sem_post(&cd->r_counter); 
                     pthread_mutex_lock(&cd->f_lock);                          
                 }

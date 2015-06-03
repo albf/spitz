@@ -63,7 +63,6 @@ void * jm_create_thread(void *ptr) {
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
     int i;
-    int gen_threads;
     pthread_t * t; 
     pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);   // set lib path variable
@@ -72,14 +71,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
     struct jm_thread_data td;
 
-    if(GEN_PARALLEL == 0) {
-        gen_threads = 1;
-    }
-    else {
-        gen_threads = 0;
-    }
-    
-    t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_EXTRA_THREADS + gen_threads)); 
+    t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_SEND_THREADS + JM_GEN_THREADS)); 
     t_loading = (pthread_t *) malloc(sizeof (pthread_t)); 
 
     // start task fifo list. 
@@ -94,20 +86,20 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     pthread_mutex_init(&td.tl_lock, NULL);    
     pthread_mutex_init(&td.gc_lock, NULL);    
 
-    if(GEN_PARALLEL == 0) {
+    // Creates JM_GEN related variables.
+    if(JM_GEN_THREADS > 0) {
         pthread_mutex_init(&td.gen_region_lock, NULL);    
-        pthread_mutex_init(&td.gen_ready_lock, NULL);    
-        pthread_mutex_init(&td.jm_gen_lock, NULL);    
-        // jm_gen_lock and gen_ready_lock start locked.
-        pthread_mutex_trylock(&td.jm_gen_lock);
-        pthread_mutex_trylock(&td.gen_ready_lock);
+        sem_init(&td.gen_request, 0, JM_GEN_BUFFER);
+        sem_init(&td.gen_completed, 0, 0);
+        td.gen_kill = 0;                                            // It starts alive, right?
     }
     
     // Start task counter and lock.
     td.task_counter = 0;
     td.all_generated = 0;                                           // No, not all tasks was generated at start. 
     td.is_finished = 0;
-    td.num_tasks_total = atoi(argv[0]);
+    td.num_tasks_total = 0; 
+    td.is_num_tasks_total_found = 0; 
     td.g_counter = 0;
 
     // Start tasks list.
@@ -128,23 +120,20 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     pthread_create(t_loading, NULL, jm_create_thread, &td);
 
     if(JM_KEEP_JOURNAL > 0) {
-        i = 1 + JM_EXTRA_THREADS;
-        if(GEN_PARALLEL <= 0) {
-            i++;
-        }
+        i = 1 + JM_SEND_THREADS + JM_GEN_THREADS;
         td.dia = (struct journal *) malloc (sizeof(struct journal));
         debug("Creating journal with %d ids.", i);
         JOURNAL_init(td.dia, i);
     }
 
     // Create extra-thread(s)
-    for (i=0; i < JM_EXTRA_THREADS; i++) {
+    for (i=0; i < JM_SEND_THREADS; i++) {
         pthread_create(&t[i], NULL, jm_worker, &td);
     }
 
     // Create generate thread if gen is not parallel. 
-    if(GEN_PARALLEL == 0) {
-        pthread_create(&t[JM_EXTRA_THREADS], NULL, jm_gen_worker, &td);
+    for (i=0; i < JM_GEN_THREADS; i++) {
+        pthread_create(&t[JM_SEND_THREADS+i], NULL, jm_gen_worker, &td);
     }
 
     // Initialize registry structures if applicable. 
@@ -158,7 +147,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     
     job_manager(argc, argv, so, final_result, &td);
 
-    for (i = 0; i < JM_EXTRA_THREADS; i++) {    // Join them all
+    for (i = 0; i < (JM_SEND_THREADS + JM_GEN_THREADS); i++) {    // Join them all
         pthread_join(t[i], NULL);
     }
 
@@ -416,7 +405,7 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         if (COMM_get_rank_id() == (int) COMMITTER) {
-            if(COMMIT_THREAD > 0 ) {
+            if(CM_COMMIT_THREAD > 0 ) {
                 cd.results = NULL;
                 cd.head = NULL;
                 sem_init (&cd.r_counter, 0, 0);
@@ -431,7 +420,7 @@ void start_slave_processes(int argc, char *argv[])
 
             if(CM_KEEP_JOURNAL > 0) {
                 i = 1;
-                if(COMMIT_THREAD > 0) {
+                if(CM_COMMIT_THREAD > 0) {
                     i++;
                 }
                 cd.dia = (struct journal *) malloc (sizeof(struct journal));
@@ -441,7 +430,7 @@ void start_slave_processes(int argc, char *argv[])
             cd.handle = handle;
             committer(argc, argv, &cd);
 
-            if(COMMIT_THREAD > 0 ) {
+            if(CM_COMMIT_THREAD > 0 ) {
                 pthread_join(*t, NULL);
             }
 
