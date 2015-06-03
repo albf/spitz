@@ -275,7 +275,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 }
 
                 byte_array_clear(msg);
-                byte_array_pack64(msg, buffer);
+                byte_array_pack64(msg, buffer2);
                 COMM_send_message(msg, MSG_DONE, origin_socket);
 
             default:
@@ -286,8 +286,6 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
         if (is_finished==1){
             info("Work is done, time to die");
             COMM_close_all_connections(); 
-            if (committed[task_id] == 0)
-
             break;
         }
     }
