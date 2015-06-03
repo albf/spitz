@@ -33,6 +33,7 @@
 #include <fcntl.h>              // Used to set block/non-block sockets.
 #include "log.h"
 #include "taskmanager.h"
+#include "committer.h"
 
 /* Global Variables */
 struct sockaddr_in COMM_addr_committer; // address of committer node
@@ -330,7 +331,7 @@ int COMM_vm_connection(int waitJM, char waitCM) {
 
     // Will only stop waiting when both connections are alive.
     while ((is_there_jm == 0) || (is_there_cm ==0)) {
-        COMM_wait_request(&type, &origin_socket, ba, NULL, -1, NULL); 
+        COMM_wait_request(&type, &origin_socket, ba, NULL, -1, NULL, NULL); 
          
         switch (type) {
             case MSG_SET_JOB_MANAGER:
@@ -1005,13 +1006,14 @@ int COMM_setup_job_manager_network() {
 
 // Job Manager function, returns _ in origin socket variable _ the socket that have a request to do, or -1 if doesn't have I/O
 // Returns 0 if ok, -1 if got out the select for no reason and -2 if ba is null. 
-int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal *dia) {
+int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal *dia, struct socket_blacklist *sb) {
     int i, activity, valid_request=0;               // Indicates if a valid request was made. 
     int max_sd;                                     // Auxiliary value to select.
     int socket_found=0;                             // Indicates if the socket was found.
     int sd;                                         // last socket used
     fd_set readfds;                                 // set of socket descriptors
     struct j_entry * entry;                         // Used only for committer journal for now.
+    struct  socket_entry * se;                      // used to check if it is in the blacklist. Only used for committer for now.
    
     if (ba==NULL) {
         error("Null byte array passed to wait_request function.");
@@ -1019,7 +1021,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
         return -2;
     }
  
-    debug("Waiting for request \n");
+    //debug("Waiting for request \n");
      
     while(valid_request == 0) {
         //clear the socket set
@@ -1035,6 +1037,13 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             sd = COMM_client_socket[i];             //socket descriptor
                      
             if(sd > 0) {                            //if valid socket descriptor then add to read list
+                if(sb != NULL) {
+                    for(se = sb->home; ((se != NULL) && (se->socket != sd)); se = se->next ); 
+                    if(se != NULL) {
+                        continue;
+                    }
+                }
+
                 FD_SET( sd , &readfds);
             }
              
@@ -1043,12 +1052,12 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
             }
         }
             
-        // wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
+        // wait for an activity on one of the sockets , if timeout is NULL wait indefinitely
         activity = select( max_sd + 1 , &readfds , NULL , NULL , tv);
 
         // check for timeout
         if((tv!= NULL) && (activity == 0)) {
-            debug("Timeout occurred! Returning to select.");
+            //debug("Timeout occurred! Returning to select.");
             *origin_socket = -1;
             *type = MSG_EMPTY;
             return 0;

@@ -245,7 +245,8 @@ void start_slave_processes(int argc, char *argv[])
     void *handle = NULL;
     int i, tmid;                    // Auxiliary
     pthread_t * t;                  // Worker threads
-    pthread_t * t_flusher;          // Flusher thread
+    pthread_t * t_flusher;          // Flusher thread (Task Manager)
+    pthread_t * t_read;             // Reader thread (Committer)
     int NTHREADS = 1;               // Number of threads
     struct tm_thread_data d;
     struct cm_thread_data cd;
@@ -407,6 +408,17 @@ void start_slave_processes(int argc, char *argv[])
         }
 
         if (COMM_get_rank_id() == (int) COMMITTER) {
+            cd.handle = handle;
+
+            if(CM_KEEP_JOURNAL > 0) {
+                i = 1;
+                if(CM_COMMIT_THREAD > 0) {
+                    i++;
+                }
+                cd.dia = (struct journal *) malloc (sizeof(struct journal));
+                JOURNAL_init(cd.dia, i);
+            }
+
             if(CM_COMMIT_THREAD > 0 ) {
                 cd.results = NULL;
                 cd.head = NULL;
@@ -420,20 +432,40 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_create(t, NULL, commit_worker, &cd);
             }
 
-            if(CM_KEEP_JOURNAL > 0) {
-                i = 1;
-                if(CM_COMMIT_THREAD > 0) {
-                    i++;
+            if(CM_READ_THREADS > 0) {
+                cd.r_kill = 0;
+                sem_init (&cd.blacklist, 0, 0);
+                cd.sb = (struct socket_blacklist *) malloc(sizeof(struct socket_blacklist));
+                cd.sb->size = 0;
+                cd.sb->home = NULL;
+                cd.sb->head = NULL;
+                pthread_mutex_init(&cd.sb_lock, NULL);
+
+                t_read = (pthread_t *) malloc(sizeof (pthread_t)*CM_READ_THREADS); 
+                for (i=0; i < CM_READ_THREADS; i++) {
+                    pthread_create(&t_read[i], NULL, read_worker, &cd);
                 }
-                cd.dia = (struct journal *) malloc (sizeof(struct journal));
-                JOURNAL_init(cd.dia, i);
+
             }
 
-            cd.handle = handle;
             committer(argc, argv, &cd);
 
             if(CM_COMMIT_THREAD > 0 ) {
                 pthread_join(*t, NULL);
+            }
+
+            if(CM_READ_THREADS > 0) {
+                cd.r_kill = 1;
+
+                for(i=0; i<CM_READ_THREADS; i++) {
+                    sem_post(&cd.blacklist);
+                }
+
+                for(i=0; i<CM_READ_THREADS; i++) {
+                    pthread_join(t_read[i], NULL);
+                }
+                free(cd.sb);
+                free(t_read);
             }
 
             // Clean journal memory

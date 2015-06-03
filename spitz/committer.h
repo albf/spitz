@@ -31,6 +31,19 @@ struct cm_result_node {
     struct cm_result_node *next;
 };
 
+struct socket_blacklist {
+    struct socket_entry * home;
+    struct socket_entry * head;
+    int size;
+};
+
+struct socket_entry {
+    int socket;
+    int mark;
+    struct byte_array * ba;
+    struct socket_entry * next;
+};
+
 struct cm_thread_data {
     void * user_data;
     void * handle;
@@ -40,9 +53,16 @@ struct cm_thread_data {
     pthread_mutex_t r_lock;
     pthread_mutex_t f_lock;
     struct journal * dia;
+
+    // Variables responsible to manage read thread.
+    int r_kill;
+    sem_t blacklist;
+    struct socket_blacklist * sb;
+    pthread_mutex_t sb_lock;
 };
 
 void * commit_worker(void *ptr);
+void * read_worker(void *ptr);
 void committer(int argc, char *argv[], struct cm_thread_data * d);
 
 #endif /* __SPITZ_COMMITTER_H__ */

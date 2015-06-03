@@ -612,7 +612,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
         // Set timeout values for wait_request.
         tv.tv_sec = JM_WAIT_REQUEST_TIMEOUT_SEC;
         tv.tv_usec = JM_WAIT_REQUEST_TIMEOUT_USEC;
-        COMM_wait_request(&type, &origin_socket, ba, &tv, -1, NULL); 
+        COMM_wait_request(&type, &origin_socket, ba, &tv, -1, NULL, NULL); 
 
         if(JM_KEEP_JOURNAL > 0) {
             entry = JOURNAL_new_entry(td->dia, j_id);

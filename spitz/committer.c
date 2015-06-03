@@ -47,9 +47,11 @@ void * commit_worker(void *ptr) {
         j_id = JOURNAL_get_id(cd->dia, 'W');
     }
 
+    debug("[commit_worker] starting");
+
     while(any_work) {
         sem_wait(&cd->r_counter); 
-        debug("Received work in Commit Worker.");
+        debug("[commit_worker] Received work in Commit Worker.");
 
         // Get/Pop head result to compute.
         pthread_mutex_lock(&cd->r_lock);                          
@@ -91,6 +93,44 @@ void * commit_worker(void *ptr) {
 
     // Warn main thread about the end. It will then commit_job.
     pthread_mutex_unlock(&cd->f_lock);
+    debug("[commit_worker] exiting");
+    pthread_exit(NULL);
+}
+
+// Threads responsible for reading things from TMs in parallel.
+void * read_worker(void *ptr) {
+    struct cm_thread_data * cd = (struct cm_thread_data *) ptr;
+    struct byte_array * ba;
+    struct socket_entry * se;
+    enum message_type mtype;
+
+    debug("[read_worker] starting");
+
+    sem_wait(&cd->blacklist);
+    while(cd->r_kill <= 0) {
+        debug("[read_worker] someone will send a task.");
+        pthread_mutex_lock(&cd->sb_lock);                          
+        se = cd->sb->home;
+        while(se->mark != 0) {
+            se = se->next;
+        }
+        se->mark = 1;
+        pthread_mutex_unlock(&cd->sb_lock);                          
+
+        // Need to check if message was send sucessfully.
+        ba = (struct byte_array *) malloc(sizeof(struct byte_array));
+        byte_array_init(ba,10);
+        COMM_read_message(ba, &mtype, se->socket);
+        
+        debug("[read_worker] done reading result.");
+
+        se->ba = ba;
+        se->mark = 2;
+
+        sem_wait(&cd->blacklist);
+    }
+
+    debug("[read_worker] Exiting.");
     pthread_exit(NULL);
 }
 
@@ -118,7 +158,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                                                                      // 1 for committed, 0 for not yet.
     int task_id;                                                     // Task id of received result.
     int tm_rank;                                                     // Rank id of the worker that completed the work.
-    struct cm_result_node * result;
+    struct cm_result_node * result;                                  // Pass task to commit_worker.
     
     // Loads the user functions.
     void * (*setup) (int, char **);
@@ -129,6 +169,10 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     int j_id=0;
     struct j_entry * entry;
 
+    // Timeval used for timeout. Used only when threaded send is used.
+    struct timeval tv;
+    struct socket_entry * se, * prev;                                   // Auxiliar for blacklist.
+
     *(void **)(&setup)      = dlsym(cd->handle, "spits_setup_commit");  // Loads the user functions.
     if(CM_COMMIT_THREAD <= 0) {
         *(void **)(&commit_pit) = dlsym(cd->handle, "spits_commit_pit");
@@ -137,20 +181,69 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     //setup_free = dlsym("spits_setup_free_commit");
     cd->user_data = setup(argc, argv);
 
-    for(i=0; i<cap; i++) {                                          // initialize the task array
+    for(i=0; i<cap; i++) {                                              // initialize the task array
         committed[i]=0;
     }
 
     if(CM_KEEP_JOURNAL > 0) {
         j_id = JOURNAL_get_id(cd->dia, 'C');
     }
+
+    if(CM_READ_THREADS > 0) {
+        tv.tv_sec = CM_WAIT_REQUEST_TIMEOUT_SEC;
+        tv.tv_usec = CM_WAIT_REQUEST_TIMEOUT_USEC;
+    }
         
     info("Starting committer main loop");
     while (1) {
-        COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia);
+        if(CM_READ_THREADS > 0) {
+            if(cd->sb->size > 0) {
+                // First check if anyone finished receiving.
+                prev = NULL;
+                se = cd->sb->home;
+                while((se!=NULL) && (se->mark < 2)) {
+                    prev = se;
+                    se = se->next;
+                }
+
+                // Everyone is still reading.
+                if(se == NULL) {
+                    COMM_wait_request(&type, &origin_socket, ba, &tv, j_id, cd->dia, cd->sb);
+                }
+                // Someone finished! Lets get this bad boy.
+                else {
+                    pthread_mutex_lock(&cd->sb_lock);                          
+                    if(prev == NULL) {
+                       cd->sb->home = se->next; 
+                    }
+                    else {
+                        prev->next = se->next;
+                        if(se == cd->sb->head) {
+                            cd->sb->head = prev;
+                        }
+                    }
+                    cd->sb->size--;
+                    pthread_mutex_unlock(&cd->sb_lock);                          
+
+                    // Used the result for this iteration.
+                    type = MSG_RESULT;
+                    ba = se->ba;
+                }
+            }
+            else {
+                COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
+            }
+        }
+        else {
+            COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
+        }
         
         switch (type) {
             case MSG_RESULT:
+                if(CM_READ_THREADS > 0) {
+                    error("Main thread shouldn't received MSG_RESULT when CM_READ_THREADS > 0"); 
+                }
+
                 byte_array_unpack64(ba, &buffer);
                 task_id = (int) buffer;
                 byte_array_unpack64(ba, &buffer2);
@@ -269,6 +362,25 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 if(committed[task_id] == 0) {
                     //debug("Will ask for the task. \n");
                     buffer2 = 1;
+
+                    // if have separate threads to read, make them know.
+                    if(CM_READ_THREADS > 0) {
+                        se = (struct socket_entry *) malloc (sizeof(struct socket_entry));
+                        se->socket = origin_socket;
+                        se->mark = 0;
+                        se->next = NULL;
+                        if(cd->sb->home == NULL) {
+                            cd->sb->home = se;
+                            cd->sb->head = se;
+                            cd->sb->size = 1;
+                        }
+                        else {
+                            cd->sb->head->next = se;
+                            cd->sb->head = se;
+                            cd->sb->size++;
+                        }
+                        sem_post(&cd->blacklist);
+                    }
                 }
                 else {
                     //debug("Will drop the request. \n");
