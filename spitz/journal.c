@@ -97,6 +97,7 @@ void JOURNAL_free(struct journal *dia) {
     }
 
     free(dia->entries);
+    free(dia->id_type);
     free(dia);
 }
 

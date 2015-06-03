@@ -3,8 +3,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 1
-filename = "libcmp.so"
+which = 2
+filename = "prime.so"
 ending = ".tm.dia"
 action = "P" 
 debug = True

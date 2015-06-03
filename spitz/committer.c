@@ -82,6 +82,7 @@ void * commit_worker(void *ptr) {
 
             byte_array_free(res->ba);
             free(res->ba);  
+            free(res);
         }
         else {
             any_work = 0;

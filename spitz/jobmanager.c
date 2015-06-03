@@ -118,7 +118,7 @@ struct task * next_task (struct jm_thread_data * td, int rank) {
     }
 
     else {
-        if(KEEP_REGISTRY > 0) {
+        if(JM_KEEP_REGISTRY > 0) {
             // Get the next new one for the current node and updates list. 
             ret = td->tasks->home;
             aux = NULL;
@@ -208,11 +208,12 @@ void remove_task (struct jm_thread_data * td, int tid) {
                 }
                 pthread_mutex_unlock(&td->gc_lock);
             }
-            else {
+            // Good debug, but access value even if home is null.
+            /*else {
                 debug("Not null, td->all_generated:%d", td->all_generated);
                 debug("Not null, address of home:%d", td->tasks->home);
                 debug("Not null, id of home:%d", td->tasks->home->id);
-            }
+            }*/
         }
 
         // If it's the head, updates it.
@@ -500,7 +501,7 @@ void * jm_worker(void * ptr) {
                         }
 
                         LIST_update_tasks_info (COMM_ip_list, NULL, -1, rank, 1, 0);
-                        if(KEEP_REGISTRY>0) {
+                        if(JM_KEEP_REGISTRY>0) {
                             REGISTRY_add_registry(td, node->id,rank);
                         }
 
@@ -520,7 +521,6 @@ void * jm_worker(void * ptr) {
                     }
                 }
             }
-
             
         }
 
@@ -528,6 +528,10 @@ void * jm_worker(void * ptr) {
             error("Unexpected type of message for jobmanager worker.");
         }
     
+        free(my_request);
+    }
+
+    if(my_request != NULL) {
         free(my_request);
     }
 
@@ -606,8 +610,8 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     while (1) {
 
         // Set timeout values for wait_request.
-        tv.tv_sec = WAIT_REQUEST_TIMEOUT_SEC;
-        tv.tv_usec = WAIT_REQUEST_TIMEOUT_USEC;
+        tv.tv_sec = JM_WAIT_REQUEST_TIMEOUT_SEC;
+        tv.tv_usec = JM_WAIT_REQUEST_TIMEOUT_USEC;
         COMM_wait_request(&type, &origin_socket, ba, &tv, -1, NULL); 
 
         if(JM_KEEP_JOURNAL > 0) {
@@ -633,7 +637,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 tm_id = (int)buffer;
                 debug("TASK %d was completed by %d!", tid, tm_id);
 
-                if(KEEP_REGISTRY > 0) {
+                if(JM_KEEP_REGISTRY > 0) {
                     REGISTRY_add_completion_registry (td, tid, tm_id);	
                 }
                 
@@ -703,7 +707,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 free(v);
                 break;
             case MSG_GET_REGISTRY:
-                if(KEEP_REGISTRY > 0) {
+                if(JM_KEEP_REGISTRY > 0) {
                     v = REGISTRY_generate_info(td, NULL);
                     n = (size_t) (strlen(v)+1); 
                     byte_array_init(ba, n);

@@ -137,7 +137,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     }
 
     // Initialize registry structures if applicable. 
-    if(KEEP_REGISTRY > 0) {
+    if(JM_KEEP_REGISTRY > 0) {
         pthread_mutex_init(&td.registry_lock, NULL);    
         td.registry_capacity = 1024;
         td.registry = (struct task_registry **) calloc(1024, sizeof(struct task_registry *));
@@ -151,9 +151,9 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_join(t[i], NULL);
     }
 
-    if((SAVE_REGISTRY > 0) || ((KEEP_REGISTRY > 0)&&(SAVE_REGISTRY > 0))) {
+    if((JM_SAVE_REGISTRY > 0) || ((JM_KEEP_REGISTRY > 0)&&(JM_SAVE_REGISTRY > 0))) {
         filename = strcpy(malloc((sizeof(char)*strlen(so)+1)+5), so);
-        if((KEEP_REGISTRY > 0)&&(SAVE_REGISTRY > 0)) {
+        if((JM_KEEP_REGISTRY > 0)&&(JM_SAVE_REGISTRY > 0)) {
             filename = strcat(filename, ".reg");
             debug("Saving registry in file: %s.", filename);
             info = REGISTRY_generate_info(&td, filename);
@@ -163,7 +163,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         }   
 
         filename = strcpy(filename, so);
-        if(SAVE_LIST > 0) {
+        if(JM_SAVE_LIST > 0) {
             filename = strcat(filename, ".list");
             debug("Saving list in file: %s.", filename);
             info = LIST_generate_info(COMM_ip_list, filename); 
@@ -196,6 +196,8 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
             
     LIST_free_data(COMM_ip_list);
     free(lib_path);
+    free(t);
+    free(t_loading);
 }
 
 void start_master_process(int argc, char *argv[], char *so)
@@ -455,20 +457,23 @@ void start_slave_processes(int argc, char *argv[])
                 JOURNAL_free(cd.dia);
             }
 
+            if(CM_COMMIT_THREAD > 0 ) {
+                free(t);
+            }
         } 
         else {                                  // Else : Task Manager or VM Task Manager
             //pthread_t t[NTHREADS];
-            if(IDENTIFY_CORES > 0) {
+            if(TM_IDENTIFY_CORES > 0) {
                 NTHREADS = get_number_of_cores();
             }
             else {
-                NTHREADS = NUM_CORES;
+                NTHREADS = TM_NUM_CORES;
             }
 
             t = (pthread_t *) malloc(sizeof (pthread_t) * NTHREADS); 
              
-            cfifo_init(&d.f, sizeof(struct byte_array *), TASK_BUFFER_SIZE);
-            sem_init(&d.sem, 0, TASK_BUFFER_SIZE);
+            cfifo_init(&d.f, sizeof(struct byte_array *), TM_TASK_BUFFER_SIZE);
+            sem_init(&d.sem, 0, TM_TASK_BUFFER_SIZE);
             sem_init (&d.tcount, 0, 0);
             pthread_mutex_init(&d.tlock, NULL);
             pthread_mutex_init(&d.rlock, NULL);
@@ -487,7 +492,7 @@ void start_slave_processes(int argc, char *argv[])
 
             if(TM_KEEP_JOURNAL > 0) {
                 i = 1 + NTHREADS;
-                if(FLUSHER_THREAD > 0) {
+                if(TM_FLUSHER_THREAD > 0) {
                     i++;
                 }
                 d.dia = (struct journal *) malloc (sizeof(struct journal));
@@ -500,7 +505,7 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_create(&t[i], NULL, worker, &d);
             }
 
-            if(FLUSHER_THREAD > 0) {
+            if(TM_FLUSHER_THREAD > 0) {
                 t_flusher = (pthread_t *) malloc(sizeof (pthread_t)); 
                 sem_init(&d.flusher_r_sem, 0, 0);
                 pthread_mutex_init(&d.flusher_d_mutex, NULL);
@@ -508,13 +513,13 @@ void start_slave_processes(int argc, char *argv[])
                 pthread_create(t_flusher, NULL, flusher, &d);
             }
 
-            if(NO_WAIT_FINAL_FLUSH > 0) {
+            if(TM_NO_WAIT_FINAL_FLUSH > 0) {
                 sem_init(&d.no_wait_sem, 0, 0);
             }
 
             task_manager(&d);
 
-            if(FLUSHER_THREAD > 0) {            // Finish Flusher
+            if(TM_FLUSHER_THREAD > 0) {            // Finish Flusher
                 pthread_mutex_lock(&d.flusher_d_mutex);
                 d.flusher_min_results = -1;
                 sem_post(&d.flusher_r_sem);

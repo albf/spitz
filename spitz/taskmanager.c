@@ -151,7 +151,7 @@ void *worker(void *ptr)
         d->results = result;
         
         if(d->is_blocking_flush==1) {
-            if(NO_WAIT_FINAL_FLUSH > 0) {
+            if(TM_NO_WAIT_FINAL_FLUSH > 0) {
                 sem_post(&d->no_wait_sem);
             }
             else {
@@ -227,7 +227,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
             byte_array_init(perm , 10);
         }
 
-            if (len >= min_results && b == NONBLOCKING) {
+        if (len >= min_results && b == NONBLOCKING) {
 
             /* DEBUG
             int i=0;
@@ -267,10 +267,10 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 }
 
                 if(TM_ASK_TO_SEND_RESULT > 0) {
-                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                    //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
                     byte_array_clear(perm);
                     buffer = (uint64_t) n->task_id;
-                    debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                    //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
                     byte_array_pack64(perm, buffer);
                     if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
                         if(TM_KEEP_JOURNAL > 0) {
@@ -309,7 +309,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                     
                     byte_array_unpack64(perm, &buffer);
                     temp = (int) buffer;
-                    debug("TM_ASK_TO_SEND_RESULT -> temp: %d", temp);
+                    //debug("TM_ASK_TO_SEND_RESULT -> temp: %d", temp);
 
                     if(temp > 0) {
                         if(COMM_send_message(&n->ba, MSG_RESULT, socket_committer)<0) {
@@ -356,12 +356,18 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 free(n);
             len++;
             }
+
+            if(TM_ASK_TO_SEND_RESULT > 0) {
+                byte_array_free(perm);
+                free(perm);
+            }
+
             return len;
         }
 
         else if (b == BLOCKING) {
             // Optional optimization. Will flush everything it got, as soon it arrives at the end.
-            if(NO_WAIT_FINAL_FLUSH > 0) {
+            if(TM_NO_WAIT_FINAL_FLUSH > 0) {
 
                 // If it's blocking and not yet complete.
                 len = 0;
@@ -398,10 +404,10 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                     }
 
                     if(TM_ASK_TO_SEND_RESULT > 0) {
-                        debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                        //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
                         buffer = (uint64_t) n->task_id;
                         byte_array_clear(perm);
-                        debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                        //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
                         byte_array_pack64(perm, buffer);
                         if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
                             if(TM_KEEP_JOURNAL > 0) {
@@ -440,7 +446,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                         
                         byte_array_unpack64(perm, &buffer);
                         temp = (int) buffer;
-                        debug("TM_ASK_TO_SEND_RESULT -> temp : %d", temp);
+                        //debug("TM_ASK_TO_SEND_RESULT -> temp : %d", temp);
 
                         if(temp > 0) {
 
@@ -539,10 +545,10 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                     }
 
                     if(TM_ASK_TO_SEND_RESULT > 0) {
-                        debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
+                        //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID : %d", n->task_id);
                         buffer = (uint64_t) n->task_id;
                         byte_array_clear(perm);
-                        debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
+                        //debug("TM_ASK_TO_SEND_RESULT -> TASK_ID(uint64_t) %" PRIu64 "\n", buffer);
                         byte_array_pack64(perm, buffer);
                         if(COMM_send_message(perm, MSG_OFFER_RESULT, socket_committer)<0) {
                             if(TM_KEEP_JOURNAL > 0) {
@@ -581,7 +587,7 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                         
                         byte_array_unpack64(perm, &buffer);
                         temp = (int) buffer;
-                        debug("TM_ASK_TO_SEND_RESULT -> temp : %d", temp);
+                        //debug("TM_ASK_TO_SEND_RESULT -> temp : %d", temp);
 
                         if(temp > 0) {
 
@@ -631,7 +637,16 @@ int flush_results(struct tm_thread_data *d, int min_results, enum blocking b, in
                 }
             }
 
+            if(TM_ASK_TO_SEND_RESULT > 0) {
+                byte_array_free(perm);
+                free(perm);
+            }
             return len;
+        }
+
+        if(TM_ASK_TO_SEND_RESULT > 0) {
+            byte_array_free(perm);
+            free(perm);
         }
     }
 
@@ -704,7 +719,7 @@ void task_manager(struct tm_thread_data *d)
 {
     int end = 0;                                                    // To indicate a true ending. Dead but fine. 
     enum message_type mtype;                                        // Type of received message.
-    int min_results = RESULT_BUFFER_SIZE;                           // Minimum of results to send at the same time. 
+    int min_results = TM_RESULT_BUFFER_SIZE;                        // Minimum of results to send at the same time. 
     enum blocking b = NONBLOCKING;                                  // Indicates if should block or not in flushing.
     int comm_return=0;                                              // Return values from send and read.
     int flushed_tasks;                                              // Return value from flush_results.
@@ -784,7 +799,7 @@ void task_manager(struct tm_thread_data *d)
                 pthread_mutex_unlock(&d->tlock);
                 sem_post(&d->tcount);
                 
-                if(FLUSHER_THREAD > 0) {
+                if(TM_FLUSHER_THREAD > 0) {
                     pthread_mutex_lock(&d->tasks_lock);
                     d->tasks++;
                     pthread_mutex_unlock(&d->tasks_lock);
@@ -826,7 +841,7 @@ void task_manager(struct tm_thread_data *d)
 
         if (d->alive || end) {
             debug("Trying to flush %d %s...", min_results, b == BLOCKING ? "blocking":"non blocking");
-            if(FLUSHER_THREAD > 0) {
+            if(TM_FLUSHER_THREAD > 0) {
                 if((d->tasks >= min_results) || (b == BLOCKING)) {
                     pthread_mutex_lock(&d->flusher_d_mutex);
                     d->flusher_min_results = min_results;

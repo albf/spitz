@@ -37,26 +37,26 @@ extern "C" {
 
 #define JM_VM_RESTORE_RATE 10           // Rate of JM loops/VM connection check.
 #define JM_SEND_THREADS 4               // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
-#define WAIT_REQUEST_TIMEOUT_SEC 1      // Values for request timeout.
-#define WAIT_REQUEST_TIMEOUT_USEC 0
+#define JM_WAIT_REQUEST_TIMEOUT_SEC 1   // Values for request timeout.
+#define JM_WAIT_REQUEST_TIMEOUT_USEC 0
 #define JM_GEN_THREADS 1                // if jm generation function can work in parallel. 
 #define JM_GEN_BUFFER 10                // if jm will start generating tasks as earlier as possible.
-#define KEEP_REGISTRY 1                 // if jm will keep registry and avoid sending repeated tasks.
-#define SAVE_REGISTRY 1                 // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
-#define SAVE_LIST 1                     // if should save the list of ips connected with ther info to a file. (*.so.list)
+#define JM_KEEP_REGISTRY 1              // if jm will keep registry and avoid sending repeated tasks.
+#define JM_SAVE_REGISTRY 1              // if jm will save registry of tasks to a file in in the end. (KEEP_REGISTRY=1 required). (*.so.reg)
+#define JM_SAVE_LIST 1                  // if should save the list of ips connected with ther info to a file. (*.so.list)
 #define JM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define JM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
     
 // Task Manager DEFINEs
 
 #define TM_CON_RETRIES 3                // Retries of connection. Used when have a connection problem (not at start).
-#define TASK_BUFFER_SIZE 10             // Number of tasks to get as buffer.
-#define RESULT_BUFFER_SIZE 2            // Number of tasks required for a flush.
+#define TM_TASK_BUFFER_SIZE 4           // Number of tasks to get as buffer.
+#define TM_RESULT_BUFFER_SIZE 1         // Number of tasks required for a flush.
 #define TM_MAX_SLEEP 16                 // Max sleep before asking again for a task (seconds).
-#define IDENTIFY_CORES 1                // Find total cores availables and create one thread per core.
-#define NUM_CORES 1                     // Used only if IDENTIFY_CORES = 0. 
-#define FLUSHER_THREAD 1                // If should use a separated thread to flush results.
-#define NO_WAIT_FINAL_FLUSH 1           // If should do a immediate flush in final flush.
+#define TM_IDENTIFY_CORES 1             // Find total cores availables and create one thread per core.
+#define TM_NUM_CORES 1                  // Used only if IDENTIFY_CORES = 0. 
+#define TM_FLUSHER_THREAD 1             // If should use a separated thread to flush results.
+#define TM_NO_WAIT_FINAL_FLUSH 1        // If should do a immediate flush in final flush.
 #define TM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define TM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 #define TM_ASK_TO_SEND_RESULT 1         // If TM should ask for permission to send some task result.
