@@ -415,6 +415,9 @@ void start_slave_processes(int argc, char *argv[])
                 if(CM_COMMIT_THREAD > 0) {
                     i++;
                 }
+                if(CM_READ_THREADS > 0) {
+                    i = i+CM_READ_THREADS;
+                }
                 cd.dia = (struct journal *) malloc (sizeof(struct journal));
                 JOURNAL_init(cd.dia, i);
             }

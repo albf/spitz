@@ -1129,7 +1129,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
         }
     }
 
-    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)) {
+    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)&&(CM_READ_THREADS <= 0)) {
         entry = JOURNAL_new_entry(dia, j_id);
         entry->action = 'R';
         gettimeofday(&entry->start, NULL);
@@ -1137,7 +1137,7 @@ int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte
  
     COMM_read_message(ba,type,sd);                      // Receive the request.
 
-    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)) {
+    if((j_id>=0)&&(CM_KEEP_JOURNAL > 0)&&(CM_READ_THREADS <= 0)) {
         if((*(type)) == MSG_RESULT) {
             gettimeofday(&entry->end, NULL);
         }

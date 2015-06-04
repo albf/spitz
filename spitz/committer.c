@@ -104,8 +104,17 @@ void * read_worker(void *ptr) {
     struct socket_entry * se;
     enum message_type mtype;
     int a_socket = COMM_connect_to_itself(PORT_COMMITTER);
+    int ret;
+
+    // Journal
+    int j_id=0;
+    struct j_entry * entry;
 
     debug("[read_worker] starting");
+
+    if(CM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(cd->dia, 'R');
+    }
 
     sem_wait(&cd->blacklist);
     while(cd->r_kill <= 0) {
@@ -121,17 +130,37 @@ void * read_worker(void *ptr) {
         // Need to check if message was send sucessfully.
         ba = (struct byte_array *) malloc(sizeof(struct byte_array));
         byte_array_init(ba,10);
-        COMM_read_message(ba, &mtype, se->socket);
+
+        if(CM_KEEP_JOURNAL > 0){
+            entry = JOURNAL_new_entry(cd->dia, j_id);
+            entry->action = 'R';
+            gettimeofday(&entry->start, NULL);
+        }
+
+        ret = COMM_read_message(ba, &mtype, se->socket);
+
+        if(CM_KEEP_JOURNAL > 0){
+            if(mtype == MSG_RESULT) {
+                gettimeofday(&entry->end, NULL);
+            }
+            else {
+                JOURNAL_remove_entry(cd->dia, j_id);
+            }
+        }
         
         debug("[read_worker] done reading result.");
 
         // Mark read_request as done.
         se->ba = ba;
-        se->mark = 2;
+        if(ret >= 0) {
+            se->mark = 2;
+        }
+        else {  // Problem occured, remove this element 
+            se->mark = -2;
+        }
 
         // Send refresh message to myself, remove from blacklist.
         COMM_send_message(NULL, MSG_REFRESH, a_socket);
-
         sem_wait(&cd->blacklist);
     }
 
@@ -268,7 +297,8 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 // First find the someone finished receiving.
                 prev = NULL;
                 se = cd->sb->home;
-                while((se!=NULL) && (se->mark < 2)) {
+                // Must use absolute value, might be 2 (success) or -2 (failures)
+                while((se!=NULL) && (abs(se->mark) < 2)) {
                     prev = se;
                     se = se->next;
                 }
@@ -276,6 +306,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 // Couldn't found? A bug?
                 if(se == NULL) {
                     error("MSG Refresh was sent but couldn't found result in FIFO.");
+                    break;
                 }
 
                 // Someone finished! Lets get this bad boy.
@@ -294,8 +325,15 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                     pthread_mutex_unlock(&cd->sb_lock);                          
 
                     // Used the result for this iteration.
-                    type = MSG_RESULT;
-                    ba = se->ba;
+                    if(se->mark > 0) {
+                        type = MSG_RESULT;
+                        ba = se->ba;
+                    }
+                    // Check for erros.
+                    else {
+                        free(ba);
+                        break;
+                    }
                 }
 
             // DONT'T BREAK, refresh means some result was sucesfully received.
