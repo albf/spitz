@@ -62,7 +62,8 @@ enum message_type {
     MSG_SEND_VM_TO_COMMITTER    = 22,   // VM request to JobManager help to connect to Committer.
     MSG_NO_TASK                 = 23,   // JM sends to TM when there is no task to send but computation is not over..
     MSG_GET_REGISTRY            = 24,   // JM sends to TM when there is no task to send but computation is not over..
-    MSG_OFFER_RESULT            = 25    // TM sends to CM to warn it about a new result and wait for an answer. 
+    MSG_OFFER_RESULT            = 25,   // TM sends to CM to warn it about a new result and wait for an answer. 
+    MSG_REFRESH                 = 26    // Used by extra threads to refresh select. 
 };
 
 enum status_type {
@@ -94,6 +95,7 @@ void COMM_create_new_connection();
 int COMM_setup_job_manager_network();
 int COMM_setup_committer_network();
 int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal * dia, struct socket_blacklist *sb);
+int COMM_connect_to_itself(int port);
 
 // 2. Server functions : variable oriented.
 void COMM_increment_run_num();

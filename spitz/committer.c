@@ -103,6 +103,7 @@ void * read_worker(void *ptr) {
     struct byte_array * ba;
     struct socket_entry * se;
     enum message_type mtype;
+    int a_socket = COMM_connect_to_itself(PORT_COMMITTER);
 
     debug("[read_worker] starting");
 
@@ -124,8 +125,12 @@ void * read_worker(void *ptr) {
         
         debug("[read_worker] done reading result.");
 
+        // Mark read_request as done.
         se->ba = ba;
         se->mark = 2;
+
+        // Send refresh message to myself, remove from blacklist.
+        COMM_send_message(NULL, MSG_REFRESH, a_socket);
 
         sem_wait(&cd->blacklist);
     }
@@ -169,9 +174,9 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
     int j_id=0;
     struct j_entry * entry;
 
-    // Timeval used for timeout. Used only when threaded send is used.
-    struct timeval tv;
+    // Read Threads auxiliar 
     struct socket_entry * se, * prev;                                   // Auxiliar for blacklist.
+    int is_refresh = 0;
 
     *(void **)(&setup)      = dlsym(cd->handle, "spits_setup_commit");  // Loads the user functions.
     if(CM_COMMIT_THREAD <= 0) {
@@ -189,16 +194,78 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
         j_id = JOURNAL_get_id(cd->dia, 'C');
     }
 
-    if(CM_READ_THREADS > 0) {
-        tv.tv_sec = CM_WAIT_REQUEST_TIMEOUT_SEC;
-        tv.tv_usec = CM_WAIT_REQUEST_TIMEOUT_USEC;
-    }
-        
     info("Starting committer main loop");
     while (1) {
         if(CM_READ_THREADS > 0) {
             if(cd->sb->size > 0) {
-                // First check if anyone finished receiving.
+                COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, cd->sb);
+            }
+            else {
+                COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
+            }
+        }
+        else {
+            COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
+        }
+        
+        switch (type) {
+            case MSG_OFFER_RESULT: ;
+                byte_array_unpack64(ba, &buffer);
+                task_id = (int) buffer;
+                debug("Received result offer for task %d.", task_id); 
+
+                if(task_id>=cap) {                                   // If id higher them actual cap
+                    old_cap = cap;
+                    cap=2*task_id;
+                    committed = realloc(committed, sizeof(size_t)*cap);
+
+                    for(i=old_cap; i<cap; i++) {
+                        committed[i]=0;
+                    }
+                }
+
+                if(committed[task_id] == 0) {
+                    //debug("Will ask for the task. \n");
+                    buffer2 = 1;
+
+                    // if have separate threads to read, make them know.
+                    if(CM_READ_THREADS > 0) {
+                        se = (struct socket_entry *) malloc (sizeof(struct socket_entry));
+                        se->socket = origin_socket;
+                        se->mark = 0;
+                        se->next = NULL;
+                        if(cd->sb->home == NULL) {
+                            cd->sb->home = se;
+                            cd->sb->head = se;
+                            cd->sb->size = 1;
+                        }
+                        else {
+                            cd->sb->head->next = se;
+                            cd->sb->head = se;
+                            cd->sb->size++;
+                        }
+                        sem_post(&cd->blacklist);
+                    }
+                }
+                else {
+                    //debug("Will drop the request. \n");
+                    buffer2 = -1;
+                }
+
+                byte_array_clear(msg);
+                byte_array_pack64(msg, buffer2);
+                COMM_send_message(msg, MSG_DONE, origin_socket);
+                break;
+
+            case MSG_REFRESH:
+                if(CM_READ_THREADS <= 0) {
+                    error("Main thread shouldn't received MSG_REFRESH when CM_READ_THREADS <= 0"); 
+                    return;
+                }
+                is_refresh = 1;
+                debug("Received MSG_REFRESH");
+
+                // First find the someone finished receiving.
                 prev = NULL;
                 se = cd->sb->home;
                 while((se!=NULL) && (se->mark < 2)) {
@@ -206,10 +273,11 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                     se = se->next;
                 }
 
-                // Everyone is still reading.
+                // Couldn't found? A bug?
                 if(se == NULL) {
-                    COMM_wait_request(&type, &origin_socket, ba, &tv, j_id, cd->dia, cd->sb);
+                    error("MSG Refresh was sent but couldn't found result in FIFO.");
                 }
+
                 // Someone finished! Lets get this bad boy.
                 else {
                     pthread_mutex_lock(&cd->sb_lock);                          
@@ -229,19 +297,16 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                     type = MSG_RESULT;
                     ba = se->ba;
                 }
-            }
-            else {
-                COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
-            }
-        }
-        else {
-            COMM_wait_request(&type, &origin_socket, ba, NULL, j_id, cd->dia, NULL);
-        }
-        
-        switch (type) {
+
+            // DONT'T BREAK, refresh means some result was sucesfully received.
             case MSG_RESULT:
                 if(CM_READ_THREADS > 0) {
-                    error("Main thread shouldn't received MSG_RESULT when CM_READ_THREADS > 0"); 
+                    if(is_refresh == 0) {
+                        error("Main thread shouldn't received MSG_RESULT when CM_READ_THREADS > 0"); 
+                    }
+                    else {
+                        is_refresh = 0;
+                    }
                 }
 
                 byte_array_unpack64(ba, &buffer);
@@ -344,52 +409,6 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
                 info("Received information about VM task manager waiting connection.");
                 COMM_connect_to_vm_task_manager(&retries, ba);
                 break;
-            case MSG_OFFER_RESULT: ;
-                byte_array_unpack64(ba, &buffer);
-                task_id = (int) buffer;
-                debug("Received result offer for task %d.", task_id); 
-
-                if(task_id>=cap) {                                   // If id higher them actual cap
-                    old_cap = cap;
-                    cap=2*task_id;
-                    committed = realloc(committed, sizeof(size_t)*cap);
-
-                    for(i=old_cap; i<cap; i++) {
-                        committed[i]=0;
-                    }
-                }
-
-                if(committed[task_id] == 0) {
-                    //debug("Will ask for the task. \n");
-                    buffer2 = 1;
-
-                    // if have separate threads to read, make them know.
-                    if(CM_READ_THREADS > 0) {
-                        se = (struct socket_entry *) malloc (sizeof(struct socket_entry));
-                        se->socket = origin_socket;
-                        se->mark = 0;
-                        se->next = NULL;
-                        if(cd->sb->home == NULL) {
-                            cd->sb->home = se;
-                            cd->sb->head = se;
-                            cd->sb->size = 1;
-                        }
-                        else {
-                            cd->sb->head->next = se;
-                            cd->sb->head = se;
-                            cd->sb->size++;
-                        }
-                        sem_post(&cd->blacklist);
-                    }
-                }
-                else {
-                    //debug("Will drop the request. \n");
-                    buffer2 = -1;
-                }
-
-                byte_array_clear(msg);
-                byte_array_pack64(msg, buffer2);
-                COMM_send_message(msg, MSG_DONE, origin_socket);
 
             default:
                 break;

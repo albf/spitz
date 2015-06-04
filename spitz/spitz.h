@@ -65,8 +65,6 @@ extern "C" {
 
 #define CM_COMMIT_THREAD 1              // if should use a separate thread to the commit function.
 #define CM_READ_THREADS 1               // if should use extras threads to read.
-#define CM_WAIT_REQUEST_TIMEOUT_SEC 1   // Values for request timeout. Used to restore sockets from read_threads.
-#define CM_WAIT_REQUEST_TIMEOUT_USEC 100000     // 100 ms.
 #define CM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define CM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 

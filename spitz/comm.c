@@ -444,11 +444,11 @@ int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
         }
         
         if (connect(socket_manager , (struct sockaddr *)&address , sizeof(address)) < 0) {
-            error("Could not connect to the Job Manager. Trying again. \n");
+            error("Could not connect to the Job Manager. Trying again.");
             sleep(1);
         }
         else {
-            debug("Connected Successfully to the Job Manager\n");
+            debug("Connected Successfully to the Job Manager");
             rank_rcv = COMM_read_int(socket_manager);
             if(rank_rcv < 0) {
                 error("Problem getting the rank id. Disconnected from Job Manager.");
@@ -487,6 +487,33 @@ int COMM_connect_to_job_manager_local(char ip_adr[], int * retries) {
     }
 
     return 0;
+}
+
+// Establishes a connection with ... itself. Returns socket. Assumes it will always have success.
+int COMM_connect_to_itself(int port) {
+    int my_sock;
+    struct sockaddr_in address;
+        
+    //Create socket
+    my_sock = socket(AF_INET , SOCK_STREAM , 0);
+    if (socket_manager == -1)
+    {
+        error("Could not create socket");
+        return -2;
+    }
+     
+    address.sin_addr.s_addr = inet_addr("127.0.0.1");
+    address.sin_family = AF_INET;
+    address.sin_port = htons( port );
+ 
+    //Connect to myself
+    if (connect(my_sock, (struct sockaddr *)&address , sizeof(address)) < 0) {
+        error("Could not connect to myself. What the hell is happening?");
+        return -1;
+    }
+
+    debug("Connected Successfully to myself. \n");
+    return  my_sock;
 }
 
 // Connect to VM task manager with address provided by job manager. 
