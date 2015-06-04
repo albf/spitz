@@ -255,7 +255,7 @@ void COMM_add_client_socket(int rcv_socket) {
             
     if(COMM_my_rank==0) {
         info("Adding to list of sockets as %d\n" , i);
-        COMM_LIST_print_ip_list(); 
+        //COMM_LIST_print_ip_list(); 
     }
     COMM_alive++;
 }
@@ -603,9 +603,8 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba, int *
         if (connect(socket_node, (struct sockaddr *)&node_address, sizeof(node_address)) < 0) { 
             if(errno == EINPROGRESS) {
                 // Use select with timeout
-                debug("Adding timeout");
-                tv.tv_sec = 20;
-                tv.tv_usec = 0;
+                tv.tv_sec = VM_TIMEOUT_SEC;
+                tv.tv_usec = VM_TIMEOUT_USEC;
                 FD_ZERO(&myset); 
                 FD_SET(socket_node, &myset); 
                 if (select(socket_node+1, NULL, &myset, NULL, &tv) > 0) { 
@@ -1287,7 +1286,7 @@ int COMM_register_committer(int sock) {
     COMM_ip_list = LIST_register_committer(COMM_ip_list , inet_ntoa(COMM_addr_committer.sin_addr), old_prt, ntohs(COMM_addr_committer.sin_port));
     debug("Set committer, ip %s, port %d", inet_ntoa(COMM_addr_committer.sin_addr), htons(COMM_addr_committer.sin_port));
 
-    COMM_LIST_print_ip_list();
+    //COMM_LIST_print_ip_list();
     return 0;
 }
 

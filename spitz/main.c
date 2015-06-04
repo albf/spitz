@@ -57,6 +57,11 @@ void * jm_create_thread(void *ptr) {
 
     debug("Shared data loading done.");
     td->is_done_loading = 1;
+
+    if(JM_GEN_BUFFER > 0) {
+        pthread_mutex_unlock(&td->gen_lock);        
+    }
+
     pthread_exit(NULL);
 }
 
@@ -94,6 +99,10 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     if(JM_GEN_THREADS > 0) {
         pthread_mutex_init(&td.gen_region_lock, NULL);    
         sem_init(&td.gen_request, 0, JM_GEN_BUFFER);
+        if(JM_GEN_BUFFER > 0) {
+            pthread_mutex_init(&td.gen_lock, NULL);
+            pthread_mutex_trylock(&td.gen_lock); 
+        }
         sem_init(&td.gen_completed, 0, 0);
         td.gen_kill = 0;                                            // It starts alive, right?
     }

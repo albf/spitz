@@ -261,6 +261,10 @@ void * jm_gen_worker(void * ptr) {
         j_id = JOURNAL_get_id(td->dia, 'G');
     }
 
+    if(JM_GEN_BUFFER > 0) {
+        pthread_mutex_lock(&td->gen_lock);
+    }
+
     // Dies only when gen_kill is set to > 0
     while(td->gen_kill <= 0) {
         // Wait for requests.
@@ -768,7 +772,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 info("Nothing received: Timeout or problem in wait_request().");
                 break;
             case MSG_NEW_VM_TASK_MANAGER:
-                retries = 3;
+                retries = 1;
                 info("Received information about VM task manager waiting connection.");
                 //COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
                 if(COMM_connect_to_vm_task_manager(&retries, ba, NULL)<0) {

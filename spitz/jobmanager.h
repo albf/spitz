@@ -50,6 +50,7 @@ struct jm_thread_data {
     sem_t gen_request;                  // Control requests to generate tasks.
     sem_t gen_completed;                // Don't let sender threads pass without tasks avaiable (or nothing to generate).
     int gen_kill;                       // =tid if generated successfully, -1 otherwise. Pointer to avoid issues.
+    pthread_mutex_t gen_lock;           // lock start of gen, start initialization.
 
     // Control exit condition.
     int g_counter;                      // Counts how many tasks are being generated.

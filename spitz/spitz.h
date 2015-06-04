@@ -33,13 +33,13 @@ extern "C" {
 #define PORT_VM 11006
 #define INITIAL_MAX_CONNECTIONS 30      // Initial max number of clientes conneceted (will increase if needed).
 #define MAX_PENDING_CONNECTIONS 3
+#define VM_TIMEOUT_SEC 5                // Values for request timeout.
+#define VM_TIMEOUT_USEC 0
 
 // Job Manager DEFINEs.
 
 #define JM_HEALER_ATTEMPTS 3            // Rate of JM loops/VM connection check.
 #define JM_SEND_THREADS 4               // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
-#define JM_WAIT_REQUEST_TIMEOUT_SEC 1   // Values for request timeout.
-#define JM_WAIT_REQUEST_TIMEOUT_USEC 0
 #define JM_GEN_THREADS 1                // if jm generation function can work in parallel. 
 #define JM_GEN_BUFFER 10                // if jm will start generating tasks as earlier as possible.
 #define JM_KEEP_REGISTRY 1              // if jm will keep registry and avoid sending repeated tasks.
@@ -65,7 +65,7 @@ extern "C" {
 // Committer DEFINEs
 
 #define CM_COMMIT_THREAD 1              // if should use a separate thread to the commit function.
-#define CM_READ_THREADS 1               // if should use extras threads to read.
+#define CM_READ_THREADS 4               // if should use extras threads to read.
 #define CM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define CM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 
