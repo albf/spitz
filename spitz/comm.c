@@ -58,7 +58,6 @@ struct LIST_data * COMM_ip_list;        // list of ips connected to the manager
 // Worker
 int COMM_get_committer(int * retries);
 int COMM_request_committer();
-void COMM_add_client_socket(int rcv_socket);
 
 // Communication
 int COMM_read_bytes(int sock, int * size, struct byte_array * ba, int null_terminator);
@@ -241,6 +240,7 @@ int COMM_read_int(int sock) {
     return result;
 }
 
+// Add client socket to array of sockets used in wait_request.
 void COMM_add_client_socket(int rcv_socket) {
     int i;
 
@@ -518,7 +518,9 @@ int COMM_connect_to_itself(int port) {
 
 // Connect to VM task manager with address provided by job manager. 
 // Returns 0 if success and < 0 otherwise. 
-int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
+// If socket_value != NULL : don't add this socket to the list, put in socket_value. VM_Healer usage.
+// If NULL : just add to the the list, it's the main thread.
+int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba, int * socket_value) {
     int c_port;
     char * token, * save_ptr, adr[16];
     struct sockaddr_in node_address;
@@ -591,7 +593,7 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
     while(is_connected == 0 ) {
         if(retries != NULL) {
             if(retries_left == 0) {
-                error("Failed to connect to Vm Task Manager, no retries left.");
+                warning("Failed to connect to Vm Task Manager, no retries left.");
                 return -3;
             }
             retries_left --;
@@ -669,13 +671,72 @@ int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba) {
             COMM_send_message(NULL,MSG_SET_COMMITTER,socket_node);
         }
 
-        //add new socket to array of sockets
-        COMM_add_client_socket(socket_node);
+        if(socket_value == NULL) {
+            //add new socket to array of sockets
+            COMM_add_client_socket(socket_node);
+        } 
+        else {
+            *socket_value = socket_node;
+        }
     }
     else {
         close(socket_node);
     }
     return 0;
+}
+
+// Search for all disconnected VM nodes and try to connect with them. Stops after first reconnect.
+// Returns socket number if succeeded, < 0 if not.
+int COMM_check_VM_nodes(struct LIST_data * data_pointer) {
+    // Iteration struct.
+    struct connected_ip * ptr = data_pointer->list_pointer;
+    // Used to convert ip/port to format expected by COMM_connect_to_vm_task_manager
+    struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array));
+
+                                                // xxx.xxx.xxx.xxx|yyyyyyyy\0
+    char *v = malloc(sizeof(char)*25);          // string of address in format above.
+    size_t n;                                   // string length
+    char port[10];                              // port of node.
+    int retries = JM_HEALER_ATTEMPTS;           // retries for each VM node.
+    int r_socket = -1;
+    v[0] = '\0';
+    while (ptr!= NULL) {
+        if((ptr->type==(int)VM_TASK_MANAGER) && (ptr->connected == 0)) {
+            // add address to string
+            v = strcat(v, ptr->address);
+            v = strcat(v, "|");
+
+            // cast ptr->port to string port and join with string.
+            sprintf(port, "%d", ptr->port);
+            v = strcat(v, port);
+
+            // find size of string and initialize the byte array.
+            n = (size_t) (strlen(v)+1);
+            byte_array_init(ba, n);
+
+            // packs the string and try to connect.
+            byte_array_pack8v(ba, v, n);
+            if(COMM_connect_to_vm_task_manager(&retries, ba, &r_socket) == 0 ) {
+                debug("Reconnected successfully with VM node with id %d.", ptr->id);
+                ptr->type = VM_RESTORED;
+                break;
+            }
+            else {
+                ptr->type = VM_ZOMBIE;
+                break;
+            }
+
+            // free memory used in byte_array
+            byte_array_free(ba);
+        }
+        ptr = ptr->next;
+    }
+
+    // Free memory used.
+    free(v);
+    free(ba);
+
+    return r_socket;
 }
 
 // Connect with committer using any task manager.
@@ -1263,12 +1324,13 @@ void COMM_create_new_connection() {
     COMM_add_client_socket(rcv_socket);
 }
 
-// Close the connection for committer and job manager.
-void COMM_close_connection(int sock) {
+// Close the connection for committer and job manager. Returns 1 if it is a VM node, 0 otherwise. <0 if found problems.
+int COMM_close_connection(int sock) {
     struct sockaddr_in address;
     enum actor node_role=-1;
     struct connected_ip * node;
     unsigned long node_rt;
+    int ret = 0;
 
     //Somebody disconnected , get his details and print
     getpeername(sock , (struct sockaddr*)&address , (socklen_t*)&COMM_addrlen);
@@ -1278,9 +1340,16 @@ void COMM_close_connection(int sock) {
         // Search for provided node using the socket.
         node = LIST_search_socket(COMM_ip_list, sock);
 
-        if(node != NULL) {
+        if(node == NULL) {
+            error("Close socket connection not found in ip list.");
+            return -1;
+        }
+        else {
             node_role = (enum actor) node->type; 
             node_rt = node->rcv_tasks; 
+            if(node_role == VM_TASK_MANAGER) {
+                ret = 1;
+            }
         }
        
         //If it's the monitor or a node that haven't worked, remove from the list. Mark as disconnected otherwise.
@@ -1295,6 +1364,7 @@ void COMM_close_connection(int sock) {
     //Close the socket 
     close( sock );
     COMM_alive--;
+    return ret;
 }
 
 // List all ips an the info of each one from the ip_list

@@ -62,7 +62,7 @@ void * jm_create_thread(void *ptr) {
 
 void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 {
-    int i;
+    int i=0;
     pthread_t * t; 
     pthread_t * t_loading; 
     lib_path = strcpy(malloc(sizeof(char)*strlen(so)+1), so);   // set lib path variable
@@ -71,7 +71,11 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
     struct jm_thread_data td;
 
-    t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_SEND_THREADS + JM_GEN_THREADS)); 
+    if(ANY_VM_TASK_MANAGER > 0) {
+        i=1;
+    }
+
+    t = (pthread_t *) malloc(sizeof (pthread_t) * (JM_SEND_THREADS + JM_GEN_THREADS+i)); 
     t_loading = (pthread_t *) malloc(sizeof (pthread_t)); 
 
     // start task fifo list. 
@@ -92,6 +96,12 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         sem_init(&td.gen_request, 0, JM_GEN_BUFFER);
         sem_init(&td.gen_completed, 0, 0);
         td.gen_kill = 0;                                            // It starts alive, right?
+    }
+
+    // Creates JM_VM_HEALER related variables.
+    if(ANY_VM_TASK_MANAGER > 0) {
+        td.vm_h_kill = 0;
+        sem_init(&td.vm_lost, 0, 0);
     }
     
     // Start task counter and lock.
@@ -119,8 +129,12 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     td.argv = argv;
     pthread_create(t_loading, NULL, jm_create_thread, &td);
 
+    // Create journal, if used, for the job manager.
     if(JM_KEEP_JOURNAL > 0) {
         i = 1 + JM_SEND_THREADS + JM_GEN_THREADS;
+        if(ANY_VM_TASK_MANAGER > 0) {
+            i++;
+        }
         td.dia = (struct journal *) malloc (sizeof(struct journal));
         debug("Creating journal with %d ids.", i);
         JOURNAL_init(td.dia, i);
@@ -136,6 +150,11 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_create(&t[JM_SEND_THREADS+i], NULL, jm_gen_worker, &td);
     }
 
+    // Create thread responsible for the VM restore.
+    if(ANY_VM_TASK_MANAGER > 0) {
+        pthread_create(&t[JM_SEND_THREADS+JM_GEN_THREADS], NULL, jm_vm_healer, &td);
+    }
+
     // Initialize registry structures if applicable. 
     if(JM_KEEP_REGISTRY > 0) {
         pthread_mutex_init(&td.registry_lock, NULL);    
@@ -147,8 +166,18 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     
     job_manager(argc, argv, so, final_result, &td);
 
+    // Exit VM_HEALER thread.
+    if(ANY_VM_TASK_MANAGER > 0) {
+        td.vm_h_kill = 1;
+        sem_post(&td.vm_lost);
+    }
+
     for (i = 0; i < (JM_SEND_THREADS + JM_GEN_THREADS); i++) {    // Join them all
         pthread_join(t[i], NULL);
+    }
+
+    if(ANY_VM_TASK_MANAGER > 0) {
+        pthread_join(t[JM_SEND_THREADS + JM_GEN_THREADS], NULL);
     }
 
     if((JM_SAVE_REGISTRY > 0) || ((JM_KEEP_REGISTRY > 0)&&(JM_SAVE_REGISTRY > 0))) {

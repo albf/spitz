@@ -538,6 +538,46 @@ void * jm_worker(void * ptr) {
     pthread_exit(NULL);
 }
 
+// Thread responsible for doing VM restore. 
+void * jm_vm_healer(void * ptr) {
+    struct jm_thread_data * td = ptr;
+    int a_socket = COMM_connect_to_itself(PORT_MANAGER);
+
+    //Journal related
+    struct j_entry * entry;
+    int j_id=0, r_socket;
+
+    debug("[jm_vm_healer] starting");
+
+    if(JM_KEEP_JOURNAL > 0) {
+        j_id = JOURNAL_get_id(td->dia, 'H');
+    }
+
+    sem_wait(&td->vm_lost);
+    while(td->vm_h_kill <= 0) {
+        if(JM_KEEP_JOURNAL > 0) {
+            entry = JOURNAL_new_entry(td->dia, j_id);
+            entry->action = 'V';
+            gettimeofday(&entry->start, NULL);
+        }
+
+        r_socket = COMM_check_VM_nodes(COMM_ip_list); 
+
+        if(JM_KEEP_JOURNAL > 0) {
+            gettimeofday(&entry->end, NULL);
+        }
+
+        // In case of success, send refresh message.
+        if(r_socket > 0) {
+            info("VM node was successfully restored.");
+            COMM_send_message(NULL, MSG_REFRESH, a_socket);
+        }
+        sem_wait(&td->vm_lost);
+    }
+
+    debug("[jm_vm_healer] exiting");
+    pthread_exit(NULL);
+}
 
 // Function responsible for the behavior of the job manager.
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td)
@@ -550,14 +590,9 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     ssize_t n;                                                      // Used as auxiliary.
     int retries;                                                    // Auxiliary to establish connection with VM Task Manager.
     uint64_t buffer;                                                // buffer used for received uint64_t values 
-    struct timeval tv;                                              // Timeout for select.
+    //struct timeval tv;                                            // Timeout for select. (not used, check jm_vm_healer).
     int i;                                                          // Iterator
-    int total_restores;                                             // Total of VMs restored.
 
-    // VM restore management.
-    int counter=0;                                                  // Counts requests to restore VMs Task Managers.
-    int is_there_any_vm=0;                                          // Indicate if there is, at least, one VM connection.
-    
     // Data structure to exchange message between processes. 
     struct byte_array * ba = (struct byte_array *) malloc (sizeof(struct byte_array)); 
     byte_array_init(ba, 10);
@@ -580,16 +615,17 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
     //void *user_data = ctor((argc), (argv));
 
     // Information about the completed task.
-    int tid; 
-    int tm_id;
+    int tid, tm_id;
 
     // Used for id recovery.
-    int rank_rcv;
-    int rank_original;
+    int rank_rcv, rank_original;
 
     //Journal related
     struct j_entry * entry;
     int j_id=0;
+
+    // Refresh related
+    struct connected_ip * ptr;
 
     if(CHECK_ARGS > 0) {
         if(argc < ARGC_C) {
@@ -609,10 +645,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
 
     while (1) {
 
-        // Set timeout values for wait_request.
-        tv.tv_sec = JM_WAIT_REQUEST_TIMEOUT_SEC;
-        tv.tv_usec = JM_WAIT_REQUEST_TIMEOUT_USEC;
-        COMM_wait_request(&type, &origin_socket, ba, &tv, -1, NULL, NULL); 
+        // Set timeout values for wait_request. // Not using timeout anymore, check jm_vm_healer function above.
+        //tv.tv_sec = JM_WAIT_REQUEST_TIMEOUT_SEC;
+        //tv.tv_usec = JM_WAIT_REQUEST_TIMEOUT_USEC;
+        COMM_wait_request(&type, &origin_socket, ba, NULL, -1, NULL, NULL); 
 
         if(JM_KEEP_JOURNAL > 0) {
             entry = JOURNAL_new_entry(td->dia, j_id);
@@ -649,7 +685,16 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 break;
             case MSG_CLOSE_CONNECTION:
                 _byte_array_unpack64(ba, &socket_cl);
-                COMM_close_connection((int)socket_cl);
+                // Sidenote: COMM_close_connection returns 1 if it has closed a VM TM.
+                if(COMM_close_connection((int)socket_cl) > 0) {
+                // Try to warn healer.
+                    if(ANY_VM_TASK_MANAGER > 0) {
+                        sem_post(&td->vm_lost);
+                    }
+                    else {
+                        warning("VM disconnected. Can't try to reconnect because ANY_VM_TASK_MANAGER is set as <= 0");
+                    }
+                }
                 break;
             case MSG_GET_COMMITTER:
                 COMM_send_committer(origin_socket);
@@ -723,14 +768,10 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 info("Nothing received: Timeout or problem in wait_request().");
                 break;
             case MSG_NEW_VM_TASK_MANAGER:
-                if(is_there_any_vm == 0) {
-                    is_there_any_vm = 1;
-                }
-
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
                 //COMM_send_message(ba, MSG_NEW_VM_TASK_MANAGER, socket_committer);
-                if(COMM_connect_to_vm_task_manager(&retries, ba)<0) {
+                if(COMM_connect_to_vm_task_manager(&retries, ba, NULL)<0) {
                     ack[0] = 'N';
                     info("Could not connect to VM Task Manager.");
                 }
@@ -781,6 +822,23 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 COMM_send_message(ba,MSG_GET_NUM_TASKS,origin_socket); 
                 free(v);
                 break;
+            case MSG_REFRESH:
+                ptr = COMM_ip_list->list_pointer;
+
+                while(ptr!=NULL) {
+                    if(ptr->type == (int)VM_RESTORED) {
+                        break;
+                    }
+                    ptr = ptr->next;
+                } 
+
+                if(ptr == NULL) {
+                    error("MSG_REFRESH was received but couldn't find restored VM in ip list.");
+                }
+                else {
+                    COMM_add_client_socket(ptr->socket);
+                }
+                
             default:
                 break;
         }
@@ -801,28 +859,6 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
             COMM_close_all_connections(); 
             
             break;
-        }
-        else {
-            if (is_there_any_vm == 1){
-                counter++;
-                if(counter>=JM_VM_RESTORE_RATE) {
-
-                    if(JM_KEEP_JOURNAL > 0) {
-                        entry = JOURNAL_new_entry(td->dia, j_id);
-                        entry->action = 'V';
-                        gettimeofday(&entry->start, NULL);
-                    }
-
-                    total_restores = check_VM_nodes(COMM_ip_list); 
-
-                    if(JM_KEEP_JOURNAL > 0) {
-                        gettimeofday(&entry->end, NULL);
-                    }
-
-                    debug("%d nodes were restored.", total_restores);
-                    counter=0;
-                }
-            }
         }
     }
 

@@ -27,6 +27,7 @@ extern "C" {
 
 // Comm DEFINEs
 
+#define ANY_VM_TASK_MANAGER 1           // > 0 if any VM Task Manager will be used.
 #define PORT_MANAGER 8898               // Number of ports used to communicate.
 #define PORT_COMMITTER 10007
 #define PORT_VM 11006
@@ -35,7 +36,7 @@ extern "C" {
 
 // Job Manager DEFINEs.
 
-#define JM_VM_RESTORE_RATE 10           // Rate of JM loops/VM connection check.
+#define JM_HEALER_ATTEMPTS 3            // Rate of JM loops/VM connection check.
 #define JM_SEND_THREADS 4               // Number of threads to send tasks (if GEN_PARALLEL = 1, will also generate).
 #define JM_WAIT_REQUEST_TIMEOUT_SEC 1   // Values for request timeout.
 #define JM_WAIT_REQUEST_TIMEOUT_USEC 0

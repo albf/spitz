@@ -63,6 +63,10 @@ struct jm_thread_data {
 
     // Journal related variables
     struct journal * dia;               // Journal of activities.
+
+    // VM_restorer related variables.
+    int vm_h_kill;
+    sem_t vm_lost;
 };
 
 // Regular first in first out list. 
@@ -93,6 +97,7 @@ struct task {
 void job_manager(int argc, char *argv[], char *so, struct byte_array *final_result, struct jm_thread_data * td);
 void * jm_gen_worker(void * ptr);
 void * jm_worker(void * ptr);
+void * jm_vm_healer(void * ptr);
 
 typedef void * (*spitz_ctor_t) (int, char **);
 typedef int    (*spitz_tgen_t) (void *, struct byte_array *);

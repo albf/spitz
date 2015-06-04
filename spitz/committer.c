@@ -445,7 +445,7 @@ void committer(int argc, char *argv[], struct cm_thread_data * cd)
              case MSG_NEW_VM_TASK_MANAGER:
                 retries = 3;
                 info("Received information about VM task manager waiting connection.");
-                COMM_connect_to_vm_task_manager(&retries, ba);
+                COMM_connect_to_vm_task_manager(&retries, ba, NULL);
                 break;
 
             default:

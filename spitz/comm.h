@@ -32,7 +32,9 @@ enum actor {
     COMMITTER    =      1,
     TASK_MANAGER =      2,
     MONITOR =           3,
-    VM_TASK_MANAGER =   4
+    VM_TASK_MANAGER =   4,
+    VM_RESTORED =       5,
+    VM_ZOMBIE =         6
 };
 
 // Enums of possible messages. Keep this equal to the python comm.py header. 
@@ -77,7 +79,7 @@ int COMM_connect_to_committer(int * retries);
 int COMM_connect_to_committer_local(int * retries);
 int COMM_connect_to_job_manager(char ip_adr[], int * retries);
 int COMM_connect_to_job_manager_local(char ip_adr[], int * retries);
-int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba);
+int COMM_connect_to_vm_task_manager(int * retries, struct byte_array * ba, int * socket_value);
 int COMM_vm_connection(int waitJM, char waitCM);
 int COMM_setup_vm_network();
 
@@ -90,12 +92,14 @@ int COMM_get_run_num();
 void COMM_set_actor_type(char * value);
 
 // 1. Server functions : connection oriented.
-void COMM_close_connection(int sock);
+int COMM_close_connection(int sock);
 void COMM_create_new_connection();
 int COMM_setup_job_manager_network();
 int COMM_setup_committer_network();
 int COMM_wait_request(enum message_type * type, int * origin_socket, struct byte_array * ba, struct timeval * tv, int j_id, struct journal * dia, struct socket_blacklist *sb);
 int COMM_connect_to_itself(int port);
+void COMM_add_client_socket(int rcv_socket);
+int COMM_check_VM_nodes(struct LIST_data * data_pointer);
 
 // 2. Server functions : variable oriented.
 void COMM_increment_run_num();
