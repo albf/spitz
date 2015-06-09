@@ -53,6 +53,7 @@ struct cm_thread_data {
     pthread_mutex_t r_lock;
     pthread_mutex_t f_lock;
     struct journal * dia;
+    pthread_mutex_t is_done_loading;
 
     // Variables responsible to manage read thread.
     int r_kill;

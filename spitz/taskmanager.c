@@ -131,6 +131,8 @@ void *worker(void *ptr)
             gettimeofday(&entry->start, NULL);
         }
 
+        debug("[--WORKER] task: %d", task);
+        debug("[--WORKER] &result->ba: %d", &result->ba);
         execute_pit(user_data, task, &result->ba);              // Do the computation.
 
         if(TM_KEEP_JOURNAL > 0) {

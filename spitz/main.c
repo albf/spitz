@@ -132,7 +132,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     }
 
     // initialize shared user data. 
-    td.is_done_loading = 1;
+    td.is_done_loading = 0;
     if((JM_GEN_THREADS > 0)&&(JM_GEN_BUFFER > 0)) {
         sem_init(&td.create_done_unlock, 0, 0);
     }
