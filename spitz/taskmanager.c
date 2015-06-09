@@ -180,7 +180,7 @@ void *worker(void *ptr)
 void vm_dump_journal(struct tm_thread_data *d) {
     char * filename, * j_info;
 
-    pthread_mutex_lock(&d->vm_dia);
+    //pthread_mutex_lock(&d->vm_dia);
 
     error("Starting dump");
     //filename = (char *) malloc (sizeof(char) * (strlen((char *) lib_path)+8));
@@ -197,7 +197,7 @@ void vm_dump_journal(struct tm_thread_data *d) {
     free(filename);
 
     error("End dump");
-    pthread_mutex_unlock(&d->vm_dia);
+    //pthread_mutex_unlock(&d->vm_dia);
 }
 
 /* Send results to the committer, blocking or not.

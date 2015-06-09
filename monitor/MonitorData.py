@@ -275,6 +275,17 @@ class MonitorData:
         #percentage = (self.total_compl / float(100))*100
 
 
+    def debug(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False, verbose=False):
+        ret = COMM_connect_to_job_manager(jm_address, jm_port)
+        if(ret == 0):
+            ret = COMM_send_vm_node(socket.gethostbyname("spitz0.cloudapp.net"), str(11006))
+            if (ret == 0):
+                msg, msg_type = COMM_read_message(socket_manager)
+            else:
+                print "Problem"
+        else:
+            print "Problem" 
+
     # Check if it's on and if there is a spitz instance running.
     def startAllNodes(self, subscription_id, certificate_path, lib_file, script, ssh_user, ssh_pass, jm_address, jm_port, upgrade=False, verbose=False):
         #ret = COMM_connect_to_job_manager(jm_address, jm_port)
@@ -295,6 +306,8 @@ class MonitorData:
 
             if(service[3] != "ReadyRole"):
                 continue
+
+      
 
             try:
                 sshs = paramiko.SSHClient()
@@ -342,37 +355,41 @@ class MonitorData:
                 continue
                        
             try:
-                sshs = paramiko.SSHClient()
-                sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                pending = True
 
-                sshs.connect(service[1], username=ssh_user,
-                    password=ssh_pass, port = service[2],
-                    timeout = float(1))
+                while(pending):
+                    sshs = paramiko.SSHClient()
+                    sshs.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-                sshs.exec_command('pkill spitz')
-                sshs.exec_command('./' + script) 
-                service[4] = "Running"
-                                    
-                ret = COMM_connect_to_job_manager(jm_address, jm_port)
+                    sshs.connect(service[1], username=ssh_user,
+                        password=ssh_pass, port = service[2],
+                        timeout = float(1))
 
-                #ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
-                if ret == 0:
-                    ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+                    sshs.exec_command('pkill spitz')
+                    sshs.exec_command('./' + script) 
+                    service[4] = "Running"
+                                        
+                    ret = COMM_connect_to_job_manager(jm_address, jm_port)
 
+                    #ret = COMM_send_vm_node(socket.gethostbyname(str(address)), PORT_VM+offset)
                     if ret == 0:
-                        msg, msg_type = COMM_read_message(socket_manager)
-                        if (verbose):
-                            print "MSG: " + str(msg)
-                            print "MSG_TYPE: " + str(msg_type)
-                            print "MSG_STRING: " + str(MSG_STRING)
-                        if (str(msg_type) == str(MSG_STRING)) and (str(msg) == "Y"):
-                            print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                        ret = COMM_send_vm_node(socket.gethostbyname(str(address)), service[5])
+
+                        if ret == 0:
+                            msg, msg_type = COMM_read_message(socket_manager)
+                            if (verbose):
+                                print "MSG: " + str(msg)
+                                print "MSG_TYPE: " + str(msg_type)
+                                print "MSG_STRING: " + str(MSG_STRING)
+                            if ("Y" in str(msg)):
+                                pending = 0
+                                print("Spitz instance running in " + str(address) + "|" + str(service[2]) + ".")
+                            else:
+                                print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
                         else:
                             print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
                     else:
-                        print("Problem sendin vm_node to Job Manager" + str(address) + "|" + str(service[2]) + ".")
-                else:
-                    print("Can't connect to Job Manager.")
+                        print("Can't connect to Job Manager.")
                         
             except socket.gaierror as e1:
                 print ("Couldn't find " + str(address) + ".")
