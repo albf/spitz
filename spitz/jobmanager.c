@@ -262,7 +262,7 @@ void * jm_gen_worker(void * ptr) {
     }
 
     if(JM_GEN_BUFFER > 0) {
-        pthread_mutex_lock(&td->gen_lock);
+        sem_wait(&td->create_done_unlock);
     }
 
     // Dies only when gen_kill is set to > 0
@@ -692,7 +692,7 @@ void job_manager(int argc, char *argv[], char *so, struct byte_array *final_resu
                 // Sidenote: COMM_close_connection returns 1 if it has closed a VM TM.
                 if(COMM_close_connection((int)socket_cl) > 0) {
                 // Try to warn healer.
-                    if(ANY_VM_TASK_MANAGER > 0) {
+                    if(JM_VM_RESTORE > 0) {
                         sem_post(&td->vm_lost);
                     }
                     else {

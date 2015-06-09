@@ -3,11 +3,11 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 2
-filename = "prime.so"
+which = 4
+filename = "libcmp.so"
 ending = ".tm.dia"
 action = "P" 
-debug = True
+debug = False 
 
 # Used to determine the number of bins used.
 def FDrule(l):
@@ -154,10 +154,13 @@ def g_committer_journal(filename, is_debug = False):
     ypos = []
     duration = []
     leg = {}
+    w_count = -1
 
     for d in data_list:
         if(is_debug):
             print d
+        if (len(d) == 2) and (d[1] == 'R'):
+            w_count += 1
         if (len(d) == 3): 
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
@@ -166,14 +169,18 @@ def g_committer_journal(filename, is_debug = False):
                 actors.append("Commit_Pit")
                 ypos.append(1)
             if(d[0] == 'R'):
-                l_e = "In"
-                actors.append("In")
-                ypos.append(0)
+                if(w_count < 0):
+                    w_count = 0
+                l_e = "In " + str(w_count)
+                actors.append("In " + str(w_count))
+                ypos.append(2 + w_count)
             if(d[0] == 'J'):
                 l_e = "Commit Job"
                 actors.append("Commit Job")
-                ypos.append(2)
+                ypos.append(0)
             if(l_e in leg):
+                print "XXXXXXXXXX"
+                print (float(d[2])-float(d[1]))
                 leg[l_e][0] += (float(d[2])-float(d[1]))
                 leg[l_e][2] = float(d[2])
             else:
@@ -308,7 +315,7 @@ elif(which == 3):
     g_taskmanager_journal(filename, is_debug=debug)
 
 elif(which == 4):
-    g_committer_journal(filename, is_debug=debug)
+    g_committer_journal(filename, is_debug=False)
 
 elif(which == 5):
     g_jobmanager_journal(filename, is_debug=debug)

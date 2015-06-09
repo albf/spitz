@@ -48,6 +48,7 @@
 int LOG_LEVEL = 0;
 
 void * jm_create_thread(void *ptr) {
+    int i;
 	struct jm_thread_data * td = ptr;
     spitz_ctor_t ctor;
 
@@ -58,8 +59,10 @@ void * jm_create_thread(void *ptr) {
     debug("Shared data loading done.");
     td->is_done_loading = 1;
 
-    if(JM_GEN_BUFFER > 0) {
-        pthread_mutex_unlock(&td->gen_lock);        
+    if((JM_GEN_THREADS > 0)&&(JM_GEN_BUFFER > 0)) {
+        for(i=0; i < JM_GEN_THREADS; i++) {
+            sem_post(&td->create_done_unlock);        
+        }
     }
 
     pthread_exit(NULL);
@@ -76,7 +79,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
     struct jm_thread_data td;
 
-    if(ANY_VM_TASK_MANAGER > 0) {
+    if(JM_VM_RESTORE > 0) {
         i=1;
     }
 
@@ -99,16 +102,12 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     if(JM_GEN_THREADS > 0) {
         pthread_mutex_init(&td.gen_region_lock, NULL);    
         sem_init(&td.gen_request, 0, JM_GEN_BUFFER);
-        if(JM_GEN_BUFFER > 0) {
-            pthread_mutex_init(&td.gen_lock, NULL);
-            pthread_mutex_trylock(&td.gen_lock); 
-        }
         sem_init(&td.gen_completed, 0, 0);
         td.gen_kill = 0;                                            // It starts alive, right?
     }
 
     // Creates JM_VM_HEALER related variables.
-    if(ANY_VM_TASK_MANAGER > 0) {
+    if(JM_VM_RESTORE > 0) {
         td.vm_h_kill = 0;
         sem_init(&td.vm_lost, 0, 0);
     }
@@ -134,6 +133,9 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
 
     // initialize shared user data. 
     td.is_done_loading = 1;
+    if((JM_GEN_THREADS > 0)&&(JM_GEN_BUFFER > 0)) {
+        sem_init(&td.create_done_unlock, 0, 0);
+    }
     td.argc = argc;
     td.argv = argv;
     pthread_create(t_loading, NULL, jm_create_thread, &td);
@@ -141,7 +143,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     // Create journal, if used, for the job manager.
     if(JM_KEEP_JOURNAL > 0) {
         i = 1 + JM_SEND_THREADS + JM_GEN_THREADS;
-        if(ANY_VM_TASK_MANAGER > 0) {
+        if(JM_VM_RESTORE > 0) {
             i++;
         }
         td.dia = (struct journal *) malloc (sizeof(struct journal));
@@ -160,7 +162,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     }
 
     // Create thread responsible for the VM restore.
-    if(ANY_VM_TASK_MANAGER > 0) {
+    if(JM_VM_RESTORE > 0) {
         pthread_create(&t[JM_SEND_THREADS+JM_GEN_THREADS], NULL, jm_vm_healer, &td);
     }
 
@@ -176,7 +178,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
     job_manager(argc, argv, so, final_result, &td);
 
     // Exit VM_HEALER thread.
-    if(ANY_VM_TASK_MANAGER > 0) {
+    if(JM_VM_RESTORE > 0) {
         td.vm_h_kill = 1;
         sem_post(&td.vm_lost);
     }
@@ -185,7 +187,7 @@ void run(int argc, char *argv[], char *so, struct byte_array *final_result)
         pthread_join(t[i], NULL);
     }
 
-    if(ANY_VM_TASK_MANAGER > 0) {
+    if(JM_VM_RESTORE > 0) {
         pthread_join(t[JM_SEND_THREADS + JM_GEN_THREADS], NULL);
     }
 
