@@ -60,12 +60,12 @@ extern "C" {
 #define TM_NO_WAIT_FINAL_FLUSH 1        // If should do a immediate flush in final flush.
 #define TM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define TM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
-#define TM_ASK_TO_SEND_RESULT 0         // If TM should ask for permission to send some task result.
+#define TM_ASK_TO_SEND_RESULT 1         // If TM should ask for permission to send some task result.
 
 // Committer DEFINEs
 
 #define CM_COMMIT_THREAD 1              // if should use a separate thread to the commit function.
-#define CM_READ_THREADS 0               // if should use extras threads to read.
+#define CM_READ_THREADS 1               // if should use extras threads to read. (TM_ASK_TO_SEND_RESULT must be 1)
 #define CM_KEEP_JOURNAL 1               // If should keep a journal of activities.
 #define CM_SAVE_JOURNAL 1               // If should save the journal above at the end of computation (*.so.dia)
 

@@ -43,6 +43,7 @@ struct j_entry {
     char action;
     struct timeval start;
     struct timeval end;
+    int size;
 };
 
 // Diary manipulation functions.

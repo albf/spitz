@@ -77,6 +77,7 @@ struct j_entry * JOURNAL_new_entry(struct journal *dia, int id) {
     }
 
     dia->size[id]++;    
+    dia->entries[id][index].size = -1;
     return &(dia->entries[id][index]);
 }
 
@@ -114,7 +115,7 @@ char * JOURNAL_generate_info(struct journal *dia, char * filename) {
         size += dia->size[i];
     }
 
-    info = (char *) malloc (((size*70)+(dia->num_threads*5))*sizeof(char));
+    info = (char *) malloc (((size*80)+(dia->num_threads*5))*sizeof(char));
     info[0] = '\0';
     
     for(i=0; i < dia->num_threads; i++) {
@@ -138,6 +139,13 @@ char * JOURNAL_generate_info(struct journal *dia, char * filename) {
             timeval_subtract(&dia->entries[i][j].end, &dia->entries[i][j].end, &dia->zero);
             sprintf(buffer, "%ld.%06ld", dia->entries[i][j].end.tv_sec, dia->entries[i][j].end.tv_usec);
             strcat(info, buffer);
+
+            if(dia->entries[i][j].size > 0) {
+                strcat(info, "|");
+                sprintf(buffer, "%d", dia->entries[i][j].size);
+                strcat(info, buffer); 
+            }
+
             strcat(info, ";\n");
         }
     }

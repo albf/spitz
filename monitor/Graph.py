@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 which = 4
 filename = "libcmp.so"
-ending = ".tm.dia"
+ending = ".cm.dia"
 action = "P" 
 debug = False 
 
@@ -95,7 +95,7 @@ def g_taskmanager_journal(filename, is_debug = False):
             print d
         if (len(d) == 2) and (d[1] == 'W'):
             w_count += 1
-        elif (len(d) == 3): 
+        elif (len(d) >= 3): 
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'P'):
@@ -161,7 +161,7 @@ def g_committer_journal(filename, is_debug = False):
             print d
         if (len(d) == 2) and (d[1] == 'R'):
             w_count += 1
-        if (len(d) == 3): 
+        if (len(d) >= 3): 
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'P'):
@@ -230,7 +230,7 @@ def g_jobmanager_journal(filename, is_debug = False):
             print d
         if (len(d) == 2) and (d[1] == 'E'):
             s_count += 1
-        elif (len(d) == 3): 
+        elif (len(d) >= 3): 
             left.append(float(d[1]))
             duration.append(float(d[2]) - float(d[1]))
             if(d[0] == 'S'):
@@ -291,7 +291,7 @@ def g_hist(filename, ending, action, is_debug = False):
     for d in data_list:
         if(is_debug):
             print d
-        if (len(d) == 3) and (d[0] == action): 
+        if (len(d) >= 3) and (d[0] == action): 
             data.append(float(d[2]) - float(d[1]))
 
     if(is_debug):
@@ -304,6 +304,37 @@ def g_hist(filename, ending, action, is_debug = False):
     plt.xlabel('Time(s)')
     plt.title(action + " - " + filename)
     plt.show()
+
+# Graph 7 : Histogram with size
+def g_hist_ratio(filename, ending, action, is_debug = False):
+    with open(filename + ending) as f:
+        data_list = f.read()
+        data_list = data_list.split(';\n')
+        data_list = [row.split('|') for row in data_list]
+        data_list.pop(-1)
+        if(is_debug):
+            print data_list
+
+    data = []
+
+    for d in data_list:
+        if(is_debug):
+            print d
+        if (len(d) >= 3) and (d[0] == action): 
+            data.append(float(d[2]) - float(d[1]))
+
+    if(is_debug):
+        print data 
+
+    binwidth = FDrule(data)
+    if(is_debug):
+        print "binwidth: " + str(binwidth)
+    plt.hist(data, bins=np.arange(min(data), max(data) + binwidth, binwidth)) 
+    plt.xlabel('Time(s)')
+    plt.title(action + " - " + filename)
+    plt.show()
+
+
 
 if(which == 1):
     g_completed_tasks(filename)
@@ -322,3 +353,6 @@ elif(which == 5):
 
 elif(which == 6):
     g_hist(filename, ending, action, is_debug=debug)
+
+elif(which == 7):
+    g_hist_ratio(filename, ending, action, is_debug=debug)

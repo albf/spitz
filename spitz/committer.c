@@ -141,7 +141,9 @@ void * read_worker(void *ptr) {
 
         if(CM_KEEP_JOURNAL > 0){
             if(mtype == MSG_RESULT) {
+                debug("Received result of size : %d", (int)ba->len);
                 gettimeofday(&entry->end, NULL);
+                entry->size = (int)ba->len;
             }
             else {
                 JOURNAL_remove_entry(cd->dia, j_id);

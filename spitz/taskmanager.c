@@ -774,6 +774,10 @@ void task_manager(struct tm_thread_data *d)
             comm_return = COMM_read_message(ba, &mtype, socket_manager);
             if(TM_KEEP_JOURNAL > 0) {
                 gettimeofday(&entry->end, NULL);
+                if(mtype == MSG_TASK) {
+                    debug("Received MSG_TASK of size : %d", (int)ba->len);
+                    entry->size = (int)ba->len;
+                }
             }
 
             if(comm_return < 0) {
