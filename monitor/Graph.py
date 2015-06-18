@@ -3,10 +3,10 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-which = 4
-filename = "libcmp.so"
+which = 7
+filename = "prime.so"
 ending = ".cm.dia"
-action = "P" 
+action = "R" 
 debug = False 
 
 # Used to determine the number of bins used.
@@ -320,8 +320,8 @@ def g_hist_ratio(filename, ending, action, is_debug = False):
     for d in data_list:
         if(is_debug):
             print d
-        if (len(d) >= 3) and (d[0] == action): 
-            data.append(float(d[2]) - float(d[1]))
+        if (len(d) >= 4) and (d[0] == action): 
+            data.append(float(d[3])/(float(d[2]) - float(d[1])))
 
     if(is_debug):
         print data 
@@ -330,7 +330,7 @@ def g_hist_ratio(filename, ending, action, is_debug = False):
     if(is_debug):
         print "binwidth: " + str(binwidth)
     plt.hist(data, bins=np.arange(min(data), max(data) + binwidth, binwidth)) 
-    plt.xlabel('Time(s)')
+    plt.xlabel('bandwidth(B/s)')
     plt.title(action + " - " + filename)
     plt.show()
 
