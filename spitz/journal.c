@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include "log.h"
 #include "registry.h"
-#include "taskmanager.h"
 
 #define JOURNAL_INITIAL_CAPACITY 16
 

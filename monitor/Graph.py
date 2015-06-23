@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 which = 7
-filename = "prime.so"
+filename = "libcmp.so"
 ending = ".cm.dia"
 action = "R" 
 debug = False 
