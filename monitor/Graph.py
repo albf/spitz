@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 
 which = 7
 filename = "libcmp.so"
-ending = ".cm.dia"
-action = "R" 
+ending = ".dia"
+action = "t" 
+trace_size = 3040
 debug = False 
 
 # Used to determine the number of bins used.
@@ -321,7 +322,7 @@ def g_hist_ratio(filename, ending, action, is_debug = False):
         if(is_debug):
             print d
         if (len(d) >= 4) and (d[0] == action): 
-            data.append(float(d[3])/(float(d[2]) - float(d[1])))
+            data.append(float(d[3])/((float(d[2]) - float(d[1]))*1000))
 
     if(is_debug):
         print data 
@@ -330,10 +331,40 @@ def g_hist_ratio(filename, ending, action, is_debug = False):
     if(is_debug):
         print "binwidth: " + str(binwidth)
     plt.hist(data, bins=np.arange(min(data), max(data) + binwidth, binwidth)) 
-    plt.xlabel('bandwidth(B/s)')
+    plt.xlabel('bandwidth(KB/s)')
     plt.title(action + " - " + filename)
     plt.show()
 
+# Graph 8 : Histogram with size (using trace)
+def g_hist_ratio_trace(filename, ending, action, is_debug = False):
+    with open(filename + ending) as f:
+        data_list = f.read()
+        data_list = data_list.split(';\n')
+        data_list = [row.split('|') for row in data_list]
+        data_list.pop(-1)
+        if(is_debug):
+            print data_list
+
+    data = []
+
+    for d in data_list:
+        #if(is_debug):
+        #    print d
+        if (len(d) >= 4) and (d[0] == action): 
+            if(float(d[1])>float(d[2])):
+                print d
+            data.append(float(d[3])*float(trace_size)/((float(d[2]) - float(d[1]))*1000))
+
+    if(is_debug):
+        print data 
+
+    binwidth = FDrule(data)
+    if(is_debug):
+        print "binwidth: " + str(binwidth)
+    plt.hist(data, bins=np.arange(min(data), max(data) + binwidth, binwidth)) 
+    plt.xlabel('execution bandwidth(KB/s)')
+    plt.title(action + " - " + filename)
+    plt.show()
 
 
 if(which == 1):
@@ -356,3 +387,6 @@ elif(which == 6):
 
 elif(which == 7):
     g_hist_ratio(filename, ending, action, is_debug=debug)
+
+elif(which == 8):
+    g_hist_ratio_trace(filename, ending, action, is_debug=debug)
